@@ -202,161 +202,9 @@ class SymbiocracyGame:
 
 
 # ==========================================
-# STREAMLIT UI APP & TRANSLATION DICT
+# STREAMLIT UI APP
 # ==========================================
-TEXTS = {
-    'en': {
-        'settings': "⚙️ Global Settings (Adjust Anytime)",
-        'style': "UI Label Style:",
-        'short': "Short",
-        'full': "Full",
-        'name_a': "Name A:",
-        'name_b': "Name B:",
-        'decay_r': "Decay Range:",
-        'tot_yr': "Total Years:",
-        'base_b': "Base Budget:",
-        'maj_b': "Major Bonus:",
-        'tax_i': "Sat. Tax Impact:",
-        'voter_e': "Voter Emotion:",
-        'edu_i': "Edu Impact:",
-        'bw_i': "BW Impact:",
-        'bw_d': "BW Duration:",
-        'perf_d': "Perf Duration:",
-        'set_w_a': "Set Wealth A:",
-        'set_w_b': "Set Wealth B:",
-        'guide': "📖 Game Guide",
-        'dlvl': "Detail Level:",
-        'overview': "Overview",
-        'how_to': "How to Play",
-        'gov': "Governing",
-        'tax_rev': "Tax Revenue",
-        'rat_lvl': "Rationality Level",
-        'mid_decay': "Midpoint Decay",
-        'swap_hint': "(Both parties can toggle Execute Swap if it benefits their strategy)",
-        'acc_wealth': "💰 Accumulated Wealth",
-        'r_val': "R-Value:",
-        'r_val_gov': "R-Value (Governing Party Only):",
-        'r_val_lock': "R-Value (LOCKED):",
-        'exec_swap': "Execute Swap (Locks R-Value & Roles)",
-        'exec_swap_lock': "Execute Swap (LOCKED until Election)",
-        'show_decay': "Show Real Decay",
-        'real_decay': "Current Real Decay:",
-        'hidden': "*** HIDDEN ***",
-        'edu_max': "Edu (Max {0})",
-        'edu_not_r': "Edu (Not R-Role)",
-        'anti_max': "Anti (Max {0})",
-        'anti_not_r': "Anti (Not R-Role)",
-        'calc_f': "Calculate Forecast",
-        'conf_end': "Confirm & End Year",
-        'err_exp': "⚠️ Error: Expenditure exceeds wealth!",
-        'warn_exp': "⚠️ Warning: Projected expenditure exceeds current wealth!",
-        'for_res': "**Forecast Results (Midpoint Decay: {0:.2f}):**",
-        'exp_inc': "Expected {0} Income:",
-        'sup_chg': "Support Change:",
-        'view_brk': "🧮 View Forecast Calculation Breakdown",
-        'sim_fin': "=== Simulation Finished! ===",
-        'restart': "Restart Game",
-        'h_new': "📰 **Headline:** *New Government Takes Office! Welcome to Year 1.*",
-        'h_elec': "📰 **Headline:** Election Concluded! **{0}** secures the majority!\n\n",
-        'h_fin_c': "📰 **Financial Report:** {0}. {1} Consequently, **{2}** secured a revenue of {3} with a support shift of {4}, while **{5}** secured {6} with a support shift of {7}.",
-        'h_fin_s': "📰 **Financial Report:** Stability maintained. Real outcomes closely aligned with forecasts. **{0}** gained {1} in revenue (Support Shift: {2}), and **{3}** gained {4} (Support Shift: {5}).",
-        'r_bad': ["Severe geopolitical tension", "An unforeseen virus outbreak", "Devastating earthquakes"],
-        'r_good': ["A major technological breakthrough", "An unprecedented economic boom", "Global peace and stability"],
-        'd_cu': "Voters are disappointed in {0}, actively punishing them in the polls.",
-        'd_cb': "Voter expectations for {0} turned into bitter disappointment.",
-        'd_ca': "Adding fuel to the fire! Absolute anger erupts towards {0}.",
-        'd_cd': "Public dissatisfaction with {0} continues to grow.",
-        'd_br': "Voters are relieved, softening their stance and rewarding {0}.",
-        'd_bs': "Pessimism turned to a pleasant surprise, boosting {0}'s image.",
-        'd_be': "Exceeding all expectations! Pure euphoria surrounds {0}.",
-        'd_bstr': "Public confidence in {0} strengthens.",
-        'elec_warn': "⚠️ Election This Year!",
-        'elec_1yr': "⏳ 1 Year to Election!",
-        'yr': "Year"
-    },
-    'zh': {
-        'settings': "⚙️ 全域設定 (隨時可調)",
-        'style': "介面標籤樣式:",
-        'short': "簡稱 (Short)",
-        'full': "全名 (Full)",
-        'name_a': "A黨名稱:",
-        'name_b': "B黨名稱:",
-        'decay_r': "衰退範圍:",
-        'tot_yr': "總年數:",
-        'base_b': "基礎預算:",
-        'maj_b': "大黨津貼:",
-        'tax_i': "滿意度稅收影響:",
-        'voter_e': "選民情緒:",
-        'edu_i': "教育影響力:",
-        'bw_i': "洗腦影響力:",
-        'bw_d': "洗腦持續年數:",
-        'perf_d': "政績持續年數:",
-        'set_w_a': "設定A黨資金:",
-        'set_w_b': "設定B黨資金:",
-        'guide': "📖 遊戲指南",
-        'dlvl': "詳細程度:",
-        'overview': "簡介 (Overview)",
-        'how_to': "玩法 (How to Play)",
-        'gov': "執政黨",
-        'tax_rev': "當前稅收",
-        'rat_lvl': "理智度",
-        'mid_decay': "預期衰退中位數",
-        'swap_hint': "(若符合自身策略，任一黨皆可提出「執行交換」)",
-        'acc_wealth': "💰 累積資金",
-        'r_val': "R值:",
-        'r_val_gov': "R值 (僅執政黨可調):",
-        'r_val_lock': "R值 (已鎖定):",
-        'exec_swap': "執行交換 (鎖定R值與角色)",
-        'exec_swap_lock': "執行交換 (鎖定至下次選舉)",
-        'show_decay': "顯示實際衰退值",
-        'real_decay': "當前實際衰退值:",
-        'hidden': "*** 隱藏 ***",
-        'edu_max': "教育 (最大 {0})",
-        'edu_not_r': "教育 (非R角色)",
-        'anti_max': "反智 (最大 {0})",
-        'anti_not_r': "反智 (非R角色)",
-        'calc_f': "計算預測",
-        'conf_end': "確認並結束本年",
-        'err_exp': "⚠️ 錯誤：支出超過現有資金！",
-        'warn_exp': "⚠️ 警告：預測支出超過現有資金！",
-        'for_res': "**預測結果 (衰退中位數: {0:.2f}):**",
-        'exp_inc': "預期 {0} 收入:",
-        'sup_chg': "支持度變化:",
-        'view_brk': "🧮 查看預測計算明細",
-        'sim_fin': "=== 模擬結束！ ===",
-        'restart': "重新開始遊戲",
-        'h_new': "📰 **頭條：** *新政府上任！歡迎來到第 1 年。*",
-        'h_elec': "📰 **頭條：** 選舉結束！**{0}** 取得多數席位！\n\n",
-        'h_fin_c': "📰 **財報：** {0}。{1} 因此，**{2}** 獲得了 {3} 的收入與 {4} 的支持度變化，而 **{5}** 獲得了 {6} 的收入與 {7} 的支持度變化。",
-        'h_fin_s': "📰 **財報：** 局勢穩定。實際結果與預期吻合。**{0}** 獲得了 {1} 的收入 (支持度變化: {2})，而 **{3}** 獲得了 {4} (支持度變化: {5})。",
-        'r_bad': ["嚴重的地緣政治緊張", "不可預見的病毒爆發", "毀滅性的大地震"],
-        'r_good': ["重大的科技突破", "史無前例的經濟繁榮", "全球和平與穩定"],
-        'd_cu': "選民對 {0} 感到失望，並在民調中懲罰了他們",
-        'd_cb': "選民對 {0} 的期望轉為苦澀的失望",
-        'd_ca': "火上加油！民眾對 {0} 的憤怒徹底爆發",
-        'd_cd': "民眾對 {0} 的不滿持續發酵",
-        'd_br': "選民鬆了一口氣，軟化了對 {0} 的態度並給予回報",
-        'd_bs': "悲觀情緒轉為驚喜，大幅提升了 {0} 的形象",
-        'd_be': "超越所有期望！純粹的狂歡圍繞著 {0}",
-        'd_bstr': "大眾對 {0} 的信心進一步增強",
-        'elec_warn': "⚠️ 今年是選舉年！",
-        'elec_1yr': "⏳ 距離選舉剩 1 年！",
-        'yr': "第"
-    }
-}
-
 st.set_page_config(page_title="Symbiocracy Simulator", layout="wide")
-
-# Init Language State First
-if 'lang' not in st.session_state:
-    st.session_state.lang = "English"
-
-def t(key, *args):
-    lang_code = 'en' if st.session_state.lang == "English" else 'zh'
-    text = TEXTS[lang_code].get(key, key)
-    if args:
-        return text.format(*args)
-    return text
 
 # --- INITIALIZE STATE ---
 if 'game' not in st.session_state:
@@ -382,10 +230,10 @@ game = st.session_state.game
 
 # Check for End Game
 if game.year > game.total_years:
-    st.success(t('sim_fin'))
+    st.success("=== Simulation Finished! ===")
     df = pd.DataFrame(game.history)
     fig, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.set_xlabel(t('yr'), fontweight='bold')
+    ax1.set_xlabel('Year', fontweight='bold')
     ax1.set_ylabel('Metrics', color='black', fontweight='bold')
     ax1.plot(df['Year'], df['TrueH'], label='Satisfaction', color='green')
     ax1.plot(df['Year'], df['Rationality'], label='Rationality', ls='--')
@@ -400,15 +248,16 @@ if game.year > game.total_years:
     plt.title('Symbiocracy: Simulation Summary')
     st.pyplot(fig)
     
-    if st.button(t('restart')):
+    if st.button("Restart Game"):
         st.session_state.game = SymbiocracyGame()
         st.rerun()
     st.stop()
 
+
 # --- HELPER FUNCTIONS ---
 def generate_headline():
     if game.year == 1:
-        return t('h_new')
+        return f"📰 **Headline:** *New Government Takes Office! Welcome to Year 1.*"
     
     rep = game.last_report
     if not rep: return ""
@@ -418,12 +267,14 @@ def generate_headline():
     h1 = ""
     if rep['election_just_happened']:
         new_major_name = st.session_state.name_a if rep['new_major'] == 'A' else st.session_state.name_b
-        h1 = t('h_elec', new_major_name)
+        h1 = f"📰 **Headline:** Election Concluded! **{new_major_name}** secures the majority!\n\n"
     
     diff = rep['act_decay'] - rep['exp_decay']
+    reasons_bad = ["Severe geopolitical tension", "An unforeseen virus outbreak", "Devastating earthquakes"]
+    reasons_good = ["A major technological breakthrough", "An unprecedented economic boom", "Global peace and stability"]
     
-    def fmt_inc(exp, act): return f"**{act:.1f}** (Exp: {exp:.1f})"
-    def fmt_sup(exp, act): return f"**{act:+.2%}** (Exp: {exp:+.2%})"
+    def fmt_inc(exp, act): return f"**{act:.1f}** (Expected: {exp:.1f})"
+    def fmt_sup(exp, act): return f"**{act:+.2%}** (Expected: {exp:+.2%})"
 
     inc_A_str = fmt_inc(rep['exp_inc_A'], rep['act_inc_A'])
     inc_B_str = fmt_inc(rep['exp_inc_B'], rep['act_inc_B'])
@@ -431,15 +282,15 @@ def generate_headline():
     sup_B_str = fmt_sup(rep['exp_net_B'], rep['act_net_B'])
     
     if diff > 0.1: # Crisis
-        reason = random.choice(t('r_bad'))
-        desc = t('d_cu', major_name)
-        h2 = t('h_fin_c', reason, desc, st.session_state.name_a, inc_A_str, sup_A_str, st.session_state.name_b, inc_B_str, sup_B_str)
+        reason = random.choice(reasons_bad)
+        desc = f"Voters are disappointed in {major_name}, actively punishing them in the polls."
+        h2 = f"📰 **Financial Report:** {reason}. {desc} Consequently, **{st.session_state.name_a}** secured a revenue of {inc_A_str} with a support shift of {sup_A_str}, while **{st.session_state.name_b}** secured {inc_B_str} with a support shift of {sup_B_str}."
     elif diff < -0.1: # Boom
-        reason = random.choice(t('r_good'))
-        desc = t('d_br', major_name)
-        h2 = t('h_fin_c', reason, desc, st.session_state.name_a, inc_A_str, sup_A_str, st.session_state.name_b, inc_B_str, sup_B_str)
+        reason = random.choice(reasons_good)
+        desc = f"Voters are relieved, softening their stance and rewarding {major_name}."
+        h2 = f"📰 **Financial Report:** {reason}. {desc} Consequently, **{st.session_state.name_a}** secured a revenue of {inc_A_str} with a support shift of {sup_A_str}, while **{st.session_state.name_b}** secured {inc_B_str} with a support shift of {sup_B_str}."
     else:
-        h2 = t('h_fin_s', st.session_state.name_a, inc_A_str, sup_A_str, st.session_state.name_b, inc_B_str, sup_B_str)
+        h2 = f"📰 **Financial Report:** Stability maintained. Real outcomes closely aligned with forecasts. **{st.session_state.name_a}** gained {inc_A_str} in revenue (Support Shift: {sup_A_str}), and **{st.session_state.name_b}** gained {inc_B_str} (Support Shift: {sup_B_str})."
         
     return h1 + h2
 
@@ -477,100 +328,120 @@ def do_forecast_calc():
 
 
 # --- UI: GLOBAL SETTINGS ---
-with st.expander(t('settings'), expanded=False):
-    st.session_state.lang = st.radio("Language / 語言:", ["English", "中文"], horizontal=True)
-    st.session_state.label_style = st.radio(t('style'), [t('short'), t('full')], horizontal=True)
+with st.expander("⚙️ Global Settings (Adjust Anytime)", expanded=False):
+    st.session_state.label_style = st.radio("UI Label Style:", ["Short", "Full"], horizontal=True)
     
     c1, c2 = st.columns(2)
-    st.session_state.name_a = c1.text_input(t('name_a'), st.session_state.name_a)
-    st.session_state.name_b = c2.text_input(t('name_b'), st.session_state.name_b)
+    st.session_state.name_a = c1.text_input("Name A:", st.session_state.name_a)
+    st.session_state.name_b = c2.text_input("Name B:", st.session_state.name_b)
     
     c1, c2 = st.columns(2)
-    dec_range = c1.slider(t('decay_r'), 0.0, 3.0, (game.decay_min, game.decay_max), 0.05)
+    dec_range = c1.slider("Decay Range:", 0.0, 3.0, (game.decay_min, game.decay_max), 0.05)
     game.decay_min, game.decay_max = dec_range
-    game.total_years = c2.slider(t('tot_yr'), 5, 100, game.total_years, 1)
+    game.total_years = c2.slider("Total Years:", 5, 100, game.total_years, 1)
     
     c1, c2 = st.columns(2)
-    game.annual_budget = c1.number_input(t('base_b'), value=game.annual_budget, step=100)
-    game.major_bonus = c2.number_input(t('maj_b'), value=game.major_bonus, step=50)
+    game.annual_budget = c1.number_input("Base Budget:", value=game.annual_budget, step=100)
+    game.major_bonus = c2.number_input("Major Bonus:", value=game.major_bonus, step=50)
 
     c1, c2 = st.columns(2)
-    game.tax_impact = c1.number_input(t('tax_i'), value=game.tax_impact, step=50.0)
-    game.emotionality = c2.slider(t('voter_e'), 0.0, 1.0, game.emotionality, 0.05)
+    game.tax_impact = c1.number_input("Sat. Tax Impact:", value=game.tax_impact, step=50.0)
+    game.emotionality = c2.slider("Voter Emotion:", 0.0, 1.0, game.emotionality, 0.05)
 
     c1, c2 = st.columns(2)
-    game.edu_mult = c1.number_input(t('edu_i'), value=game.edu_mult, step=0.0001, format="%.4f")
-    game.bw_mult = c2.number_input(t('bw_i'), value=game.bw_mult, step=0.0001, format="%.4f")
+    game.edu_mult = c1.number_input("Edu Impact:", value=game.edu_mult, step=0.0001, format="%.4f")
+    game.bw_mult = c2.number_input("BW Impact:", value=game.bw_mult, step=0.0001, format="%.4f")
 
     c1, c2 = st.columns(2)
-    game.bw_years = c1.number_input(t('bw_d'), value=game.bw_years, step=1)
-    game.perf_years = c2.number_input(t('perf_d'), value=game.perf_years, step=1)
+    game.bw_years = c1.number_input("BW Duration:", value=game.bw_years, step=1)
+    game.perf_years = c2.number_input("Perf Duration:", value=game.perf_years, step=1)
 
     c1, c2 = st.columns(2)
-    game.A_wealth = c1.number_input(t('set_w_a'), value=float(game.A_wealth))
-    game.B_wealth = c2.number_input(t('set_w_b'), value=float(game.B_wealth))
+    game.A_wealth = c1.number_input("Set Wealth A:", value=float(game.A_wealth))
+    game.B_wealth = c2.number_input("Set Wealth B:", value=float(game.B_wealth))
 
 
 # --- UI: GAME GUIDE ---
-with st.expander(t('guide'), expanded=False):
+with st.expander("📖 Game Guide", expanded=False):
     col_g1, col_g2 = st.columns([3, 1])
-    guide_mode = col_g2.radio(t('dlvl'), [t('overview'), t('how_to')], horizontal=True, label_visibility="collapsed")
+    guide_mode = col_g2.radio("Detail Level:", ["Overview", "How to Play"], horizontal=True, label_visibility="collapsed")
     
-    if guide_mode == t('overview'):
-        col_g1.markdown(t('guide_overview'))
+    if guide_mode == "Overview":
+        col_g1.markdown("""
+        ### 🎮 The Simple Overview (Roleplay & Strategy)
+        **Welcome to Symbiocracy!**
+        This is a political sandbox roleplaying game. You can rename the parties (e.g., "Democracy" vs. "Republic" or "Capitalists" vs. "Socialists"), inhabit their ideologies, and see how they interact under systemic pressure.
+        
+        **The Ultimate Goal:** There is no single way to win. Over the course of the simulation (default 20 years, adjustable in Global Settings), you decide your victory condition. Do you want to amass the most private wealth? Do you want to maintain a stable, unshakeable dynasty? Or do you genuinely want to maximize societal satisfaction (True-H)? At the end of the simulation, a comprehensive historical report will reveal the true legacy of your political era.
+        
+        **The Core Conflict (Roles):**
+        * 👑 **Governing Party:** The party currently in power. Receives an automatic +200 wealth bonus each year.
+        * 🟢 **Household Role (H-Role):** Controls the immediate economic output. Reaps the direct financial benefits when the H-Index is high.
+        * 🔵 **Regulator Role (R-Role):** Controls the societal narrative. Possesses the *exclusive* power to use Education and Anti-Education to shape public Rationality.
+        
+        **Your Arsenal (Actions & Mechanics):**
+        * 📚 **Edu / Anti-Edu (R-Role Only):** Directly alters public **Rationality**. High Rationality forces politicians to deliver real results; low Rationality makes the public highly gullible.
+        * 📺 **Brainwashing:** Grants a temporary, artificial spike in Support. *Strategic Tip:* Exponentially more effective and cheaper when public Rationality is low and Voter Emotion is high.
+        * 🏗️ **Construction:** Builds real infrastructure. It boosts public Satisfaction (True-H) and drives up the H-Index, expanding the total tax pool and the Household's cut.
+        * 🔄 **Execute Swap:** Either party can propose to instantly trade the H-Role and R-Role if they believe it benefits their strategy. *Warning:* Once executed, roles and the R-Value are locked until the next election!
+        """)
     else:
-        col_g1.markdown(t('guide_how'))
+        col_g1.markdown("""
+        ### 📖 How to Play & UI Guide
+        
+        **Step-by-Step Turn Guide:**
+        1. **Assess the Year:** Look at the top **Status Board**. Read the Newspaper Headline to understand the current economic climate, and check the Midpoint Decay. High decay means your Satisfaction and budget will drop drastically this year.
+        2. **Negotiate:** Discuss strategy with the opposing party. Decide if executing a **Swap** is necessary for either of you to survive the year.
+        3. **Draft Budgets:** Both parties allocate their accumulated wealth into their respective input boxes (Edu, Anti, Brain, Cons).
+        4. **Check the Math:** *Do not click Confirm yet!* Click **"Calculate Forecast"** and open the **"View Forecast Calculation Breakdown"** tab. This shows exactly how your proposed spending will change Income and Approval Ratings.
+        5. **Revise & Execute:** Adjust your spending based on the forecast. Once both parties agree on their final numbers, click **Confirm & End Year** to lock in the results and advance time.
+        
+        **Understanding the UI Glossary:**
+        * **Global Settings (Adjust Anytime):** The hidden gears of the simulation. Here you can change party names, the total length of the game, the annual budget, and the psychological makeup of the voters (Voter Emotion, Edu/BW Impact).
+        * **Current Tax Revenue:** The actual money generated this year to be split between the H-Role and R-Role. It is calculated by taking the Base Budget and adding/subtracting the economic impact of public Satisfaction (True-H).
+        * **R-Value (Friction):** Set only by the Governing Party. A *lower* R-Value makes Construction incredibly highly efficient at boosting the H-Index (benefiting the Household). A *higher* R-Value makes it sluggish.
+        * **The Baseline Reset (Elections):** Held every 4 years. The party with >50% Support takes the Governing (👑) seat. Crucially, the "Baseline Satisfaction" resets to the current True-H. You get zero credit for the previous administration's work; you are judged purely on how much you improve or ruin the country *after* taking power.
+        """)
 
 # --- UI: HEADER & STATUS ---
 mid_decay = (game.decay_min + game.decay_max) / 2
-elec_warning = t('elec_warn') if game.year % 4 == 0 else (t('elec_1yr') if game.year % 4 == 3 else "")
+elec_warning = "⚠️ Election This Year!" if game.year % 4 == 0 else ("⏳ 1 Year to Election!" if game.year % 4 == 3 else "")
 major_name = st.session_state.name_a if game.first_party == 'A' else st.session_state.name_b
 
-st.markdown(f"### 🏛️ {t('yr')} {game.year} | {t('gov')}: 👑 {major_name} | {t('tax_rev')}: {game.current_tax:.1f} {elec_warning}")
+st.markdown(f"### 🏛️ Year {game.year} | Governing: 👑 {major_name} | Tax Revenue: {game.current_tax:.1f} {elec_warning}")
 st.success(generate_headline())
-st.write(f"**{t('rat_lvl')}:** {game.rationality:.4f} | **{t('mid_decay')}:** {mid_decay:.2f}  \n*{t('swap_hint')}*")
+st.write(f"**Rationality Level:** {game.rationality:.4f} | **Midpoint Decay:** {mid_decay:.2f}  \n*(Both parties can toggle Execute Swap if it benefits their strategy)*")
 
 
 # --- UI: WEALTH BARS ---
 max_w = max(game.A_wealth, game.B_wealth, 1)
 scale = 100 / (max_w * 1.1)
-st.markdown(t('acc_wealth'))
-wealth_html = f"""
-<div style='margin-top:10px; padding:10px; background:#f1f3f5;'>
-    <div style='display:flex;'><div style='width:70px; font-weight:bold; color:orange; overflow:hidden; text-overflow:ellipsis;'>{st.session_state.name_a[:8]}</div><div style='width:{max(min(game.A_wealth * scale, 100), 1)}%; background:orange; color:white; padding-right:5px; text-align:right;'>{game.A_wealth:.1f}</div></div>
-    <div style='display:flex; margin-top:5px;'><div style='width:70px; font-weight:bold; color:purple; overflow:hidden; text-overflow:ellipsis;'>{st.session_state.name_b[:8]}</div><div style='width:{max(min(game.B_wealth * scale, 100), 1)}%; background:purple; color:white; padding-right:5px; text-align:right;'>{game.B_wealth:.1f}</div></div>
-</div>"""
-st.markdown(wealth_html, unsafe_allow_html=True)
+st.markdown("**💰 Accumulated Wealth**")
+st.progress(max(min(game.A_wealth * scale / 100, 1.0), 0.01), text=f"{st.session_state.name_a}: {game.A_wealth:.1f}")
+st.progress(max(min(game.B_wealth * scale / 100, 1.0), 0.01), text=f"{st.session_state.name_b}: {game.B_wealth:.1f}")
 
 
 # --- UI: SWAP & INPUTS ---
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
-    r_desc = t('r_val_gov') if game.swap_available else t('r_val_lock')
+    r_desc = "R-Value (Governing Party Only):" if game.swap_available else "R-Value (LOCKED):"
     st.session_state.r_val = st.number_input(r_desc, value=st.session_state.r_val, disabled=not game.swap_available)
 with col2:
     st.write("<br>", unsafe_allow_html=True)
-    st.session_state.do_swap = st.checkbox(t('exec_swap') if game.swap_available else t('exec_swap_lock'), value=st.session_state.do_swap, disabled=not game.swap_available)
+    st.session_state.do_swap = st.checkbox("Execute Swap (Locks R-Value & Roles)", value=st.session_state.do_swap, disabled=not game.swap_available)
 with col3:
     st.write("<br>", unsafe_allow_html=True)
-    st.session_state.show_decay = st.checkbox(t('show_decay'), value=st.session_state.show_decay)
+    st.session_state.show_decay = st.checkbox("Show Real Decay", value=st.session_state.show_decay)
 
 if st.session_state.show_decay:
-    st.error(f"{t('real_decay')} **{game.current_decay:.4f}**")
-else:
-    st.markdown(f"{t('real_decay')} **{t('hidden')}**")
+    st.error(f"Current Real Decay: **{game.current_decay:.4f}**")
 
-# Language logic for labels
-if st.session_state.lang == "English":
-    l_edu = "Education" if st.session_state.label_style == "Full" else "Edu"
-    l_anti = "Anti-Education" if st.session_state.label_style == "Full" else "Anti"
-    l_brain = "Brainwashing" if st.session_state.label_style == "Full" else "Brain"
-    l_cons = "Construction" if st.session_state.label_style == "Full" else "Cons"
-else:
-    l_edu = "教育 (Education)" if st.session_state.label_style == "全名 (Full)" else "教育 (Edu)"
-    l_anti = "反智 (Anti-Edu)" if st.session_state.label_style == "全名 (Full)" else "反智 (Anti)"
-    l_brain = "洗腦 (Brainwash)" if st.session_state.label_style == "全名 (Full)" else "洗腦 (Brain)"
-    l_cons = "建設 (Construction)" if st.session_state.label_style == "全名 (Full)" else "建設 (Cons)"
+
+# Determine Labels based on Settings Toggle
+l_edu = "Education" if st.session_state.label_style == "Full" else "Edu"
+l_anti = "Anti-Education" if st.session_state.label_style == "Full" else "Anti"
+l_brain = "Brainwashing" if st.session_state.label_style == "Full" else "Brain"
+l_cons = "Construction" if st.session_state.label_style == "Full" else "Cons"
 
 sim_R = game.current_H_party if st.session_state.do_swap else game.current_R_party
 sim_H = game.current_R_party if st.session_state.do_swap else game.current_H_party
@@ -586,10 +457,10 @@ role_A = "H-Role" if sim_H == "A" else "R-Role"
 colA1.success(f"👑 **{st.session_state.name_a} ({role_A})** \nAppr: {game.A_support:.2%}")
 
 with colA2:
-    label = f"{l_edu} (Max {max_edu:.0f})" if sim_R == "A" else t('edu_not_r')
+    label = f"{l_edu} (Max {max_edu:.0f})" if sim_R == "A" else f"{l_edu} (Not R-Role)"
     st.session_state.in_a_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_edu, disabled=sim_R!="A", key='a_edu')
 with colA3:
-    label = f"{l_anti} (Max {max_anti:.0f})" if sim_R == "A" else t('anti_not_r')
+    label = f"{l_anti} (Max {max_anti:.0f})" if sim_R == "A" else f"{l_anti} (Not R-Role)"
     st.session_state.in_a_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_anti, disabled=sim_R!="A", key='a_anti')
 with colA4:
     st.session_state.in_a_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_a_brain, key='a_brain')
@@ -603,10 +474,10 @@ role_B = "H-Role" if sim_H == "B" else "R-Role"
 colB1.info(f"**{st.session_state.name_b} ({role_B})** \nAppr: {game.B_support:.2%}")
 
 with colB2:
-    label = f"{l_edu} (Max {max_edu:.0f})" if sim_R == "B" else t('edu_not_r')
+    label = f"{l_edu} (Max {max_edu:.0f})" if sim_R == "B" else f"{l_edu} (Not R-Role)"
     st.session_state.in_b_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_edu, disabled=sim_R!="B", key='b_edu')
 with colB3:
-    label = f"{l_anti} (Max {max_anti:.0f})" if sim_R == "B" else t('anti_not_r')
+    label = f"{l_anti} (Max {max_anti:.0f})" if sim_R == "B" else f"{l_anti} (Not R-Role)"
     st.session_state.in_b_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_anti, disabled=sim_R!="B", key='b_anti')
 with colB4:
     st.session_state.in_b_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_b_brain, key='b_brain')
@@ -619,12 +490,12 @@ if st.session_state.error_msg:
     st.error(st.session_state.error_msg)
 
 c1, c2 = st.columns(2)
-if c2.button(t('conf_end'), type="primary", use_container_width=True):
+if c2.button("Confirm & End Year", type="primary", use_container_width=True):
     cost_A = st.session_state.in_a_edu + st.session_state.in_a_anti + st.session_state.in_a_brain + st.session_state.in_a_cons
     cost_B = st.session_state.in_b_edu + st.session_state.in_b_anti + st.session_state.in_b_brain + st.session_state.in_b_cons
     
     if cost_A > game.A_wealth or cost_B > game.B_wealth:
-        st.session_state.error_msg = t('err_exp')
+        st.session_state.error_msg = "⚠️ Error: Expenditure exceeds wealth!"
         st.rerun()
     
     st.session_state.error_msg = ""
@@ -641,26 +512,28 @@ if c2.button(t('conf_end'), type="primary", use_container_width=True):
     }
     game.process_year(inputs)
     
+    # Reset inputs
     st.session_state.in_a_edu = st.session_state.in_a_anti = st.session_state.in_a_brain = st.session_state.in_a_cons = 0.0
     st.session_state.in_b_edu = st.session_state.in_b_anti = st.session_state.in_b_brain = st.session_state.in_b_cons = 0.0
     st.session_state.do_swap = False
     
     st.rerun()
 
+# Always render live forecast below
 inc_a, inc_b, net_a, net_b, net_edu, p_rat, t_cons, p_true, p_tax, p_h_idx, p_eff, bw_eff, p_base, b_base, r_val = do_forecast_calc()
 
 cost_A = st.session_state.in_a_edu + st.session_state.in_a_anti + st.session_state.in_a_brain + st.session_state.in_a_cons
 cost_B = st.session_state.in_b_edu + st.session_state.in_b_anti + st.session_state.in_b_brain + st.session_state.in_b_cons
 if cost_A > game.A_wealth or cost_B > game.B_wealth:
-    st.warning(t('warn_exp'))
+    st.warning("⚠️ Warning: Projected expenditure exceeds current wealth!")
 
 st.warning(f"""
-{t('for_res', mid_decay)}
-* {t('exp_inc', st.session_state.name_a)} **{inc_a:.1f}** | {t('sup_chg')} **{"+" if net_a>=0 else ""}{net_a:.2%}**
-* {t('exp_inc', st.session_state.name_b)} **{inc_b:.1f}** | {t('sup_chg')} **{"+" if net_b>=0 else ""}{net_b:.2%}**
+**Forecast Results (Midpoint Decay: {mid_decay:.2f}):**
+* Expected {st.session_state.name_a} Income: **{inc_a:.1f}** | Support Change: **{"+" if net_a>=0 else ""}{net_a:.2%}**
+* Expected {st.session_state.name_b} Income: **{inc_b:.1f}** | Support Change: **{"+" if net_b>=0 else ""}{net_b:.2%}**
 """)
 
-with st.expander(t('view_brk')):
+with st.expander("🧮 View Forecast Calculation Breakdown"):
     st.markdown(f"""
     **1. Rationality Level:** New_Rationality = Current({game.rationality:.4f}) + [Net_{l_edu}({net_edu}) × Edu_Impact({game.edu_mult:.4f})] = **{p_rat:.4f}**
     
