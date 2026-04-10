@@ -8,8 +8,6 @@ import random
 # ==========================================
 class SymbiocracyGame:
     def __init__(self):
-        # We only define core logical starting points here.
-        # Dynamic settings are handled by Streamlit's session state.
         self.year = 1
         self.total_years = 20
         self.annual_budget = 1000
@@ -201,14 +199,14 @@ st.set_page_config(page_title="Symbiocracy Simulator", layout="wide")
 # --- INITIALIZE STATE ---
 if 'game' not in st.session_state:
     st.session_state.game = SymbiocracyGame()
-    # UI states
     st.session_state.name_a = "Party A"
     st.session_state.name_b = "Party B"
     st.session_state.show_decay = False
     st.session_state.do_swap = False
     st.session_state.r_val = 0.5
     st.session_state.error_msg = ""
-    # Inputs
+    st.session_state.label_style = "Short"
+    
     st.session_state.in_a_edu = 0.0
     st.session_state.in_a_anti = 0.0
     st.session_state.in_a_brain = 0.0
@@ -287,7 +285,6 @@ def generate_headline():
     return h1 + h2
 
 def do_forecast_calc():
-    # Gather inputs from session state
     inputs_a = {'edu': st.session_state.in_a_edu, 'anti': st.session_state.in_a_anti, 'brain': st.session_state.in_a_brain, 'cons': st.session_state.in_a_cons}
     inputs_b = {'edu': st.session_state.in_b_edu, 'anti': st.session_state.in_b_anti, 'brain': st.session_state.in_b_brain, 'cons': st.session_state.in_b_cons}
     
@@ -322,11 +319,12 @@ def do_forecast_calc():
 
 # --- UI: GLOBAL SETTINGS ---
 with st.expander("⚙️ Global Settings (Adjust Anytime)", expanded=False):
+    st.session_state.label_style = st.radio("UI Label Style:", ["Short", "Full"], horizontal=True)
+    
     c1, c2 = st.columns(2)
     st.session_state.name_a = c1.text_input("Name A:", st.session_state.name_a)
     st.session_state.name_b = c2.text_input("Name B:", st.session_state.name_b)
     
-    # Sync settings back to game object
     c1, c2 = st.columns(2)
     dec_range = c1.slider("Decay Range:", 0.0, 3.0, (game.decay_min, game.decay_max), 0.05)
     game.decay_min, game.decay_max = dec_range
@@ -348,23 +346,58 @@ with st.expander("⚙️ Global Settings (Adjust Anytime)", expanded=False):
     game.bw_years = c1.number_input("BW Duration:", value=game.bw_years, step=1)
     game.perf_years = c2.number_input("Perf Duration:", value=game.perf_years, step=1)
 
-    # Allow direct manipulation of wealth
     c1, c2 = st.columns(2)
     game.A_wealth = c1.number_input("Set Wealth A:", value=float(game.A_wealth))
     game.B_wealth = c2.number_input("Set Wealth B:", value=float(game.B_wealth))
 
 
+# --- UI: GAME GUIDE ---
+with st.expander("📖 Game Guide", expanded=False):
+    col_g1, col_g2 = st.columns([3, 1])
+    guide_mode = col_g2.radio("Detail Level:", ["Simple", "Complete"], horizontal=True, label_visibility="collapsed")
+    
+    if guide_mode == "Simple":
+        col_g1.markdown("""
+        ### 🎮 Welcome to Symbiocracy!
+        **The Goal:** Accumulate wealth and secure political support over your term limit.
+        
+        **Key Mechanisms:**
+        * **Roles:** The **Governing Party (👑)** gets a base income bonus. The **H-Role** controls the budget ratio. The **R-Role** has the exclusive power to shape public Rationality.
+        * **Spending Actions:**
+            * 📚 **Education / Anti-Education:** (R-Role Only) Directly raises or lowers public Rationality.
+            * 📺 **Brainwashing:** Grants a temporary spike in Support. Highly effective when Rationality is low.
+            * 🏗️ **Construction:** Increases public Satisfaction (True-H) and drives the H-Index up, meaning a larger tax pool and more money for the H-Role.
+            
+        **How to Play:**
+        1. Read the Headline and check the Midpoint Decay to gauge the year's difficulty.
+        2. Decide if executing a **Swap** is strategically necessary.
+        3. Allocate your wealth into the input boxes.
+        4. Review the Live Forecast at the bottom to ensure you aren't making a mistake.
+        5. Click **Confirm & End Year**.
+        """)
+    else:
+        col_g1.markdown("""
+        ### 📚 The Complete Rulebook
+        
+        **1. The Economy & Taxes**
+        * The Annual Tax Pool is determined by the Base Budget + the **Satisfaction (True-H)** impact. Higher Satisfaction = Economic Boom = More Tax to split.
+        * Total Tax is split using the **H-Index**. The H-Role receives `Tax * H_Index`. The R-Role receives the rest.
+        
+        **2. Political Support & Elections**
+        * Voter Support is driven by **Performance** (Satisfaction multiplied by Rationality) and **Brainwashing** (temporarily bypassing Rationality). High Voter Emotion reduces the demand for Performance and increases vulnerability to Brainwashing.
+        * Elections occur every 4 years. The party with >50% support becomes the Governing Party.
+        * Taking office resets the "Baseline Satisfaction," meaning you are judged entirely on how much you improve the country *after* taking power.
+        
+        **3. The R-Value & Swapping**
+        * The **R-Value** determines how effectively Construction spending converts into H-Index budget share. (Lower R-Value = Construction boosts H-Index much faster).
+        * **Only the Governing Party** is technically allowed to set the R-Value, though either party can propose a Swap.
+        * A **Swap** instantly trades the H-Role and R-Role between parties. However, executing a swap locks the R-Value and disables further swaps until the next election cycle.
+        """)
+
 # --- UI: HEADER & STATUS ---
 mid_decay = (game.decay_min + game.decay_max) / 2
 elec_warning = "⚠️ Election This Year!" if game.year % 4 == 0 else ("⏳ 1 Year to Election!" if game.year % 4 == 3 else "")
 major_name = st.session_state.name_a if game.first_party == 'A' else st.session_state.name_b
-
-st.info(f"""
-### 📘 Rules & Forecast Calculator
-* **Midpoint Natural Decay:** **{mid_decay:.2f}**
-* **Remember:** Only the party in the **R-Role** can effectively use Education / Anti-Education.
-* **⚠️ Critical Rule:** Once a Swap is executed, the **R-Value is locked** and **no further swaps** can occur until the next election.
-""")
 
 st.markdown(f"### 🏛️ Year {game.year} | Governing: 👑 {major_name} | Tax Revenue: {game.current_tax:.1f} {elec_warning}")
 st.success(generate_headline())
@@ -382,9 +415,10 @@ st.progress(max(min(game.B_wealth * scale / 100, 1.0), 0.01), text=f"{st.session
 # --- UI: SWAP & INPUTS ---
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
-    st.session_state.r_val = st.number_input("R-Value:", value=st.session_state.r_val, disabled=not game.swap_available)
+    r_desc = "R-Value (Governing Party Only):" if game.swap_available else "R-Value (LOCKED):"
+    st.session_state.r_val = st.number_input(r_desc, value=st.session_state.r_val, disabled=not game.swap_available)
 with col2:
-    st.write("<br>", unsafe_allow_html=True) # spacing
+    st.write("<br>", unsafe_allow_html=True)
     st.session_state.do_swap = st.checkbox("Execute Swap (Locks R-Value & Roles)", value=st.session_state.do_swap, disabled=not game.swap_available)
 with col3:
     st.write("<br>", unsafe_allow_html=True)
@@ -393,7 +427,13 @@ with col3:
 if st.session_state.show_decay:
     st.error(f"Current Real Decay: **{game.current_decay:.4f}**")
 
-# Calculate Roles based on Swap checkbox
+
+# Determine Labels based on Settings Toggle
+l_edu = "Education" if st.session_state.label_style == "Full" else "Edu"
+l_anti = "Anti-Education" if st.session_state.label_style == "Full" else "Anti"
+l_brain = "Brainwashing" if st.session_state.label_style == "Full" else "Brain"
+l_cons = "Construction" if st.session_state.label_style == "Full" else "Cons"
+
 sim_R = game.current_H_party if st.session_state.do_swap else game.current_R_party
 sim_H = game.current_R_party if st.session_state.do_swap else game.current_H_party
 
@@ -408,15 +448,15 @@ role_A = "H-Role" if sim_H == "A" else "R-Role"
 colA1.success(f"👑 **{st.session_state.name_a} ({role_A})** \nAppr: {game.A_support:.2%}")
 
 with colA2:
-    label = f"Edu (Max {max_edu:.0f})" if sim_R == "A" else "Edu (Not R-Role)"
+    label = f"{l_edu} (Max {max_edu:.0f})" if sim_R == "A" else f"{l_edu} (Not R-Role)"
     st.session_state.in_a_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_edu, disabled=sim_R!="A", key='a_edu')
 with colA3:
-    label = f"Anti (Max {max_anti:.0f})" if sim_R == "A" else "Anti (Not R-Role)"
+    label = f"{l_anti} (Max {max_anti:.0f})" if sim_R == "A" else f"{l_anti} (Not R-Role)"
     st.session_state.in_a_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_anti, disabled=sim_R!="A", key='a_anti')
 with colA4:
-    st.session_state.in_a_brain = st.number_input("Brain:", value=st.session_state.in_a_brain, key='a_brain')
+    st.session_state.in_a_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_a_brain, key='a_brain')
 with colA5:
-    st.session_state.in_a_cons = st.number_input("Cons:", value=st.session_state.in_a_cons, key='a_cons')
+    st.session_state.in_a_cons = st.number_input(f"{l_cons}:", value=st.session_state.in_a_cons, key='a_cons')
 
 
 # Party B Inputs
@@ -425,15 +465,15 @@ role_B = "H-Role" if sim_H == "B" else "R-Role"
 colB1.info(f"**{st.session_state.name_b} ({role_B})** \nAppr: {game.B_support:.2%}")
 
 with colB2:
-    label = f"Edu (Max {max_edu:.0f})" if sim_R == "B" else "Edu (Not R-Role)"
+    label = f"{l_edu} (Max {max_edu:.0f})" if sim_R == "B" else f"{l_edu} (Not R-Role)"
     st.session_state.in_b_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_edu, disabled=sim_R!="B", key='b_edu')
 with colB3:
-    label = f"Anti (Max {max_anti:.0f})" if sim_R == "B" else "Anti (Not R-Role)"
+    label = f"{l_anti} (Max {max_anti:.0f})" if sim_R == "B" else f"{l_anti} (Not R-Role)"
     st.session_state.in_b_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_anti, disabled=sim_R!="B", key='b_anti')
 with colB4:
-    st.session_state.in_b_brain = st.number_input("Brain:", value=st.session_state.in_b_brain, key='b_brain')
+    st.session_state.in_b_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_b_brain, key='b_brain')
 with colB5:
-    st.session_state.in_b_cons = st.number_input("Cons:", value=st.session_state.in_b_cons, key='b_cons')
+    st.session_state.in_b_cons = st.number_input(f"{l_cons}:", value=st.session_state.in_b_cons, key='b_cons')
 
 
 # --- UI: ACTIONS & FORECAST ---
@@ -486,13 +526,13 @@ st.warning(f"""
 
 with st.expander("🧮 View Forecast Calculation Breakdown"):
     st.markdown(f"""
-    **1. Rationality Level:** New_Rationality = Current({game.rationality:.4f}) + [Net_Edu({net_edu}) × Edu_Impact({game.edu_mult:.4f})] = **{p_rat:.4f}**
+    **1. Rationality Level:** New_Rationality = Current({game.rationality:.4f}) + [Net_{l_edu}({net_edu}) × Edu_Impact({game.edu_mult:.4f})] = **{p_rat:.4f}**
     
-    **2. Satisfaction (True-H):** New_TrueH = Current({game.true_H:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_Cons({t_cons}) × 0.001] = **{p_true:.4f}**
+    **2. Satisfaction (True-H):** New_TrueH = Current({game.true_H:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_{l_cons}({t_cons}) × 0.001] = **{p_true:.4f}**
     
-    **3. Budget & Tax Allocation:** Expected Tax = Base({game.annual_budget}) + [ (New_TrueH({p_true:.4f}) - 0.5) × Sat. Tax Impact({game.tax_impact:.1f}) ] = **{p_tax:.1f}** New_H_Index = Current({game.H_index:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_Cons({t_cons}) / R_Value({r_val:.2f}) × 0.001] = **{p_h_idx:.4f}**
+    **3. Budget & Tax Allocation:** Expected Tax = Base({game.annual_budget}) + [ (New_TrueH({p_true:.4f}) - 0.5) × Sat. Tax Impact({game.tax_impact:.1f}) ] = **{p_tax:.1f}** New_H_Index = Current({game.H_index:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_{l_cons}({t_cons}) / R_Value({r_val:.2f}) × 0.001] = **{p_h_idx:.4f}**
     
     **4. Political Support ({st.session_state.name_a}):** Performance_Effect = [New_TrueH({p_true:.4f}) - Baseline({game.baseline_true_H:.4f})] × [New_Rationality({p_rat:.4f}) + Emotion_Perf_Base({p_base:.2f})] = {p_eff:.4f}  
-    Brainwash_Effect = [Net_Brain({st.session_state.in_a_brain - st.session_state.in_b_brain}) × BW_Impact({game.bw_mult:.4f})] × [Emotion_BW_Ceiling({b_base:.2f}) - New_Rationality({p_rat:.4f})] = {bw_eff:.4f}  
-    Total_Change = (Perf_Effect) + Brainwash_Effect - Expiring_Buffs = **{net_a:.2%}**
+    {l_brain}_Effect = [Net_Brain({st.session_state.in_a_brain - st.session_state.in_b_brain}) × BW_Impact({game.bw_mult:.4f})] × [Emotion_BW_Ceiling({b_base:.2f}) - New_Rationality({p_rat:.4f})] = {bw_eff:.4f}  
+    Total_Change = (Perf_Effect) + {l_brain}_Effect - Expiring_Buffs = **{net_a:.2%}**
     """)
