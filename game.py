@@ -395,8 +395,8 @@ with st.expander("📖 Game Guide", expanded=False):
         
         **Step-by-Step Turn Guide:**
         1. **Assess the Year:** Look at the top **Status Board**. Read the Newspaper Headline to understand the current economic climate, and check the Midpoint Decay. High decay means your Satisfaction and budget will drop drastically this year.
-        2. **Negotiate:** Discuss strategy with the opposing party. Decide if executing a **Swap** is necessary for either of you to survive the year.
-        3. **Draft Budgets:** Both parties allocate their accumulated wealth into their respective input boxes (Edu, Anti, Brain, Cons).
+        2. **Draft Budgets:** Both parties allocate their accumulated wealth into their respective input boxes (Edu, Anti, Brain, Cons).
+        3. **Negotiate:** Discuss strategy with the opposing party. Decide if executing a **Swap** is necessary for either of you to survive the year.
         4. **Check the Math:** *Do not click Confirm yet!* Click **"Calculate Forecast"** and open the **"View Forecast Calculation Breakdown"** tab. This shows exactly how your proposed spending will change Income and Approval Ratings.
         5. **Revise & Execute:** Adjust your spending based on the forecast. Once both parties agree on their final numbers, click **Confirm & End Year** to lock in the results and advance time.
         
