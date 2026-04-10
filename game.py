@@ -8,12 +8,18 @@ import random
 # ==========================================
 class SymbiocracyGame:
     def __init__(self):
+        # Party Names
+        self.name_A = "Prosperity"
+        self.name_B = "Equity"
+
+        # Game Settings
         self.year = 1
         self.total_years = 20
         self.annual_budget = 1000
         self.base_income = 100
         self.major_bonus = 200
 
+        # Multipliers, Emotionality, and Durations (Defaults)
         self.edu_mult = 0.001
         self.bw_mult = 0.001
         self.emotionality = 0.5
@@ -21,6 +27,7 @@ class SymbiocracyGame:
         self.perf_years = 6
         self.tax_impact = 200.0 
 
+        # Initial Values
         self.A_support = 0.51
         self.B_support = 0.49
         self.A_wealth = 500 
@@ -32,15 +39,18 @@ class SymbiocracyGame:
         
         self.baseline_true_H = 0.5
 
+        # Decay Settings
         self.decay_min = 0.2
         self.decay_max = 1.2
         self.current_decay = random.uniform(self.decay_min, self.decay_max)
         self.last_year_decay = self.current_decay
         self.last_report = None
 
+        # Record expiration of effects
         self.bw_expiry = {}
         self.perf_expiry = {}
 
+        # Roles
         self.first_party = "A"
         self.current_H_party = "B"
         self.current_R_party = "A"
@@ -199,8 +209,8 @@ st.set_page_config(page_title="Symbiocracy Simulator", layout="wide")
 # --- INITIALIZE STATE ---
 if 'game' not in st.session_state:
     st.session_state.game = SymbiocracyGame()
-    st.session_state.name_a = "Party A"
-    st.session_state.name_b = "Party B"
+    st.session_state.name_a = "Prosperity"
+    st.session_state.name_b = "Equity"
     st.session_state.show_decay = False
     st.session_state.do_swap = False
     st.session_state.r_val = 0.5
@@ -354,44 +364,43 @@ with st.expander("⚙️ Global Settings (Adjust Anytime)", expanded=False):
 # --- UI: GAME GUIDE ---
 with st.expander("📖 Game Guide", expanded=False):
     col_g1, col_g2 = st.columns([3, 1])
-    guide_mode = col_g2.radio("Detail Level:", ["Simple", "Complete"], horizontal=True, label_visibility="collapsed")
+    guide_mode = col_g2.radio("Detail Level:", ["Overview", "How to Play"], horizontal=True, label_visibility="collapsed")
     
-    if guide_mode == "Simple":
+    if guide_mode == "Overview":
         col_g1.markdown("""
-        ### 🎮 Welcome to Symbiocracy!
-        **The Goal:** Accumulate wealth and secure political support over your term limit.
+        ### 🎮 The Simple Overview (Roleplay & Strategy)
+        **Welcome to Symbiocracy!**
+        This is a political sandbox roleplaying game. You can rename the parties (e.g., "Democracy" vs. "Republic" or "Capitalists" vs. "Socialists"), inhabit their ideologies, and see how they interact under systemic pressure.
         
-        **Key Mechanisms:**
-        * **Roles:** The **Governing Party (👑)** gets a base income bonus. The **H-Role** controls the budget ratio. The **R-Role** has the exclusive power to shape public Rationality.
-        * **Spending Actions:**
-            * 📚 **Education / Anti-Education:** (R-Role Only) Directly raises or lowers public Rationality.
-            * 📺 **Brainwashing:** Grants a temporary spike in Support. Highly effective when Rationality is low.
-            * 🏗️ **Construction:** Increases public Satisfaction (True-H) and drives the H-Index up, meaning a larger tax pool and more money for the H-Role.
-            
-        **How to Play:**
-        1. Read the Headline and check the Midpoint Decay to gauge the year's difficulty.
-        2. Decide if executing a **Swap** is strategically necessary.
-        3. Allocate your wealth into the input boxes.
-        4. Review the Live Forecast at the bottom to ensure you aren't making a mistake.
-        5. Click **Confirm & End Year**.
+        **The Ultimate Goal:** There is no single way to win. Over the course of the simulation (default 20 years, adjustable in Global Settings), you decide your victory condition. Do you want to amass the most private wealth? Do you want to maintain a stable, unshakeable dynasty? Or do you genuinely want to maximize societal satisfaction (True-H)? At the end of the simulation, a comprehensive historical report will reveal the true legacy of your political era.
+        
+        **The Core Conflict (Roles):**
+        * 👑 **Governing Party:** The party currently in power. Receives an automatic +200 wealth bonus each year.
+        * 🟢 **Household Role (H-Role):** Controls the immediate economic output. Reaps the direct financial benefits when the H-Index is high.
+        * 🔵 **Regulator Role (R-Role):** Controls the societal narrative. Possesses the *exclusive* power to use Education and Anti-Education to shape public Rationality.
+        
+        **Your Arsenal (Actions & Mechanics):**
+        * 📚 **Edu / Anti-Edu (R-Role Only):** Directly alters public **Rationality**. High Rationality forces politicians to deliver real results; low Rationality makes the public highly gullible.
+        * 📺 **Brainwashing:** Grants a temporary, artificial spike in Support. *Strategic Tip:* Exponentially more effective and cheaper when public Rationality is low and Voter Emotion is high.
+        * 🏗️ **Construction:** Builds real infrastructure. It boosts public Satisfaction (True-H) and drives up the H-Index, expanding the total tax pool and the Household's cut.
+        * 🔄 **Execute Swap:** Either party can propose to instantly trade the H-Role and R-Role if they believe it benefits their strategy. *Warning:* Once executed, roles and the R-Value are locked until the next election!
         """)
     else:
         col_g1.markdown("""
-        ### 📚 The Complete Rulebook
+        ### 📖 How to Play & UI Guide
         
-        **1. The Economy & Taxes**
-        * The Annual Tax Pool is determined by the Base Budget + the **Satisfaction (True-H)** impact. Higher Satisfaction = Economic Boom = More Tax to split.
-        * Total Tax is split using the **H-Index**. The H-Role receives `Tax * H_Index`. The R-Role receives the rest.
+        **Step-by-Step Turn Guide:**
+        1. **Assess the Year:** Look at the top **Status Board**. Read the Newspaper Headline to understand the current economic climate, and check the Midpoint Decay. High decay means your Satisfaction and budget will drop drastically this year.
+        2. **Negotiate:** Discuss strategy with the opposing party. Decide if executing a **Swap** is necessary for either of you to survive the year.
+        3. **Draft Budgets:** Both parties allocate their accumulated wealth into their respective input boxes (Edu, Anti, Brain, Cons).
+        4. **Check the Math:** *Do not click Confirm yet!* Click **"Calculate Forecast"** and open the **"View Forecast Calculation Breakdown"** tab. This shows exactly how your proposed spending will change Income and Approval Ratings.
+        5. **Revise & Execute:** Adjust your spending based on the forecast. Once both parties agree on their final numbers, click **Confirm & End Year** to lock in the results and advance time.
         
-        **2. Political Support & Elections**
-        * Voter Support is driven by **Performance** (Satisfaction multiplied by Rationality) and **Brainwashing** (temporarily bypassing Rationality). High Voter Emotion reduces the demand for Performance and increases vulnerability to Brainwashing.
-        * Elections occur every 4 years. The party with >50% support becomes the Governing Party.
-        * Taking office resets the "Baseline Satisfaction," meaning you are judged entirely on how much you improve the country *after* taking power.
-        
-        **3. The R-Value & Swapping**
-        * The **R-Value** determines how effectively Construction spending converts into H-Index budget share. (Lower R-Value = Construction boosts H-Index much faster).
-        * **Only the Governing Party** is technically allowed to set the R-Value, though either party can propose a Swap.
-        * A **Swap** instantly trades the H-Role and R-Role between parties. However, executing a swap locks the R-Value and disables further swaps until the next election cycle.
+        **Understanding the UI Glossary:**
+        * **Global Settings (Adjust Anytime):** The hidden gears of the simulation. Here you can change party names, the total length of the game, the annual budget, and the psychological makeup of the voters (Voter Emotion, Edu/BW Impact).
+        * **Current Tax Revenue:** The actual money generated this year to be split between the H-Role and R-Role. It is calculated by taking the Base Budget and adding/subtracting the economic impact of public Satisfaction (True-H).
+        * **R-Value (Friction):** Set only by the Governing Party. A *lower* R-Value makes Construction incredibly highly efficient at boosting the H-Index (benefiting the Household). A *higher* R-Value makes it sluggish.
+        * **The Baseline Reset (Elections):** Held every 4 years. The party with >50% Support takes the Governing (👑) seat. Crucially, the "Baseline Satisfaction" resets to the current True-H. You get zero credit for the previous administration's work; you are judged purely on how much you improve or ruin the country *after* taking power.
         """)
 
 # --- UI: HEADER & STATUS ---
