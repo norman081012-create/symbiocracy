@@ -19,6 +19,8 @@ I18N = {
         'bw_impact': "BW Impact:",
         'bw_duration': "BW Duration:",
         'perf_duration': "Perf Duration:",
+        'h_media_mult': "H-Role Media Multiplier:",
+        'edu_decay': "Annual Edu Decay:",
         'set_wealth_a': "Set Wealth A:",
         'set_wealth_b': "Set Wealth B:",
         'game_guide': "📖 Game Guide",
@@ -31,61 +33,38 @@ I18N = {
 **Welcome to Symbiocracy!**
 This is a political sandbox roleplaying game. You can rename the parties (e.g., "Democracy" vs. "Republic" or "Capitalists" vs. "Socialists"), inhabit their ideologies, and see how they interact under systemic pressure.
 
-**The Ultimate Goal:** There is no single way to win. Over the course of the simulation (default 20 years, adjustable in Global Settings), you decide your victory condition. Do you want to amass the most private wealth? Do you want to maintain a stable, unshakeable dynasty? Or do you genuinely want to maximize societal satisfaction (True-H)? At the end of the simulation, a comprehensive historical report will reveal the true legacy of your political era.
-
 **The Core Conflict (Roles):**
 * 👑 **Governing Party:** The party currently in power. Receives an automatic +200 wealth bonus each year.
-* 🟢 **Household Role (H-Role):** Controls the immediate economic output. Reaps the direct financial benefits when the H-Index is high.
-* 🔵 **Regulator Role (R-Role):** Controls the societal narrative. Possesses the *exclusive* power to use Education and Anti-Education to shape public Rationality.
+* 🟢 **Household Role (H-Role):** Controls the immediate economic output and the **news media**. They reap the financial benefits when H-Index is high. Their brainwashing effect is **multiplied by 1.2x** by default.
+* 🔵 **Regulator Role (R-Role):** Controls the societal narrative. Possesses the *exclusive* power to use Education and Anti-Education. **Note:** Public Rationality decays automatically every year, requiring constant educational investment.
 
 **Your Arsenal (Actions & Mechanics):**
-* 📚 **Edu / Anti-Edu (R-Role Only):** Directly alters public **Rationality**. High Rationality forces politicians to deliver real results; low Rationality makes the public highly gullible.
-* 📺 **Brainwashing:** Grants a temporary, artificial spike in Support. *Strategic Tip:* Exponentially more effective and cheaper when public Rationality is low and Voter Emotion is high.
-* 🏗️ **Construction:** Builds real infrastructure. It boosts public Satisfaction (True-H) and drives up the H-Index, expanding the total tax pool and the Household's cut.
-* 🔄 **Execute Swap:** Either party can propose to instantly trade the H-Role and R-Role if they believe it benefits their strategy. *Warning:* Once executed, roles and the R-Value are locked until the next election!
+* 📚 **Edu / Anti-Edu (R-Role Only):** Combats the natural decay of public Rationality.
+* 📺 **Brainwashing:** Grants a temporary spike in Support, and allows you to steal performance credit in low-rationality societies.
+* 🏗️ **Construction:** Builds real infrastructure. It boosts public Satisfaction (True-H) and drives up the H-Index.
+* 🔄 **Execute Swap:** - **Governing Party:** Absolute power to force a swap.
+  - **Opposition Party:** Can only propose a swap, subject to governing party approval.
         """,
         'guide_how': """
 ### 📖 How to Play & UI Guide
 
 **Step-by-Step Turn Guide:**
-1. **Assess the Year:** Look at the top **Status Board**. Read the Newspaper Headline to understand the current economic climate, and check the Midpoint Decay. High decay means your Satisfaction and budget will drop drastically this year.
-2. **Draft Budgets and decide R valure:** Both parties allocate their accumulated wealth into their respective input boxes (Edu, Anti, Brain, Cons). But Only the ruling party can decide R value.
-3. **Negotiate:** Discuss strategy with the opposing party. Decide if executing a **Swap** is necessary for either of you to survive the year.
-4. **Check the Math:** *Do not click Confirm yet!* Click **"Calculate Forecast"** and open the **"View Forecast Calculation Breakdown"** tab. This shows exactly how your proposed spending will change Income and Approval Ratings.
-5. **Revise & Execute:** Adjust your spending based on the forecast. Once both parties agree on their final numbers, click **Confirm & End Year** to lock in the results and advance time.
+1. **Phase 1 (Governing Party):** Set budget and decide whether to force a Swap.
+2. **Phase 2 (Opposition Party):** Set budget. If the governing party didn't force a swap, the opposition can propose one.
+3. **Phase 3 (Final Review):** The governing party sets the R-Value, approves/rejects any opposition swap proposals, and confirms the year.
 
-**Understanding the UI Glossary:**
-* **Global Settings (Adjust Anytime):** The hidden gears of the simulation. Here you can change party names, the total length of the game, the annual budget, and the psychological makeup of the voters (Voter Emotion, Edu/BW Impact).
-* **Current Tax Revenue:** The actual money generated this year to be split between the H-Role and R-Role. It is calculated by taking the Base Budget and adding/subtracting the economic impact of public Satisfaction (True-H).
-* **R-Value (Friction):** Set only by the Governing Party. A *lower* R-Value makes Construction incredibly highly efficient at boosting the H-Index (benefiting the Household). A *higher* R-Value makes it sluggish.
-* **The Baseline Reset (Elections):** Held every 4 years. The party with >50% Support takes the Governing (👑) seat. Crucially, the "Baseline Satisfaction" resets to the current True-H. You get zero credit for the previous administration's work; you are judged purely on how much you improve or ruin the country *after* taking power.
+* **R-Value (Friction):** Set only by the Governing Party. **Recommended range: 0.5 to 2.0.**
+  - **Higher R-Value:** Makes Construction sluggish, limiting the H-Role's ability to profit.
+  - **Lower R-Value:** High construction efficiency, acting as an incentive for the H-Role to cooperate.
         """,
         'guide_deep': """
 ### ⚙️ Deep Dive: The Mechanics of Support & Expiry
 
-Here is a breakdown of the core mechanism that drives political support:
-
-**1. What matters is the sense of improvement: The Baseline Reset Mechanism**
-Voters are both forgetful and pragmatic. The game relies on a hidden variable called `baseline_true_H` (Baseline Satisfaction):
-* **Reset on taking office:** When a party wins the election and takes the Governing (👑) seat, the system records the current satisfaction level as its new "baseline."
-* **Support Formula:** `Performance_Effect = (Current Satisfaction - Baseline Satisfaction) * (Weight Coefficient)`
-* **Implication:** If you take office when the country is already in great shape (e.g., 0.8) and let it fall to 0.7, voters will think you performed terribly. On the other hand, if you inherit a disaster at 0.1 and manage to raise it to 0.2, voters may see you as a savior.
-
-**2. Rationality is the amplifier: It filters how Satisfaction becomes Support**
-How efficiently satisfaction is converted into political support depends heavily on the society’s **Rationality Level**:
-* **High Rationality:** Voters accurately translate actual living conditions (True-H) into political judgment. In the formula, rationality acts as a positive multiplier for the `Performance_Effect`.
-* **Low Rationality:** Voters become dull. Even if you drastically improve True-H through real infrastructure investments, if the society's Rationality has been pushed very low, voters will barely notice, and your support will rise at a crawl.
-
-**3. Voter Emotionality acts as a counterweight: Emotion vs. Rationality**
-In the calculation, the `perf_base` (the base weight of actual performance) is directly modified by the **Voter Emotion** slider:
-* **Rational Society (Low Emotion):** Voters maintain a higher baseline expectation for performance. Even if Rationality isn't exceptionally high, they will still react angrily when Satisfaction falls. This makes "doing nothing to save money" an extremely risky strategy for the ruling party.
-* **Emotional Society (High Emotion):** The `perf_base` plummets. This means that if Rationality is also suppressed, voters may stop caring about actual Satisfaction almost entirely. Under these specific conditions, a party can allow the country to decay while staying in power purely through aggressive "Brainwashing."
-
-**4. Time matters: The Expiry Mechanism**
-Political credit does not last forever. Both voter gratitude and manipulation have an expiration date:
-* **Performance Expiry (Default 6 Years):** If you gain a massive surge in support in Year 1 by sharply improving satisfaction through construction, that specific support bonus begins to expire and will be deducted from your total starting in Year 7.
-* **Brainwashing Expiry (Default 2 Years):** Brainwashing is a powerful, instant injection of support, but it fades very quickly. If you rely on it, you must keep spending to maintain the illusion.
-* **Dynamic Challenge:** To maintain power, the ruling party cannot rest on its past achievements. It must continuously invest to keep True-H climbing above the baseline. Otherwise, once old bonuses (from Performance or Brainwashing) begin to expire, support can collapse off a cliff.
+**1. The Battle for Credit: Rationality vs. Brainwashing**
+When public satisfaction (True-H) rises, support is **not simply given to the biggest spender**. It is filtered by Rationality:
+* **High Rationality:** Voters reward the party that actually spent money on Construction.
+* **Low Rationality:** Credit can be stolen by the party that spends heavily on Brainwashing (especially the H-Role with media advantage).
+* **Punishment:** If satisfaction drops, the Governing Party absorbs 100% of the negative support impact.
         """,
         'governing': "Governing",
         'tax_revenue': "Tax Revenue",
@@ -94,7 +73,7 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'rationality_level': "Rationality Level",
         'midpoint_decay': "Midpoint Decay",
         'swap_instruction': "(Both parties can toggle Execute Swap if it benefits their strategy)",
-        'accumulated_wealth': "💰 Accumulated Wealth",
+        'accumulated_wealth': "💰 Wealth",
         'r_value_gov': "R-Value (Ruling Only):",
         'r_value_lock': "R-Value (LOCKED):",
         'execute_swap': "Execute Swap (Locks R-Value & Roles)",
@@ -124,8 +103,8 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'turn_p0': "Phase 1: Ruling Party Drafts Proposal",
         'turn_p1': "Phase 2: Opposition Reacts",
         'turn_p2': "Phase 3: Final Review",
-        'btn_submit_prop': "Submit Proposal to Opposition",
-        'btn_submit_react': "Submit Reaction",
+        'btn_submit_prop': "Send to Opposition",
+        'btn_submit_react': "Send Reaction",
         'btn_revise': "Revise Proposal",
         'wait_opp': "Waiting for Opposition...",
         'h_new': "📰 **Headline:** *New Government Takes Office! Welcome to Year 1.*",
@@ -163,6 +142,8 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'bw_impact': "洗腦影響力:",
         'bw_duration': "洗腦持續時間:",
         'perf_duration': "政績持續時間:",
+        'h_media_mult': "H黨媒體洗腦倍率:",
+        'edu_decay': "每年理智度衰退:",
         'set_wealth_a': "設定A黨財富:",
         'set_wealth_b': "設定B黨財富:",
         'game_guide': "📖 遊戲指南",
@@ -173,63 +154,40 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'guide_overview': """
 ### 🎮 簡介與角色扮演策略
 **歡迎來到 Symbiocracy (共生民主)！**
-這是一個政治沙盒角色扮演遊戲。你可以將政黨改名（例如「民主黨」對「共和黨」，或「資本家」對「社會主義者」），帶入他們的意識形態，並觀察在系統壓力下他們如何互動。
-
-**終極目標：** 遊戲沒有單一的獲勝方式。在整個模擬過程中（預設20年，可於全域設定調整），你決定自己的勝利條件。你是想累積最多的私人財富？還是想維持一個穩定、不可動搖的王朝？亦或是你真心想最大化社會滿意度 (True-H)？模擬結束後，一份全面的歷史報告將揭示你政治時代的真實遺產。
+這是一個政治沙盒角色扮演遊戲。你可以將政黨改名，帶入他們的意識形態，並觀察在系統壓力下他們如何互動。
 
 **核心衝突 (角色分配)：**
 * 👑 **執政黨 (Governing Party):** 當前掌權的政黨。每年自動獲得 +200 財富津貼。
-* 🟢 **Household 角色 (H-Role):** 控制即時的經濟產出。當 H-Index (預算比例) 高時，能獲得直接的財務利益。
-* 🔵 **Regulator 角色 (R-Role):** 控制社會敘事。擁有使用「教育」和「反智」來塑造公眾理智度的*專屬*權力。
+* 🟢 **Household 角色 (H-Role):** 控制即時的經濟與**新聞媒體權**。H-Index 越高分成越多，且**其洗腦效果預設為 1.2 倍**，因為他們掌握了日常的話語權。
+* 🔵 **Regulator 角色 (R-Role):** 控制長期社會敘事。擁有使用「教育」和「反智」的專屬權力。注意，**社會理智度每年會自然衰退**，R 角色必須持續投入教育才能維持清醒的社會。
 
 **你的武器庫 (支出行動)：**
-* 📚 **教育 / 反智 (僅限 R-Role):** 直接改變公眾的**理智度**。高理智度迫使政治人物交出真實政績；低理智度則讓公眾變得極易受騙。
-* 📺 **洗腦 (Brainwashing):** 提供暫時性、虛假的支持度飆升。*策略提示：* 當公眾理智度低且選民情緒高時，洗腦會呈現指數級的高效且便宜。
-* 🏗️ **建設 (Construction):** 建造真實的基礎設施。它能提升公眾滿意度 (True-H) 並推高 H-Index，進而擴大總稅收池以及 Household 角色的分成。
-* 🔄 **執行交換 (Execute Swap):** 如果認為對自己的策略有利，任何一方都可以提議立即交換 H-Role 和 R-Role。*警告：* 一旦執行，角色分配與 R 值將被鎖定，直到下次選舉！
+* 📚 **教育 / 反智 (僅限 R-Role):** 對抗理智度的自然衰退。
+* 📺 **洗腦 (Brainwashing):** 創造虛假的支持度，並能在低理智社會中**搶奪對手的建設功勞**。
+* 🏗️ **建設 (Construction):** 建造基礎設施提升滿意度 (True-H)。
+* 🔄 **不信任案 (Swap):** - **執政黨發動：** 擁有絕對主導權，在野黨無法拒絕。
+  - **在野黨發動：** 僅為「提議」，執政黨在最終審查時可以選擇否決。
         """,
         'guide_how': """
 ### 📖 玩法與 UI 指南
 
-**回合步驟指南：**
-1. **評估當前年度：** 查看頂部的**狀態看板**。閱讀報紙頭條以了解當前的經濟氣候，並檢查「預期衰退中值」。高衰退意味著你的滿意度和預算今年將大幅下降。
-2. **草擬預算與決定 R 值：** 兩黨將各自累積的財富分配到對應的輸入框 (教育、反智、洗腦、建設)。但**只有執政黨可以決定 R 值**。
-3. **談判：** 與反對黨討論策略。決定為了讓雙方度過今年，是否需要執行**交換 (Swap)**。
-4. **檢查數學計算：** *先別急著按確認！* 點擊 **「計算預測」** 並打開 **「查看計算明細」** 面板。這會精確顯示你提議的支出將如何改變雙方的收入與支持度。
-5. **修改與執行：** 根據預測結果調整支出。一旦兩黨對最終數字達成共識，點擊 **「確認並結束本年」** 以鎖定結果並推進時間。
+**三階段回合制：**
+1. **階段 1 (執政黨)：** 草擬預算，並決定是否發動不信任案 (強制 Swap)。
+2. **階段 2 (在野黨)：** 提出對應預算。若執政黨未發動 Swap，在野黨可以選擇是否發動「提議 Swap」。
+3. **階段 3 (最終審查)：** 執政黨設定 R 值，決定是否接受在野黨的 Swap 提議，並最終確認執行。
 
-**理解 UI 詞彙表：**
-* **全域設定 (隨時可調):** 模擬器的隱藏齒輪。在這裡你可以更改政黨名稱、遊戲總長度、年度預算，以及選民的心理構成 (選民情緒、教育/洗腦影響力)。
-* **當前稅收 (Current Tax Revenue):** 今年實際產生並將在 H-Role 和 R-Role 之間分配的資金。其計算方式是取「基礎預算」並加上/減去公眾滿意度 (True-H) 的經濟影響。
-* **R 值 (摩擦力):** 僅由執政黨設定。較*低*的 R 值會使「建設」在推高 H-Index 時具有極高的效率 (有利於 Household 角色)。較*高*的 R 值則會使其變得遲緩。
-* **基準點重置 (選舉):** 每 4 年舉行一次。支持度 >50% 的政黨將奪得執政 (👑) 寶座。最重要的是，「基準滿意度」會重置為當前的 True-H。你無法從前朝政府的施政中獲得任何功勞；你純粹會根據你掌權*後*，對國家的改善或破壞程度來接受評判。
+* **R 值 (摩擦力):** 僅由執政黨設定。**建議範圍落在 0.5 ~ 2 之間**（超過亦有效果但邊際差異會變小）。
+  - **R值越高：** 系統摩擦力大，H-Role 透過建設推高 H-Index 的難度大增，獲利變得極度困難。
+  - **R值越低：** 建設效率極高，這能作為一種誘因，吸引 H-Role 願意留在該位置與系統合作，而非消極怠工。
         """,
         'guide_deep': """
 ### ⚙️ 深度機制：支持度與過期的運作原理
 
-以下是驅動政治支持度的核心機制拆解：
-
-**1. 「進步感」才是關鍵：基準點重置機制 (Baseline Reset)**
-選民是非常健忘且現實的。遊戲依賴一個隱藏變數 `baseline_true_H` (基準滿意度)：
-* **就任重置：** 當一個政黨贏得選舉成為執政黨（👑）時，系統會紀錄當下的滿意度作為新的「基準點」。
-* **支持度公式：** `政績效應 = (當前滿意度 - 就任時基準滿意度) * (加權係數)`
-* **影響：** 如果你接手時國家已經很完美（例如 0.8），但你讓它掉到 0.7，選民會覺得你做得極爛。反之，如果你在滿意度 0.1 的爛攤子接手並提升到 0.2，選民會覺得你是救世主。
-
-**2. 理智度是放大器：它過濾了滿意度如何轉化為支持度**
-滿意度轉化為政治支持度的效率，高度取決於社會的 **理智度 (Rationality)**：
-* **高理智度：** 選民能精準地把「真實的生活品質 (True-H)」轉化為對政黨的評價。在公式中，理智度對 `政績效應` 起正向的乘數作用。
-* **低理智度：** 選民變得遲鈍。即便你透過真實的基礎建設大幅提升了 True-H，如果社會的理智度被壓得很低，選民也幾乎感受不到，你的支持度只會像龜速般爬升。
-
-**3. 選民情緒的制衡：情緒與理智的拉鋸**
-在計算中，實際政績的基礎權重 (`perf_base`) 會被 **選民情緒 (Voter Emotion)** 滑桿直接修改：
-* **理性社會 (低情緒)：** 選民對政績有較高的基礎要求。即便理智度不是特別高，他們仍會因為滿意度掉落而感到憤怒。這使得執政黨想「不作為來省錢」成為一種極度危險的策略。
-* **感性社會 (高情緒)：** `perf_base` 會大幅下降。這意味著如果理智度也被壓低，選民將**完全不在乎**真實的滿意度。在這種特定條件下，政黨可以放任國家衰退，純粹靠著強勢的「洗腦」來維持執政。
-
-**4. 時間的重要性：過期機制 (Expiry)**
-政治紅利不是永久的。選民的感激與媒體的操作都有保存期限：
-* **政績過期 (預設 6 年)：** 如果你在第 1 年透過建設大幅提升滿意度而獲得了巨大的支持度飆升，這筆特定的支持度紅利會開始過期，並從第 7 年開始從你的總支持度中扣回。
-* **洗腦過期 (預設 2 年)：** 洗腦能帶來強大、即時的支持度注射，但它消退得非常快。如果你依賴它，你必須不斷花錢來維持這個幻象。
-* **動態挑戰：** 為了維持權力，執政黨不能只靠過去的功勞吃老本。它必須持續投資以保持 True-H 持續高於基準點。否則，一旦舊有的紅利 (來自政績或洗腦) 開始過期，支持度將會面臨斷崖式的崩塌。
+**政績不再是執政黨全拿：理智度與洗腦的功勞爭奪戰**
+當公眾滿意度 (True-H) 上升時，支持度的分配**不再單純看誰投的錢多**，而是會被「理智度」與「洗腦度」狠狠矯正一次：
+* **高理智社會：** 選民眼睛是雪亮的。誰實打實地砸錢在「建設 (Cons)」，誰就能分到大部分的政績紅利。
+* **低理智社會：** 進入愚民政治。此時砸錢建設的一方可能拿不到功勞，功勞會被投入大量「洗腦 (Brain)」且掌握媒體優勢（H黨）的一方整碗端走。
+* **扣分機制：** 如果國家滿意度衰退（整體 True-H 下降），選民會怪罪掌舵者，由**執政黨承擔全部的支持度流失**。
         """,
         'governing': "當前執政",
         'tax_revenue': "當前稅收",
@@ -292,7 +250,6 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
 }
 
 def t(key, *args):
-    # 此函數會從 streamlit session 獲取當前語言
     lang_code = st.session_state.get('lang', 'English')
     text = I18N[lang_code].get(key, key)
     if args: return text.format(*args)
