@@ -321,10 +321,14 @@ def do_forecast_calc():
     p_tax = max(0, game.annual_budget + ((p_true - 0.5) * game.tax_impact))
     h_inc = p_tax * p_h_idx
     r_inc = p_tax * (1 - p_h_idx)
-    inc_a = game.base_income + (game.major_bonus if game.first_party=="A" else 0) + (h_inc if sim_H=="A" else r_inc)
-    inc_b = game.base_income + (game.major_bonus if game.first_party=="B" else 0) + (h_inc if sim_H=="B" else r_inc)
+    
+    maj_A = game.major_bonus if game.first_party == "A" else 0
+    maj_B = game.major_bonus if game.first_party == "B" else 0
 
-    return inc_a, inc_b, net_a, net_b, net_edu, p_rat, t_cons, p_true, p_tax, p_h_idx, p_eff, bw_eff, p_base, b_base, r_val
+    inc_a = game.base_income + maj_A + (h_inc if sim_H == "A" else r_inc)
+    inc_b = game.base_income + maj_B + (h_inc if sim_H == "B" else r_inc)
+
+    return inc_a, inc_b, net_a, net_b, net_edu, p_rat, t_cons, p_true, p_tax, p_h_idx, p_eff, bw_eff, p_base, b_base, r_val, h_inc, r_inc, maj_A, maj_B
 
 
 # --- UI: GLOBAL SETTINGS ---
@@ -507,8 +511,8 @@ if c2.button("Confirm & End Year", type="primary", use_container_width=True):
         game.events.append({'year': game.year, 'type': 'Swap'})
 
     inputs = {
-        'A': {'edu': st.session_state.in_a_edu, 'anti': st.session_state.in_a_anti, 'brain': st.session_state.in_a_brain, 'cons': st.session_state.in_a_cons},
-        'B': {'edu': st.session_state.in_b_edu, 'anti': st.session_state.in_b_anti, 'brain': st.session_state.in_b_brain, 'cons': st.session_state.in_b_cons}
+        'A': {'edu': st.session_state.in_a_edu if sim_R == "A" else 0, 'anti': st.session_state.in_a_anti if sim_R == "A" else 0, 'brain': st.session_state.in_a_brain, 'cons': st.session_state.in_a_cons},
+        'B': {'edu': st.session_state.in_b_edu if sim_R == "B" else 0, 'anti': st.session_state.in_b_anti if sim_R == "B" else 0, 'brain': st.session_state.in_b_brain, 'cons': st.session_state.in_b_cons}
     }
     game.process_year(inputs)
     
@@ -520,17 +524,24 @@ if c2.button("Confirm & End Year", type="primary", use_container_width=True):
     st.rerun()
 
 # Always render live forecast below
-inc_a, inc_b, net_a, net_b, net_edu, p_rat, t_cons, p_true, p_tax, p_h_idx, p_eff, bw_eff, p_base, b_base, r_val = do_forecast_calc()
+inc_a, inc_b, net_a, net_b, net_edu, p_rat, t_cons, p_true, p_tax, p_h_idx, p_eff, bw_eff, p_base, b_base, r_val, h_inc, r_inc, maj_A, maj_B = do_forecast_calc()
 
 cost_A = st.session_state.in_a_edu + st.session_state.in_a_anti + st.session_state.in_a_brain + st.session_state.in_a_cons
 cost_B = st.session_state.in_b_edu + st.session_state.in_b_anti + st.session_state.in_b_brain + st.session_state.in_b_cons
 if cost_A > game.A_wealth or cost_B > game.B_wealth:
     st.warning("⚠️ Warning: Projected expenditure exceeds current wealth!")
+    
+wasted_warn = ""
+if st.session_state.do_swap:
+    if (st.session_state.in_a_edu > 0 or st.session_state.in_a_anti > 0) and sim_R != "A":
+        wasted_warn += f"\n* ⚠️ **Warning:** {st.session_state.name_a} will waste funds placed in Edu/Anti due to the proposed Swap."
+    if (st.session_state.in_b_edu > 0 or st.session_state.in_b_anti > 0) and sim_R != "B":
+        wasted_warn += f"\n* ⚠️ **Warning:** {st.session_state.name_b} will waste funds placed in Edu/Anti due to the proposed Swap."
 
 st.warning(f"""
 **Forecast Results (Midpoint Decay: {mid_decay:.2f}):**
 * Expected {st.session_state.name_a} Income: **{inc_a:.1f}** | Support Change: **{"+" if net_a>=0 else ""}{net_a:.2%}**
-* Expected {st.session_state.name_b} Income: **{inc_b:.1f}** | Support Change: **{"+" if net_b>=0 else ""}{net_b:.2%}**
+* Expected {st.session_state.name_b} Income: **{inc_b:.1f}** | Support Change: **{"+" if net_b>=0 else ""}{net_b:.2%}** {wasted_warn}
 """)
 
 with st.expander("🧮 View Forecast Calculation Breakdown"):
@@ -539,9 +550,13 @@ with st.expander("🧮 View Forecast Calculation Breakdown"):
     
     **2. Satisfaction (True-H):** New_TrueH = Current({game.true_H:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_{l_cons}({t_cons}) × 0.001] = **{p_true:.4f}**
     
-    **3. Budget & Tax Allocation:** Expected Tax = Base({game.annual_budget}) + [ (New_TrueH({p_true:.4f}) - 0.5) × Sat. Tax Impact({game.tax_impact:.1f}) ] = **{p_tax:.1f}** New_H_Index = Current({game.H_index:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_{l_cons}({t_cons}) / R_Value({r_val:.2f}) × 0.001] = **{p_h_idx:.4f}**
+    **3. Budget & Tax Allocation:** * Expected Tax = Base({game.annual_budget}) + [ (New_TrueH({p_true:.4f}) - 0.5) × Sat. Tax Impact({game.tax_impact:.1f}) ] = **{p_tax:.1f}** * New_H_Index = Current({game.H_index:.4f}) - Decay_Midpoint({mid_decay:.2f}) + [Total_{l_cons}({t_cons}) / R_Value({r_val:.2f}) × 0.001] = **{p_h_idx:.4f}**
+    * H-Role Income = Tax({p_tax:.1f}) × H_Index({p_h_idx:.4f}) = **{h_inc:.1f}**
+    * R-Role Income = Tax({p_tax:.1f}) × (1 - H_Index) = **{r_inc:.1f}**
+    * {st.session_state.name_a} Total Income = Base({game.base_income}) + Bonus({maj_A}) + Role Income({h_inc:.1f} if H else {r_inc:.1f}) = **{inc_a:.1f}**
+    * {st.session_state.name_b} Total Income = Base({game.base_income}) + Bonus({maj_B}) + Role Income({h_inc:.1f} if H else {r_inc:.1f}) = **{inc_b:.1f}**
     
-    **4. Political Support ({st.session_state.name_a}):** Performance_Effect = [New_TrueH({p_true:.4f}) - Baseline({game.baseline_true_H:.4f})] × [New_Rationality({p_rat:.4f}) + Emotion_Perf_Base({p_base:.2f})] = {p_eff:.4f}  
-    {l_brain}_Effect = [Net_Brain({st.session_state.in_a_brain - st.session_state.in_b_brain}) × BW_Impact({game.bw_mult:.4f})] × [Emotion_BW_Ceiling({b_base:.2f}) - New_Rationality({p_rat:.4f})] = {bw_eff:.4f}  
-    Total_Change = (Perf_Effect) + {l_brain}_Effect - Expiring_Buffs = **{net_a:.2%}**
+    **4. Political Support ({st.session_state.name_a}):** * Performance_Effect = [New_TrueH({p_true:.4f}) - Baseline({game.baseline_true_H:.4f})] × [New_Rationality({p_rat:.4f}) + Emotion_Perf_Base({p_base:.2f})] = {p_eff:.4f}  
+    * {l_brain}_Effect = [Net_Brain({st.session_state.in_a_brain - st.session_state.in_b_brain}) × BW_Impact({game.bw_mult:.4f})] × [Emotion_BW_Ceiling({b_base:.2f}) - New_Rationality({p_rat:.4f})] = {bw_eff:.4f}  
+    * Total_Change = (Perf_Effect) + {l_brain}_Effect - Expiring_Buffs = **{net_a:.2%}**
     """)
