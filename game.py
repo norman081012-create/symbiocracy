@@ -56,6 +56,7 @@ class SymbiocracyGame:
         self.current_R_party = "A"
 
         self.swap_available = True 
+        self.error_msg = ""
         self.current_tax = 1000
 
         self.history = []
@@ -194,6 +195,7 @@ class SymbiocracyGame:
             self.last_report['election_just_happened'] = True
             self.last_report['new_major'] = self.first_party
 
+        self.error_msg = ""
         self.last_year_decay = self.current_decay
         self.current_decay = random.uniform(self.decay_min, self.decay_max)
 
@@ -210,11 +212,15 @@ I18N = {
     'English': {
         'settings': "⚙️ Global Settings (Adjust Anytime)",
         'lang': "Language:",
+        'ctrl_a': "Control Party A:",
+        'ctrl_b': "Control Party B:",
+        'human': "Human",
+        'bot': "Bot",
         'label_style': "UI Label Style:",
         'short': "Short",
         'full': "Full",
-        'name_a': "Name Prosperity:",
-        'name_b': "Name Equity:",
+        'name_a': "Name A:",
+        'name_b': "Name B:",
         'decay_range': "Decay Range:",
         'total_years': "Total Years:",
         'base_budget': "Base Budget:",
@@ -225,8 +231,8 @@ I18N = {
         'bw_impact': "BW Impact:",
         'bw_duration': "BW Duration:",
         'perf_duration': "Perf Duration:",
-        'set_wealth_a': "Set Wealth Prosperity:",
-        'set_wealth_b': "Set Wealth Equity:",
+        'set_wealth_a': "Set Wealth A:",
+        'set_wealth_b': "Set Wealth B:",
         'game_guide': "📖 Game Guide",
         'detail_level': "Detail Level:",
         'overview': "Overview",
@@ -301,10 +307,10 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'midpoint_decay': "Midpoint Decay",
         'swap_instruction': "(Both parties can toggle Execute Swap if it benefits their strategy)",
         'accumulated_wealth': "💰 Accumulated Wealth",
-        'r_value_gov': "R-Value (Governing Party Only):",
+        'r_value_gov': "R-Value (Ruling Only):",
         'r_value_lock': "R-Value (LOCKED):",
         'execute_swap': "Execute Swap (Locks R-Value & Roles)",
-        'execute_swap_lock': "Execute Swap (LOCKED until Election)",
+        'execute_swap_lock': "Execute Swap (LOCKED)",
         'show_real_decay': "Show Real Decay",
         'current_real_decay': "Current Real Decay:",
         'hidden': "*** HIDDEN ***",
@@ -315,18 +321,25 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'brain': "Brainwashing",
         'cons': "Construction",
         'max': "Max",
-        'not_r': "Not Regulator",
+        'not_r': "Not R-Role",
         'waste_warn': "Funds placed in Edu/Anti will be wasted due to the proposed Swap.",
         'forecast_header': "Forecast Results (Midpoint Decay: {0:.2f}):",
         'expected_income': "Expected {0} Income:",
         'support_change': "Support Change:",
-        'view_breakdown': "🧮 View Forecast Calculation Breakdown",
+        'view_breakdown': "🧮 View Calculation Breakdown",
         'h_inc': "Household Income",
         'r_inc': "Regulator Income",
         'total_inc': "Total Income",
         'bonus': "Bonus",
         'sim_fin': "=== Simulation Finished! ===",
         'restart': "Restart Game",
+        'turn_p0': "Phase 1: Ruling Party Drafts Proposal",
+        'turn_p1': "Phase 2: Opposition Reacts",
+        'turn_p2': "Phase 3: Final Review",
+        'btn_submit_prop': "Submit Proposal to Opposition",
+        'btn_submit_react': "Submit Reaction",
+        'btn_revise': "Revise Proposal",
+        'wait_opp': "Waiting for Opposition...",
         'h_new': "📰 **Headline:** *New Government Takes Office! Welcome to Year 1.*",
         'h_elec': "📰 **Headline:** Election Concluded! **{0}** secures the majority!\n\n",
         'h_fin_c': "📰 **Financial Report:** {0}. {1} Consequently, **{2}** secured a revenue of {3} with a support shift of {4}, while **{5}** secured {6} with a support shift of {7}.",
@@ -346,6 +359,10 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
     '中文': {
         'settings': "⚙️ 全域設定 (隨時可調)",
         'lang': "語言:",
+        'ctrl_a': "A黨控制模式:",
+        'ctrl_b': "B黨控制模式:",
+        'human': "玩家",
+        'bot': "電腦",
         'label_style': "UI 標籤樣式:",
         'short': "簡稱",
         'full': "全名",
@@ -393,7 +410,7 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
 1. **評估當前年度：** 查看頂部的**狀態看板**。閱讀報紙頭條以了解當前的經濟氣候，並檢查「預期衰退中值」。高衰退意味著你的滿意度和預算今年將大幅下降。
 2. **草擬預算與決定 R 值：** 兩黨將各自累積的財富分配到對應的輸入框 (教育、反智、洗腦、建設)。但**只有執政黨可以決定 R 值**。
 3. **談判：** 與反對黨討論策略。決定為了讓雙方度過今年，是否需要執行**交換 (Swap)**。
-4. **檢查數學計算：** *先別急著按確認！* 點擊 **「計算預測」** 並打開 **「查看預測計算明細」** 面板。這會精確顯示你提議的支出將如何改變雙方的收入與支持度。
+4. **檢查數學計算：** *先別急著按確認！* 點擊 **「計算預測」** 並打開 **「查看計算明細」** 面板。這會精確顯示你提議的支出將如何改變雙方的收入與支持度。
 5. **修改與執行：** 根據預測結果調整支出。一旦兩黨對最終數字達成共識，點擊 **「確認並結束本年」** 以鎖定結果並推進時間。
 
 **理解 UI 詞彙表：**
@@ -435,12 +452,12 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'election_next_year': "⏳ 距離選舉剩 1 年！",
         'rationality_level': "社會理智度",
         'midpoint_decay': "預期衰退中值",
-        'swap_hint': "(若玩家認為有利，兩黨皆可隨時提出「執行交換」)",
+        'swap_instruction': "(若玩家認為有利，兩黨皆可隨時提出「執行交換」)",
         'accumulated_wealth': "💰 累積資金庫",
-        'r_value_gov': "R值 (僅執政黨可調整):",
+        'r_value_gov': "R值 (僅執政黨可調):",
         'r_value_lock': "R值 (已鎖定):",
         'execute_swap': "執行交換 (鎖定R值與角色)",
-        'execute_swap_lock': "執行交換 (鎖定至下次選舉)",
+        'execute_swap_lock': "執行交換 (已鎖定)",
         'show_real_decay': "顯示實際衰退",
         'current_real_decay': "當前實際衰退值:",
         'hidden': "*** 隱藏 ***",
@@ -450,19 +467,26 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
         'anti': "反智",
         'brain': "洗腦",
         'cons': "建設",
-        'max': "最大值",
-        'not_r': "非 Regulator",
+        'max': "最大",
+        'not_r': "非 R 角色",
         'waste_warn': "因執行交換，投入教育/反智的資金將會被浪費。",
         'forecast_header': "預測結果 (預期衰退: {0:.2f}):",
         'expected_income': "預期 {0} 收入:",
         'support_change': "支持度變化:",
-        'view_breakdown': "🧮 查看預測計算明細",
+        'view_breakdown': "🧮 查看計算明細",
         'h_inc': "Household 收入",
         'r_inc': "Regulator 收入",
         'total_inc': "總收入",
         'bonus': "津貼",
         'sim_fin': "=== 模擬結束！ ===",
         'restart': "重新開始遊戲",
+        'turn_p0': "階段 1: 執政黨草擬提案",
+        'turn_p1': "階段 2: 在野黨回應",
+        'turn_p2': "階段 3: 最終審查",
+        'btn_submit_prop': "將提案交給在野黨",
+        'btn_submit_react': "送出回應",
+        'btn_revise': "退回修改提案",
+        'wait_opp': "等待在野黨回應中...",
         'h_new': "📰 **頭條：** *新政府上任！歡迎來到第 1 年。*",
         'h_elec': "📰 **頭條：** 選舉結束！**{0}** 取得多數席位！\n\n",
         'h_fin_c': "📰 **財報：** {0}。{1} 因此，**{2}** 獲得了 {3} 的收入與 {4} 的支持度變化，而 **{5}** 獲得了 {6} 的收入與 {7} 的支持度變化。",
@@ -481,18 +505,19 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
     }
 }
 
-# Helper to fetch translated text
 def t(key, *args):
     lang_code = st.session_state.lang
     text = I18N[lang_code].get(key, key)
-    if args:
-        return text.format(*args)
+    if args: return text.format(*args)
     return text
 
 # --- INITIALIZE STATE ---
 if 'game' not in st.session_state:
     st.session_state.game = SymbiocracyGame()
     st.session_state.lang = "English"
+    st.session_state.ctrl_a = "Human"
+    st.session_state.ctrl_b = "Bot"
+    st.session_state.turn_phase = 0 # 0: Ruling, 1: Opp, 2: Final
     st.session_state.name_a = "Prosperity"
     st.session_state.name_b = "Equity"
     st.session_state.show_decay = False
@@ -512,12 +537,113 @@ if 'game' not in st.session_state:
 
 game = st.session_state.game
 
+# --- BOT LOGIC (ROI Heuristic) ---
+def compute_bot_moves(bot_id, human_id, current_game):
+    b_wealth = current_game.A_wealth if bot_id == 'A' else current_game.B_wealth
+    bot_in = {'edu': 0.0, 'anti': 0.0, 'brain': 0.0, 'cons': 0.0}
+    do_swap = st.session_state.do_swap
+    r_val = st.session_state.r_val
+
+    is_gov = (current_game.first_party == bot_id)
+    is_h = (current_game.current_H_party == bot_id)
+    is_r = (current_game.current_R_party == bot_id)
+
+    human_in = {
+        'edu': st.session_state.in_a_edu if human_id == 'A' else st.session_state.in_b_edu,
+        'anti': st.session_state.in_a_anti if human_id == 'A' else st.session_state.in_b_anti,
+        'brain': st.session_state.in_a_brain if human_id == 'A' else st.session_state.in_b_brain,
+        'cons': st.session_state.in_a_cons if human_id == 'A' else st.session_state.in_b_cons,
+    }
+
+    # Evaluate Swap
+    if current_game.swap_available:
+        human_is_h = (current_game.current_H_party == human_id)
+        if human_is_h and r_val < 0.4:
+            do_swap = True
+        elif is_r and getattr(current_game, f"{human_id}_wealth") > b_wealth * 2:
+            do_swap = True
+
+    plan_h = is_h if not do_swap else not is_h
+    plan_r = is_r if not do_swap else not is_r
+
+    # Evaluate R-value
+    if is_gov:
+        r_val = 0.2 if plan_h else 0.8
+
+    avail_wealth = b_wealth * 0.9 # Keep 10% reserve
+
+    # Strategy: Cons
+    if plan_h and r_val < 0.5:
+        bot_in['cons'] = min(avail_wealth * 0.5, 300)
+    elif plan_h:
+        bot_in['cons'] = min(avail_wealth * 0.1, 50)
+
+    # Strategy: Brainwash
+    years_to_elec = 4 - (current_game.year % 4)
+    my_sup = current_game.A_support if bot_id == 'A' else current_game.B_support
+    human_sup = 1.0 - my_sup
+
+    if years_to_elec <= 2:
+        gap = human_sup - my_sup 
+        if 0 < gap < 0.2:
+            bot_in['brain'] = min(avail_wealth * 0.7, gap * 2000)
+        elif -0.1 < gap <= 0:
+            bot_in['brain'] = min(avail_wealth * 0.2, 80)
+
+    # Strategy: Edu/Anti (Only if R-role)
+    if plan_r:
+        max_edu = max(0, (1.0 - current_game.rationality) / current_game.edu_mult)
+        max_anti = max(0, current_game.rationality / current_game.edu_mult)
+        
+        if bot_in['brain'] > 50:
+            bot_in['anti'] = min(avail_wealth * 0.3, max_anti)
+        elif human_in['brain'] > 50:
+            bot_in['edu'] = min(avail_wealth * 0.4, max_edu)
+
+    # Ensure within bounds
+    total = sum(bot_in.values())
+    if total > b_wealth:
+        scale = b_wealth / total
+        for k in bot_in: bot_in[k] *= scale
+
+    return bot_in, do_swap, r_val
+
+# Trigger Bots before rendering UI
+def run_bots():
+    if st.session_state.ctrl_a == "Bot":
+        bot_moves, swap, rval = compute_bot_moves('A', 'B', game)
+        st.session_state.in_a_edu = float(bot_moves['edu'])
+        st.session_state.in_a_anti = float(bot_moves['anti'])
+        st.session_state.in_a_brain = float(bot_moves['brain'])
+        st.session_state.in_a_cons = float(bot_moves['cons'])
+        if game.first_party == 'A':
+            st.session_state.do_swap = swap
+            st.session_state.r_val = float(rval)
+        elif swap: # Non-gov can still propose swap
+            st.session_state.do_swap = True
+
+    if st.session_state.ctrl_b == "Bot":
+        bot_moves, swap, rval = compute_bot_moves('B', 'A', game)
+        st.session_state.in_b_edu = float(bot_moves['edu'])
+        st.session_state.in_b_anti = float(bot_moves['anti'])
+        st.session_state.in_b_brain = float(bot_moves['brain'])
+        st.session_state.in_b_cons = float(bot_moves['cons'])
+        if game.first_party == 'B':
+            st.session_state.do_swap = swap
+            st.session_state.r_val = float(rval)
+        elif swap:
+            st.session_state.do_swap = True
+
 # --- UI: GLOBAL SETTINGS ---
 with st.expander(t('settings'), expanded=False):
     c_l1, c_l2 = st.columns(2)
     st.session_state.lang = c_l1.radio(t('lang'), ["English", "中文"], index=0 if st.session_state.lang=="English" else 1, horizontal=True)
     st.session_state.label_style = c_l2.radio(t('label_style'), [t('short'), t('full')], horizontal=True)
     
+    c1, c2 = st.columns(2)
+    st.session_state.ctrl_a = c1.radio(t('ctrl_a'), ["Human", "Bot"], index=0 if st.session_state.ctrl_a=="Human" else 1, horizontal=True)
+    st.session_state.ctrl_b = c2.radio(t('ctrl_b'), ["Human", "Bot"], index=0 if st.session_state.ctrl_b=="Human" else 1, horizontal=True)
+
     c1, c2 = st.columns(2)
     st.session_state.name_a = c1.text_input(t('name_a'), st.session_state.name_a)
     st.session_state.name_b = c2.text_input(t('name_b'), st.session_state.name_b)
@@ -548,17 +674,11 @@ with st.expander(t('settings'), expanded=False):
     game.B_wealth = c2.number_input(t('set_wealth_b'), value=float(game.B_wealth))
 
 
-# --- UI: GAME GUIDE ---
-with st.expander(t('game_guide'), expanded=False):
-    col_g1, col_g2 = st.columns([4, 1])
-    guide_mode = col_g2.radio(t('detail_level'), [t('overview'), t('how_to_play'), t('deep_dive')], horizontal=False, label_visibility="collapsed")
-    
-    if guide_mode == t('overview'):
-        col_g1.markdown(t('guide_overview'))
-    elif guide_mode == t('how_to_play'):
-        col_g1.markdown(t('guide_how'))
-    else:
-        col_g1.markdown(t('guide_deep'))
+# --- Determine Play Mode & Run Bots ---
+is_hvh = (st.session_state.ctrl_a == "Human" and st.session_state.ctrl_b == "Human")
+if not is_hvh:
+    st.session_state.turn_phase = 2 # Bypass phase system if bots are involved
+    run_bots() 
 
 # Check for End Game
 if game.year > game.total_years:
@@ -582,6 +702,7 @@ if game.year > game.total_years:
     
     if st.button(t('restart')):
         st.session_state.game = SymbiocracyGame()
+        st.session_state.turn_phase = 0
         st.rerun()
     st.stop()
 
@@ -590,19 +711,14 @@ if game.year > game.total_years:
 def generate_headline():
     if game.year == 1:
         return t('h_new')
-    
     rep = game.last_report
     if not rep: return ""
-    
     major_name = st.session_state.name_a if rep['blame_party'] == 'A' else st.session_state.name_b
-    
     h1 = ""
     if rep['election_just_happened']:
         new_major_name = st.session_state.name_a if rep['new_major'] == 'A' else st.session_state.name_b
         h1 = t('h_elec', new_major_name)
-    
     diff = rep['act_decay'] - rep['exp_decay']
-    
     def fmt_inc(exp, act): return f"**{act:.1f}** (Exp: {exp:.1f})"
     def fmt_sup(exp, act): return f"**{act:+.2%}** (Exp: {exp:+.2%})"
 
@@ -611,17 +727,16 @@ def generate_headline():
     sup_A_str = fmt_sup(rep['exp_net_A'], rep['act_net_A'])
     sup_B_str = fmt_sup(rep['exp_net_B'], rep['act_net_B'])
     
-    if diff > 0.1: # Crisis
+    if diff > 0.1: 
         reason = random.choice(t('r_bad'))
         desc = t('d_cu', major_name)
         h2 = t('h_fin_c', reason, desc, st.session_state.name_a, inc_A_str, sup_A_str, st.session_state.name_b, inc_B_str, sup_B_str)
-    elif diff < -0.1: # Boom
+    elif diff < -0.1: 
         reason = random.choice(t('r_good'))
         desc = t('d_br', major_name)
         h2 = t('h_fin_c', reason, desc, st.session_state.name_a, inc_A_str, sup_A_str, st.session_state.name_b, inc_B_str, sup_B_str)
     else:
         h2 = t('h_fin_s', st.session_state.name_a, inc_A_str, sup_A_str, st.session_state.name_b, inc_B_str, sup_B_str)
-        
     return h1 + h2
 
 def do_forecast_calc():
@@ -662,14 +777,47 @@ def do_forecast_calc():
 
 
 # --- UI: HEADER & STATUS ---
+with st.expander(t('game_guide'), expanded=False):
+    col_g1, col_g2 = st.columns([4, 1])
+    guide_mode = col_g2.radio(t('detail_level'), [t('overview'), t('how_to_play'), t('deep_dive')], horizontal=False, label_visibility="collapsed")
+    
+    if guide_mode == t('overview'): col_g1.markdown(t('guide_overview'))
+    elif guide_mode == t('how_to_play'): col_g1.markdown(t('guide_how'))
+    else: col_g1.markdown(t('guide_deep'))
+
 mid_decay = (game.decay_min + game.decay_max) / 2
 elec_warning = t('election_this_year') if game.year % 4 == 0 else (t('election_next_year') if game.year % 4 == 3 else "")
 major_name = st.session_state.name_a if game.first_party == 'A' else st.session_state.name_b
 
 st.markdown(f"### 🏛️ {t('yr')} {game.year} | {t('governing')}: 👑 {major_name} | {t('tax_revenue')}: {game.current_tax:.1f} {elec_warning}")
-st.success(generate_headline())
+st.info(generate_headline())
 st.write(f"**{t('rationality_level')}:** {game.rationality:.4f} | **{t('midpoint_decay')}:** {mid_decay:.2f}  \n*{t('swap_instruction')}*")
 
+
+# --- TURN PHASE UI (Human vs Human) ---
+if is_hvh:
+    phase_titles = [t('turn_p0'), t('turn_p1'), t('turn_p2')]
+    st.markdown(f"#### 🚦 {phase_titles[st.session_state.turn_phase]}")
+
+# Determine Enable/Disable state based on Phase
+dis_a = False
+dis_b = False
+
+if is_hvh:
+    is_a_ruling = (game.first_party == 'A')
+    if st.session_state.turn_phase == 0:
+        if is_a_ruling: dis_b = True
+        else: dis_a = True
+    elif st.session_state.turn_phase == 1:
+        if is_a_ruling: dis_a = True
+        else: dis_b = True
+    elif st.session_state.turn_phase == 2:
+        dis_a = True
+        dis_b = True
+
+# Overrides for Bot
+if st.session_state.ctrl_a == "Bot": dis_a = True
+if st.session_state.ctrl_b == "Bot": dis_b = True
 
 # --- UI: WEALTH BARS ---
 max_w = max(game.A_wealth, game.B_wealth, 1)
@@ -685,12 +833,18 @@ st.markdown(wealth_html, unsafe_allow_html=True)
 
 # --- UI: SWAP & INPUTS ---
 col1, col2, col3 = st.columns([1, 1, 1])
+
+# Only Gov can set R-val
+r_disabled = (not game.swap_available) or (is_hvh and ((game.first_party=='A' and dis_a) or (game.first_party=='B' and dis_b)))
 with col1:
     r_desc = t('r_value_gov') if game.swap_available else t('r_value_lock')
-    st.session_state.r_val = st.number_input(r_desc, value=st.session_state.r_val, disabled=not game.swap_available)
+    st.session_state.r_val = st.number_input(r_desc, value=st.session_state.r_val, disabled=r_disabled)
+
+# Both can trigger swap, if their turn is active
+swap_disabled = (not game.swap_available) or (dis_a and dis_b)
 with col2:
     st.write("<br>", unsafe_allow_html=True)
-    st.session_state.do_swap = st.checkbox(t('execute_swap') if game.swap_available else t('execute_swap_lock'), value=st.session_state.do_swap, disabled=not game.swap_available)
+    st.session_state.do_swap = st.checkbox(t('execute_swap') if game.swap_available else t('execute_swap_lock'), value=st.session_state.do_swap, disabled=swap_disabled)
 with col3:
     st.write("<br>", unsafe_allow_html=True)
     st.session_state.show_decay = st.checkbox(t('show_real_decay'), value=st.session_state.show_decay)
@@ -700,22 +854,14 @@ if st.session_state.show_decay:
 else:
     st.markdown(f"{t('current_real_decay')} **{t('hidden')}**")
 
-
-# Determine Labels based on Settings Toggle
-if st.session_state.label_style == t('full'):
-    l_edu = t('edu')
-    l_anti = t('anti')
-    l_brain = t('brain')
-    l_cons = t('cons')
-else:
-    l_edu = "Edu" if st.session_state.lang == "English" else "教育"
-    l_anti = "Anti" if st.session_state.lang == "English" else "反智"
-    l_brain = "Brain" if st.session_state.lang == "English" else "洗腦"
-    l_cons = "Cons" if st.session_state.lang == "English" else "建設"
+# Labels
+l_edu = t('edu') if st.session_state.label_style == t('full') else ("Edu" if st.session_state.lang == "English" else "教育")
+l_anti = t('anti') if st.session_state.label_style == t('full') else ("Anti" if st.session_state.lang == "English" else "反智")
+l_brain = t('brain') if st.session_state.label_style == t('full') else ("Brain" if st.session_state.lang == "English" else "洗腦")
+l_cons = t('cons') if st.session_state.label_style == t('full') else ("Cons" if st.session_state.lang == "English" else "建設")
 
 sim_R = game.current_H_party if st.session_state.do_swap else game.current_R_party
 sim_H = game.current_R_party if st.session_state.do_swap else game.current_H_party
-
 max_edu = max(0, (1.0 - game.rationality) / game.edu_mult)
 max_anti = max(0, game.rationality / game.edu_mult)
 
@@ -728,14 +874,14 @@ colA1.success(f"👑 **{st.session_state.name_a} ({role_A})** \nAppr: {game.A_su
 
 with colA2:
     label = f"{l_edu} ({t('max')} {max_edu:.0f})" if sim_R == "A" else f"{l_edu} ({t('not_r')})"
-    st.session_state.in_a_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_edu, disabled=sim_R!="A", key='a_edu')
+    st.session_state.in_a_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_edu, disabled=(sim_R!="A" or dis_a), key='a_edu')
 with colA3:
     label = f"{l_anti} ({t('max')} {max_anti:.0f})" if sim_R == "A" else f"{l_anti} ({t('not_r')})"
-    st.session_state.in_a_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_anti, disabled=sim_R!="A", key='a_anti')
+    st.session_state.in_a_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="A" else 1000000.0, value=st.session_state.in_a_anti, disabled=(sim_R!="A" or dis_a), key='a_anti')
 with colA4:
-    st.session_state.in_a_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_a_brain, key='a_brain')
+    st.session_state.in_a_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_a_brain, disabled=dis_a, key='a_brain')
 with colA5:
-    st.session_state.in_a_cons = st.number_input(f"{l_cons}:", value=st.session_state.in_a_cons, key='a_cons')
+    st.session_state.in_a_cons = st.number_input(f"{l_cons}:", value=st.session_state.in_a_cons, disabled=dis_a, key='a_cons')
 
 
 # Party B Inputs
@@ -745,55 +891,26 @@ colB1.info(f"**{st.session_state.name_b} ({role_B})** \nAppr: {game.B_support:.2
 
 with colB2:
     label = f"{l_edu} ({t('max')} {max_edu:.0f})" if sim_R == "B" else f"{l_edu} ({t('not_r')})"
-    st.session_state.in_b_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_edu, disabled=sim_R!="B", key='b_edu')
+    st.session_state.in_b_edu = st.number_input(label, min_value=0.0, max_value=float(max_edu) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_edu, disabled=(sim_R!="B" or dis_b), key='b_edu')
 with colB3:
     label = f"{l_anti} ({t('max')} {max_anti:.0f})" if sim_R == "B" else f"{l_anti} ({t('not_r')})"
-    st.session_state.in_b_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_anti, disabled=sim_R!="B", key='b_anti')
+    st.session_state.in_b_anti = st.number_input(label, min_value=0.0, max_value=float(max_anti) if sim_R=="B" else 1000000.0, value=st.session_state.in_b_anti, disabled=(sim_R!="B" or dis_b), key='b_anti')
 with colB4:
-    st.session_state.in_b_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_b_brain, key='b_brain')
+    st.session_state.in_b_brain = st.number_input(f"{l_brain}:", value=st.session_state.in_b_brain, disabled=dis_b, key='b_brain')
 with colB5:
-    st.session_state.in_b_cons = st.number_input(f"{l_cons}:", value=st.session_state.in_b_cons, key='b_cons')
+    st.session_state.in_b_cons = st.number_input(f"{l_cons}:", value=st.session_state.in_b_cons, disabled=dis_b, key='b_cons')
 
 
 # --- UI: ACTIONS & FORECAST ---
 if st.session_state.error_msg:
     st.error(st.session_state.error_msg)
 
-c1, c2 = st.columns(2)
-if c2.button(t('confirm_btn'), type="primary", use_container_width=True):
-    cost_A = st.session_state.in_a_edu + st.session_state.in_a_anti + st.session_state.in_a_brain + st.session_state.in_a_cons
-    cost_B = st.session_state.in_b_edu + st.session_state.in_b_anti + st.session_state.in_b_brain + st.session_state.in_b_cons
-    
-    if cost_A > game.A_wealth or cost_B > game.B_wealth:
-        st.session_state.error_msg = t('err_exp')
-        st.rerun()
-    
-    st.session_state.error_msg = ""
-    game.R_value = st.session_state.r_val if st.session_state.r_val != 0 else 0.000001
-    
-    if st.session_state.do_swap and game.swap_available:
-        game.current_H_party, game.current_R_party = game.current_R_party, game.current_H_party
-        game.swap_available = False
-        game.events.append({'year': game.year, 'type': 'Swap'})
-
-    inputs = {
-        'A': {'edu': st.session_state.in_a_edu if sim_R == "A" else 0, 'anti': st.session_state.in_a_anti if sim_R == "A" else 0, 'brain': st.session_state.in_a_brain, 'cons': st.session_state.in_a_cons},
-        'B': {'edu': st.session_state.in_b_edu if sim_R == "B" else 0, 'anti': st.session_state.in_b_anti if sim_R == "B" else 0, 'brain': st.session_state.in_b_brain, 'cons': st.session_state.in_b_cons}
-    }
-    game.process_year(inputs)
-    
-    st.session_state.in_a_edu = st.session_state.in_a_anti = st.session_state.in_a_brain = st.session_state.in_a_cons = 0.0
-    st.session_state.in_b_edu = st.session_state.in_b_anti = st.session_state.in_b_brain = st.session_state.in_b_cons = 0.0
-    st.session_state.do_swap = False
-    
-    st.rerun()
-
 inc_a, inc_b, net_a, net_b, net_edu, p_rat, t_cons, p_true, p_tax, p_h_idx, p_eff, bw_eff, p_base, b_base, r_val, h_inc, r_inc, maj_A, maj_B = do_forecast_calc()
 
 cost_A = st.session_state.in_a_edu + st.session_state.in_a_anti + st.session_state.in_a_brain + st.session_state.in_a_cons
 cost_B = st.session_state.in_b_edu + st.session_state.in_b_anti + st.session_state.in_b_brain + st.session_state.in_b_cons
 if cost_A > game.A_wealth or cost_B > game.B_wealth:
-    st.warning(t('warn_exp'))
+    st.warning(t('warn_exp', '⚠️ Budget Exceeded!'))
     
 wasted_warn = ""
 if st.session_state.do_swap:
@@ -817,10 +934,60 @@ with st.expander(t('view_breakdown')):
     **3. Budget & Tax Allocation:** * Expected Tax = Base({game.annual_budget}) + [ (New_TrueH({p_true:.4f}) - 0.5) × {t('tax_impact')}({game.tax_impact:.1f}) ] = **{p_tax:.1f}** * New_H_Index = Current({game.H_index:.4f}) - {t('midpoint_decay')}({mid_decay:.2f}) + [Total_{l_cons}({t_cons}) / R_Value({r_val:.2f}) × 0.001] = **{p_h_idx:.4f}**
     * {t('h_inc')} = Tax({p_tax:.1f}) × H_Index({p_h_idx:.4f}) = **{h_inc:.1f}**
     * {t('r_inc')} = Tax({p_tax:.1f}) × (1 - H_Index) = **{r_inc:.1f}**
-    * {st.session_state.name_a} {t('total_inc')} = Base({game.base_income}) + {t('bonus')}({maj_A}) + Role Income({h_inc:.1f} if H else {r_inc:.1f}) = **{inc_a:.1f}**
-    * {st.session_state.name_b} {t('total_inc')} = Base({game.base_income}) + {t('bonus')}({maj_B}) + Role Income({h_inc:.1f} if H else {r_inc:.1f}) = **{inc_b:.1f}**
+    * {st.session_state.name_a} {t('total_inc')} = Base({game.base_income}) + {t('bonus')}({maj_A}) + Role Income({h_inc:.1f} if sim_H == "A" else {r_inc:.1f}) = **{inc_a:.1f}**
+    * {st.session_state.name_b} {t('total_inc')} = Base({game.base_income}) + {t('bonus')}({maj_B}) + Role Income({h_inc:.1f} if sim_H == "B" else {r_inc:.1f}) = **{inc_b:.1f}**
     
     **4. Political Support ({st.session_state.name_a}):** * Performance_Effect = [New_TrueH({p_true:.4f}) - Baseline({game.baseline_true_H:.4f})] × [New_Rationality({p_rat:.4f}) + Emotion_Perf_Base({p_base:.2f})] = {p_eff:.4f}  
     * {l_brain}_Effect = [Net_Brain({st.session_state.in_a_brain - st.session_state.in_b_brain}) × {t('bw_impact')}({game.bw_mult:.4f})] × [Emotion_BW_Ceiling({b_base:.2f}) - New_Rationality({p_rat:.4f})] = {bw_eff:.4f}  
     * Total_Change = (Perf_Effect) + {l_brain}_Effect - Expiring_Buffs = **{net_a:.2%}**
     """)
+
+# --- ACTION BUTTONS ---
+def commit_turn():
+    if cost_A > game.A_wealth or cost_B > game.B_wealth:
+        st.session_state.error_msg = "Error: Over Budget"
+        return
+    st.session_state.error_msg = ""
+    game.R_value = st.session_state.r_val if st.session_state.r_val != 0 else 0.000001
+    
+    if st.session_state.do_swap and game.swap_available:
+        game.current_H_party, game.current_R_party = game.current_R_party, game.current_H_party
+        game.swap_available = False
+        game.events.append({'year': game.year, 'type': 'Swap'})
+
+    inputs = {
+        'A': {'edu': st.session_state.in_a_edu if sim_R == "A" else 0, 'anti': st.session_state.in_a_anti if sim_R == "A" else 0, 'brain': st.session_state.in_a_brain, 'cons': st.session_state.in_a_cons},
+        'B': {'edu': st.session_state.in_b_edu if sim_R == "B" else 0, 'anti': st.session_state.in_b_anti if sim_R == "B" else 0, 'brain': st.session_state.in_b_brain, 'cons': st.session_state.in_b_cons}
+    }
+    game.process_year(inputs)
+    
+    # Reset inputs for next year
+    st.session_state.in_a_edu = st.session_state.in_a_anti = st.session_state.in_a_brain = st.session_state.in_a_cons = 0.0
+    st.session_state.in_b_edu = st.session_state.in_b_anti = st.session_state.in_b_brain = st.session_state.in_b_cons = 0.0
+    st.session_state.do_swap = False
+    st.session_state.turn_phase = 0
+
+# --- Turn-Based Phase Control ---
+if not is_hvh:
+    # PvE Mode (Human vs Bot or Bot vs Bot) -> Skip phases, just one button
+    if st.button(t('confirm_btn'), type="primary", use_container_width=True):
+        commit_turn()
+        st.rerun()
+else:
+    # PvP Mode (Human vs Human) -> 3-Phase Proposal System
+    c1, c2 = st.columns(2)
+    if st.session_state.turn_phase == 0:
+        if c2.button(t('btn_submit_prop'), type="primary", use_container_width=True):
+            st.session_state.turn_phase = 1
+            st.rerun()
+    elif st.session_state.turn_phase == 1:
+        if c2.button(t('btn_submit_react'), type="primary", use_container_width=True):
+            st.session_state.turn_phase = 2
+            st.rerun()
+    elif st.session_state.turn_phase == 2:
+        if c1.button(t('btn_revise'), use_container_width=True):
+            st.session_state.turn_phase = 0
+            st.rerun()
+        if c2.button(t('confirm_btn'), type="primary", use_container_width=True):
+            commit_turn()
+            st.rerun()
