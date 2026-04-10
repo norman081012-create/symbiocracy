@@ -8,15 +8,18 @@ import random
 # ==========================================
 class SymbiocracyGame:
     def __init__(self):
+        # Party Names
         self.name_A = "Prosperity"
         self.name_B = "Equity"
 
+        # Game Settings
         self.year = 1
         self.total_years = 20
         self.annual_budget = 1000
         self.base_income = 100
         self.major_bonus = 200
 
+        # Multipliers, Emotionality, and Durations (Defaults)
         self.edu_mult = 0.001
         self.bw_mult = 0.001
         self.emotionality = 0.5
@@ -24,6 +27,7 @@ class SymbiocracyGame:
         self.perf_years = 6
         self.tax_impact = 200.0 
 
+        # Initial Values
         self.A_support = 0.51
         self.B_support = 0.49
         self.A_wealth = 500 
@@ -35,15 +39,18 @@ class SymbiocracyGame:
         
         self.baseline_true_H = 0.5
 
+        # Decay Settings
         self.decay_min = 0.2
         self.decay_max = 1.2
         self.current_decay = random.uniform(self.decay_min, self.decay_max)
         self.last_year_decay = self.current_decay
         self.last_report = None
 
+        # Record expiration of effects
         self.bw_expiry = {}
         self.perf_expiry = {}
 
+        # Roles
         self.first_party = "A"
         self.current_H_party = "B"
         self.current_R_party = "A"
@@ -212,8 +219,8 @@ I18N = {
         'label_style': "UI Label Style:",
         'short': "Short",
         'full': "Full",
-        'name_a': "Name A:",
-        'name_b': "Name B:",
+        'name_a': "Name Prosperity:",
+        'name_b': "Name Equity:",
         'decay_range': "Decay Range:",
         'total_years': "Total Years:",
         'base_budget': "Base Budget:",
@@ -224,9 +231,74 @@ I18N = {
         'bw_impact': "BW Impact:",
         'bw_duration': "BW Duration:",
         'perf_duration': "Perf Duration:",
-        'set_wealth_a': "Set Wealth A:",
-        'set_wealth_b': "Set Wealth B:",
+        'set_wealth_a': "Set Wealth Prosperity:",
+        'set_wealth_b': "Set Wealth Equity:",
         'game_guide': "📖 Game Guide",
+        'detail_level': "Detail Level:",
+        'overview': "Overview",
+        'how_to_play': "How to Play",
+        'deep_dive': "Deep Dive",
+        'guide_overview': """
+### 🎮 The Simple Overview (Roleplay & Strategy)
+**Welcome to Symbiocracy!**
+This is a political sandbox roleplaying game. You can rename the parties (e.g., "Democracy" vs. "Republic" or "Capitalists" vs. "Socialists"), inhabit their ideologies, and see how they interact under systemic pressure.
+
+**The Ultimate Goal:** There is no single way to win. Over the course of the simulation (default 20 years, adjustable in Global Settings), you decide your victory condition. Do you want to amass the most private wealth? Do you want to maintain a stable, unshakeable dynasty? Or do you genuinely want to maximize societal satisfaction (True-H)? At the end of the simulation, a comprehensive historical report will reveal the true legacy of your political era.
+
+**The Core Conflict (Roles):**
+* 👑 **Governing Party:** The party currently in power. Receives an automatic +200 wealth bonus each year.
+* 🟢 **Household Role (H-Role):** Controls the immediate economic output. Reaps the direct financial benefits when the H-Index is high.
+* 🔵 **Regulator Role (R-Role):** Controls the societal narrative. Possesses the *exclusive* power to use Education and Anti-Education to shape public Rationality.
+
+**Your Arsenal (Actions & Mechanics):**
+* 📚 **Edu / Anti-Edu (R-Role Only):** Directly alters public **Rationality**. High Rationality forces politicians to deliver real results; low Rationality makes the public highly gullible.
+* 📺 **Brainwashing:** Grants a temporary, artificial spike in Support. *Strategic Tip:* Exponentially more effective and cheaper when public Rationality is low and Voter Emotion is high.
+* 🏗️ **Construction:** Builds real infrastructure. It boosts public Satisfaction (True-H) and drives up the H-Index, expanding the total tax pool and the Household's cut.
+* 🔄 **Execute Swap:** Either party can propose to instantly trade the H-Role and R-Role if they believe it benefits their strategy. *Warning:* Once executed, roles and the R-Value are locked until the next election!
+        """,
+        'guide_how': """
+### 📖 How to Play & UI Guide
+
+**Step-by-Step Turn Guide:**
+1. **Assess the Year:** Look at the top **Status Board**. Read the Newspaper Headline to understand the current economic climate, and check the Midpoint Decay. High decay means your Satisfaction and budget will drop drastically this year.
+2. **Draft Budgets and decide R valure:** Both parties allocate their accumulated wealth into their respective input boxes (Edu, Anti, Brain, Cons). But Only the ruling party can decide R value.
+3. **Negotiate:** Discuss strategy with the opposing party. Decide if executing a **Swap** is necessary for either of you to survive the year.
+4. **Check the Math:** *Do not click Confirm yet!* Click **"Calculate Forecast"** and open the **"View Forecast Calculation Breakdown"** tab. This shows exactly how your proposed spending will change Income and Approval Ratings.
+5. **Revise & Execute:** Adjust your spending based on the forecast. Once both parties agree on their final numbers, click **Confirm & End Year** to lock in the results and advance time.
+
+**Understanding the UI Glossary:**
+* **Global Settings (Adjust Anytime):** The hidden gears of the simulation. Here you can change party names, the total length of the game, the annual budget, and the psychological makeup of the voters (Voter Emotion, Edu/BW Impact).
+* **Current Tax Revenue:** The actual money generated this year to be split between the H-Role and R-Role. It is calculated by taking the Base Budget and adding/subtracting the economic impact of public Satisfaction (True-H).
+* **R-Value (Friction):** Set only by the Governing Party. A *lower* R-Value makes Construction incredibly highly efficient at boosting the H-Index (benefiting the Household). A *higher* R-Value makes it sluggish.
+* **The Baseline Reset (Elections):** Held every 4 years. The party with >50% Support takes the Governing (👑) seat. Crucially, the "Baseline Satisfaction" resets to the current True-H. You get zero credit for the previous administration's work; you are judged purely on how much you improve or ruin the country *after* taking power.
+        """,
+        'guide_deep': """
+### ⚙️ Deep Dive: The Mechanics of Support & Expiry
+
+Here is a breakdown of the core mechanism that drives political support:
+
+**1. What matters is the sense of improvement: The Baseline Reset Mechanism**
+Voters are both forgetful and pragmatic. The game relies on a hidden variable called `baseline_true_H` (Baseline Satisfaction):
+* **Reset on taking office:** When a party wins the election and takes the Governing (👑) seat, the system records the current satisfaction level as its new "baseline."
+* **Support Formula:** `Performance_Effect = (Current Satisfaction - Baseline Satisfaction) * (Weight Coefficient)`
+* **Implication:** If you take office when the country is already in great shape (e.g., 0.8) and let it fall to 0.7, voters will think you performed terribly. On the other hand, if you inherit a disaster at 0.1 and manage to raise it to 0.2, voters may see you as a savior.
+
+**2. Rationality is the amplifier: It filters how Satisfaction becomes Support**
+How efficiently satisfaction is converted into political support depends heavily on the society’s **Rationality Level**:
+* **High Rationality:** Voters accurately translate actual living conditions (True-H) into political judgment. In the formula, rationality acts as a positive multiplier for the `Performance_Effect`.
+* **Low Rationality:** Voters become dull. Even if you drastically improve True-H through real infrastructure investments, if the society's Rationality has been pushed very low, voters will barely notice, and your support will rise at a crawl.
+
+**3. Voter Emotionality acts as a counterweight: Emotion vs. Rationality**
+In the calculation, the `perf_base` (the base weight of actual performance) is directly modified by the **Voter Emotion** slider:
+* **Rational Society (Low Emotion):** Voters maintain a higher baseline expectation for performance. Even if Rationality isn't exceptionally high, they will still react angrily when Satisfaction falls. This makes "doing nothing to save money" an extremely risky strategy for the ruling party.
+* **Emotional Society (High Emotion):** The `perf_base` plummets. This means that if Rationality is also suppressed, voters may stop caring about actual Satisfaction almost entirely. Under these specific conditions, a party can allow the country to decay while staying in power purely through aggressive "Brainwashing."
+
+**4. Time matters: The Expiry Mechanism**
+Political credit does not last forever. Both voter gratitude and manipulation have an expiration date:
+* **Performance Expiry (Default 6 Years):** If you gain a massive surge in support in Year 1 by sharply improving satisfaction through construction, that specific support bonus begins to expire and will be deducted from your total starting in Year 7.
+* **Brainwashing Expiry (Default 2 Years):** Brainwashing is a powerful, instant injection of support, but it fades very quickly. If you rely on it, you must keep spending to maintain the illusion.
+* **Dynamic Challenge:** To maintain power, the ruling party cannot rest on its past achievements. It must continuously invest to keep True-H climbing above the baseline. Otherwise, once old bonuses (from Performance or Brainwashing) begin to expire, support can collapse off a cliff.
+        """,
         'governing': "Governing",
         'tax_revenue': "Tax Revenue",
         'election_this_year': "⚠️ Election This Year!",
@@ -263,7 +335,7 @@ I18N = {
         'btn_submit_prop': "Submit Proposal to Opposition",
         'btn_submit_react': "Submit Reaction",
         'btn_revise': "Revise Proposal",
-        'err_exp': "⚠️ Budget Exceeded!",
+        'wait_opp': "Waiting for Opposition...",
         'h_new': "📰 **Headline:** *New Government Takes Office! Welcome to Year 1.*",
         'h_elec': "📰 **Headline:** Election Concluded! **{0}** secures the majority!\n\n",
         'h_fin_c': "📰 **Financial Report:** {0}. {1} Consequently, **{2}** secured a revenue of {3} with a support shift of {4}, while **{5}** secured {6} with a support shift of {7}.",
@@ -278,7 +350,8 @@ I18N = {
         'd_bs': "Pessimism turned to a pleasant surprise, boosting {0}'s image.",
         'd_be': "Exceeding all expectations! Pure euphoria surrounds {0}.",
         'd_bstr': "Public confidence in {0} strengthens.",
-        'yr': "Year"
+        'yr': "Year",
+        'err_exp': "⚠️ Budget Exceeded!"
     },
     '中文': {
         'settings': "⚙️ 全域設定 (隨時可調)",
@@ -341,7 +414,7 @@ I18N = {
         'btn_submit_prop': "將提案交給在野黨",
         'btn_submit_react': "送出回應",
         'btn_revise': "退回修改提案",
-        'err_exp': "⚠️ 預算超支！",
+        'wait_opp': "等待在野黨回應中...",
         'h_new': "📰 **頭條：** *新政府上任！歡迎來到第 1 年。*",
         'h_elec': "📰 **頭條：** 選舉結束！**{0}** 取得多數席位！\n\n",
         'h_fin_c': "📰 **財報：** {0}。{1} 因此，**{2}** 獲得了 {3} 的收入與 {4} 的支持度變化，而 **{5}** 獲得了 {6} 的收入與 {7} 的支持度變化。",
@@ -356,7 +429,8 @@ I18N = {
         'd_bs': "悲觀情緒轉為驚喜，大幅提升了 {0} 的形象",
         'd_be': "超越所有期望！純粹的狂歡圍繞著 {0}",
         'd_bstr': "大眾對 {0} 的信心進一步增強",
-        'yr': "第"
+        'yr': "第",
+        'err_exp': "⚠️ 預算超支！"
     }
 }
 
@@ -392,4 +466,112 @@ if 'game' not in st.session_state:
 
 game = st.session_state.game
 
-# [INSERT BOT STRATEGY SECTION HERE]
+# ==========================================
+# BOT STRATEGY ENGINE
+# ==========================================
+def execute_bot_turn(party):
+    """
+    Executes the bot's logic for the given party ('A' or 'B').
+    The bot analyzes the current state and allocates its wealth.
+    """
+    is_ruling = (game.first_party == party)
+    holds_R_role = (game.current_R_party == party)
+    wealth = game.A_wealth if party == "A" else game.B_wealth
+    
+    # Base allocations
+    edu = 0.0
+    anti = 0.0
+    brain = 0.0
+    cons = 0.0
+    
+    # 1. Determine R-Value and Swap if Ruling/Proposing
+    # If the bot is proposing (Phase 0) or reacting (Phase 1)
+    if st.session_state.turn_phase == 0 and is_ruling:
+        # Bot is ruling. It sets the R-value based on whether it holds the H-Role
+        if not holds_R_role: # Bot holds H-Role
+            st.session_state.r_val = random.uniform(0.1, 0.4) # Low R-value favors H-Role
+        else: # Bot holds R-Role
+            st.session_state.r_val = random.uniform(0.6, 0.9) # High R-value hinders H-Role
+            
+    # Swap Logic: Bot proposes a swap if it's struggling (Support < 45% and not ruling)
+    if game.swap_available and not is_ruling and (game.A_support if party=="A" else game.B_support) < 0.45:
+        # 30% chance to desperately trigger a swap to disrupt the game
+        if random.random() < 0.3:
+            st.session_state.do_swap = True
+
+    # 2. Wealth Allocation Strategy
+    # Bot only spends a portion of its wealth to save for future turns
+    budget_to_spend = wealth * random.uniform(0.4, 0.8) 
+    remaining_budget = budget_to_spend
+
+    # STRATEGY A: Regulator (R-Role) Logic
+    if holds_R_role:
+        if game.rationality > 0.6:
+            # If rationality is high, try to lower it (Anti-Edu) so Brainwashing works later
+            alloc = min(remaining_budget * 0.4, (game.rationality / game.edu_mult))
+            anti = alloc
+            remaining_budget -= alloc
+        elif game.rationality < 0.3:
+            # If rationality is very low, capitalize heavily on Brainwashing
+            alloc = remaining_budget * 0.6
+            brain = alloc
+            remaining_budget -= alloc
+        else:
+            # Balanced approach
+            alloc = remaining_budget * 0.2
+            brain = alloc
+            remaining_budget -= alloc
+
+    # STRATEGY B: Household (H-Role) Logic
+    else:
+        # If the bot holds the H-Role, its main way to gain Support/Money is Construction
+        if game.true_H < 0.4:
+            # Crisis mode: Country is failing, must build to survive
+            alloc = remaining_budget * 0.7
+            cons = alloc
+            remaining_budget -= alloc
+        else:
+            # Stable mode: Build a bit to keep money flowing
+            alloc = remaining_budget * 0.4
+            cons = alloc
+            remaining_budget -= alloc
+
+    # STRATEGY C: General Support Boosting (Available to both)
+    # If the bot is close to an election (Year % 4 == 3) or losing badly, spam Brainwash
+    is_election_near = (game.year % 4 == 3)
+    if is_election_near or ((game.A_support if party=="A" else game.B_support) < 0.48):
+        alloc = remaining_budget * 0.8
+        brain += alloc
+        remaining_budget -= alloc
+
+    # Dump whatever small amount is left into Construction for good measure
+    cons += remaining_budget
+
+    # 3. Apply to Session State
+    if party == "A":
+        st.session_state.in_a_edu = round(edu, 1)
+        st.session_state.in_a_anti = round(anti, 1)
+        st.session_state.in_a_brain = round(brain, 1)
+        st.session_state.in_a_cons = round(cons, 1)
+    else:
+        st.session_state.in_b_edu = round(edu, 1)
+        st.session_state.in_b_anti = round(anti, 1)
+        st.session_state.in_b_brain = round(brain, 1)
+        st.session_state.in_b_cons = round(cons, 1)
+
+# --- BOT TURN TRIGGER LOGIC ---
+# This checks if the current phase belongs to a Bot and executes their move
+current_acting_party = game.first_party if st.session_state.turn_phase == 0 else ("B" if game.first_party == "A" else "A")
+acting_party_ctrl = st.session_state.ctrl_a if current_acting_party == "A" else st.session_state.ctrl_b
+
+if acting_party_ctrl == "Bot":
+    if st.session_state.turn_phase == 0:
+        # Phase 0: Bot is Ruling Party
+        execute_bot_turn(current_acting_party)
+        st.session_state.turn_phase = 1 # Pass to Phase 1
+        st.rerun()
+    elif st.session_state.turn_phase == 1:
+        # Phase 1: Bot is Opposition Party
+        execute_bot_turn(current_acting_party)
+        st.session_state.turn_phase = 2 # Pass to Phase 2 (Final Review)
+        st.rerun()
