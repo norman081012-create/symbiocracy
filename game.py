@@ -212,10 +212,6 @@ I18N = {
     'English': {
         'settings': "⚙️ Global Settings (Adjust Anytime)",
         'lang': "Language:",
-        'ctrl_a': "Control Party A:",
-        'ctrl_b': "Control Party B:",
-        'human': "Human",
-        'bot': "Bot",
         'label_style': "UI Label Style:",
         'short': "Short",
         'full': "Full",
@@ -359,10 +355,6 @@ Political credit does not last forever. Both voter gratitude and manipulation ha
     '中文': {
         'settings': "⚙️ 全域設定 (隨時可調)",
         'lang': "語言:",
-        'ctrl_a': "A黨控制模式:",
-        'ctrl_b': "B黨控制模式:",
-        'human': "玩家",
-        'bot': "電腦",
         'label_style': "UI 標籤樣式:",
         'short': "簡稱",
         'full': "全名",
@@ -515,8 +507,6 @@ def t(key, *args):
 if 'game' not in st.session_state:
     st.session_state.game = SymbiocracyGame()
     st.session_state.lang = "English"
-    st.session_state.ctrl_a = "Human"
-    st.session_state.ctrl_b = "Bot"
     st.session_state.turn_phase = 0 # 0: Ruling, 1: Opp, 2: Final
     st.session_state.name_a = "Prosperity"
     st.session_state.name_b = "Equity"
@@ -537,113 +527,12 @@ if 'game' not in st.session_state:
 
 game = st.session_state.game
 
-# --- BOT LOGIC (ROI Heuristic) ---
-def compute_bot_moves(bot_id, human_id, current_game):
-    b_wealth = current_game.A_wealth if bot_id == 'A' else current_game.B_wealth
-    bot_in = {'edu': 0.0, 'anti': 0.0, 'brain': 0.0, 'cons': 0.0}
-    do_swap = st.session_state.do_swap
-    r_val = st.session_state.r_val
-
-    is_gov = (current_game.first_party == bot_id)
-    is_h = (current_game.current_H_party == bot_id)
-    is_r = (current_game.current_R_party == bot_id)
-
-    human_in = {
-        'edu': st.session_state.in_a_edu if human_id == 'A' else st.session_state.in_b_edu,
-        'anti': st.session_state.in_a_anti if human_id == 'A' else st.session_state.in_b_anti,
-        'brain': st.session_state.in_a_brain if human_id == 'A' else st.session_state.in_b_brain,
-        'cons': st.session_state.in_a_cons if human_id == 'A' else st.session_state.in_b_cons,
-    }
-
-    # Evaluate Swap
-    if current_game.swap_available:
-        human_is_h = (current_game.current_H_party == human_id)
-        if human_is_h and r_val < 0.4:
-            do_swap = True
-        elif is_r and getattr(current_game, f"{human_id}_wealth") > b_wealth * 2:
-            do_swap = True
-
-    plan_h = is_h if not do_swap else not is_h
-    plan_r = is_r if not do_swap else not is_r
-
-    # Evaluate R-value
-    if is_gov:
-        r_val = 0.2 if plan_h else 0.8
-
-    avail_wealth = b_wealth * 0.9 # Keep 10% reserve
-
-    # Strategy: Cons
-    if plan_h and r_val < 0.5:
-        bot_in['cons'] = min(avail_wealth * 0.5, 300)
-    elif plan_h:
-        bot_in['cons'] = min(avail_wealth * 0.1, 50)
-
-    # Strategy: Brainwash
-    years_to_elec = 4 - (current_game.year % 4)
-    my_sup = current_game.A_support if bot_id == 'A' else current_game.B_support
-    human_sup = 1.0 - my_sup
-
-    if years_to_elec <= 2:
-        gap = human_sup - my_sup 
-        if 0 < gap < 0.2:
-            bot_in['brain'] = min(avail_wealth * 0.7, gap * 2000)
-        elif -0.1 < gap <= 0:
-            bot_in['brain'] = min(avail_wealth * 0.2, 80)
-
-    # Strategy: Edu/Anti (Only if R-role)
-    if plan_r:
-        max_edu = max(0, (1.0 - current_game.rationality) / current_game.edu_mult)
-        max_anti = max(0, current_game.rationality / current_game.edu_mult)
-        
-        if bot_in['brain'] > 50:
-            bot_in['anti'] = min(avail_wealth * 0.3, max_anti)
-        elif human_in['brain'] > 50:
-            bot_in['edu'] = min(avail_wealth * 0.4, max_edu)
-
-    # Ensure within bounds
-    total = sum(bot_in.values())
-    if total > b_wealth:
-        scale = b_wealth / total
-        for k in bot_in: bot_in[k] *= scale
-
-    return bot_in, do_swap, r_val
-
-# Trigger Bots before rendering UI
-def run_bots():
-    if st.session_state.ctrl_a == "Bot":
-        bot_moves, swap, rval = compute_bot_moves('A', 'B', game)
-        st.session_state.in_a_edu = float(bot_moves['edu'])
-        st.session_state.in_a_anti = float(bot_moves['anti'])
-        st.session_state.in_a_brain = float(bot_moves['brain'])
-        st.session_state.in_a_cons = float(bot_moves['cons'])
-        if game.first_party == 'A':
-            st.session_state.do_swap = swap
-            st.session_state.r_val = float(rval)
-        elif swap: # Non-gov can still propose swap
-            st.session_state.do_swap = True
-
-    if st.session_state.ctrl_b == "Bot":
-        bot_moves, swap, rval = compute_bot_moves('B', 'A', game)
-        st.session_state.in_b_edu = float(bot_moves['edu'])
-        st.session_state.in_b_anti = float(bot_moves['anti'])
-        st.session_state.in_b_brain = float(bot_moves['brain'])
-        st.session_state.in_b_cons = float(bot_moves['cons'])
-        if game.first_party == 'B':
-            st.session_state.do_swap = swap
-            st.session_state.r_val = float(rval)
-        elif swap:
-            st.session_state.do_swap = True
-
 # --- UI: GLOBAL SETTINGS ---
 with st.expander(t('settings'), expanded=False):
     c_l1, c_l2 = st.columns(2)
     st.session_state.lang = c_l1.radio(t('lang'), ["English", "中文"], index=0 if st.session_state.lang=="English" else 1, horizontal=True)
     st.session_state.label_style = c_l2.radio(t('label_style'), [t('short'), t('full')], horizontal=True)
     
-    c1, c2 = st.columns(2)
-    st.session_state.ctrl_a = c1.radio(t('ctrl_a'), ["Human", "Bot"], index=0 if st.session_state.ctrl_a=="Human" else 1, horizontal=True)
-    st.session_state.ctrl_b = c2.radio(t('ctrl_b'), ["Human", "Bot"], index=0 if st.session_state.ctrl_b=="Human" else 1, horizontal=True)
-
     c1, c2 = st.columns(2)
     st.session_state.name_a = c1.text_input(t('name_a'), st.session_state.name_a)
     st.session_state.name_b = c2.text_input(t('name_b'), st.session_state.name_b)
@@ -673,12 +562,6 @@ with st.expander(t('settings'), expanded=False):
     game.A_wealth = c1.number_input(t('set_wealth_a'), value=float(game.A_wealth))
     game.B_wealth = c2.number_input(t('set_wealth_b'), value=float(game.B_wealth))
 
-
-# --- Determine Play Mode & Run Bots ---
-is_hvh = (st.session_state.ctrl_a == "Human" and st.session_state.ctrl_b == "Human")
-if not is_hvh:
-    st.session_state.turn_phase = 2 # Bypass phase system if bots are involved
-    run_bots() 
 
 # Check for End Game
 if game.year > game.total_years:
@@ -795,29 +678,23 @@ st.write(f"**{t('rationality_level')}:** {game.rationality:.4f} | **{t('midpoint
 
 
 # --- TURN PHASE UI (Human vs Human) ---
-if is_hvh:
-    phase_titles = [t('turn_p0'), t('turn_p1'), t('turn_p2')]
-    st.markdown(f"#### 🚦 {phase_titles[st.session_state.turn_phase]}")
+phase_titles = [t('turn_p0'), t('turn_p1'), t('turn_p2')]
+st.markdown(f"#### 🚦 {phase_titles[st.session_state.turn_phase]}")
 
 # Determine Enable/Disable state based on Phase
 dis_a = False
 dis_b = False
 
-if is_hvh:
-    is_a_ruling = (game.first_party == 'A')
-    if st.session_state.turn_phase == 0:
-        if is_a_ruling: dis_b = True
-        else: dis_a = True
-    elif st.session_state.turn_phase == 1:
-        if is_a_ruling: dis_a = True
-        else: dis_b = True
-    elif st.session_state.turn_phase == 2:
-        dis_a = True
-        dis_b = True
-
-# Overrides for Bot
-if st.session_state.ctrl_a == "Bot": dis_a = True
-if st.session_state.ctrl_b == "Bot": dis_b = True
+is_a_ruling = (game.first_party == 'A')
+if st.session_state.turn_phase == 0:
+    if is_a_ruling: dis_b = True
+    else: dis_a = True
+elif st.session_state.turn_phase == 1:
+    if is_a_ruling: dis_a = True
+    else: dis_b = True
+elif st.session_state.turn_phase == 2:
+    dis_a = True
+    dis_b = True
 
 # --- UI: WEALTH BARS ---
 max_w = max(game.A_wealth, game.B_wealth, 1)
@@ -835,7 +712,7 @@ st.markdown(wealth_html, unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 1, 1])
 
 # Only Gov can set R-val
-r_disabled = (not game.swap_available) or (is_hvh and ((game.first_party=='A' and dis_a) or (game.first_party=='B' and dis_b)))
+r_disabled = (not game.swap_available) or ((game.first_party=='A' and dis_a) or (game.first_party=='B' and dis_b))
 with col1:
     r_desc = t('r_value_gov') if game.swap_available else t('r_value_lock')
     st.session_state.r_val = st.number_input(r_desc, value=st.session_state.r_val, disabled=r_disabled)
@@ -968,26 +845,19 @@ def commit_turn():
     st.session_state.turn_phase = 0
 
 # --- Turn-Based Phase Control ---
-if not is_hvh:
-    # PvE Mode (Human vs Bot or Bot vs Bot) -> Skip phases, just one button
-    if st.button(t('confirm_btn'), type="primary", use_container_width=True):
+c1, c2 = st.columns(2)
+if st.session_state.turn_phase == 0:
+    if c2.button(t('btn_submit_prop'), type="primary", use_container_width=True):
+        st.session_state.turn_phase = 1
+        st.rerun()
+elif st.session_state.turn_phase == 1:
+    if c2.button(t('btn_submit_react'), type="primary", use_container_width=True):
+        st.session_state.turn_phase = 2
+        st.rerun()
+elif st.session_state.turn_phase == 2:
+    if c1.button(t('btn_revise'), use_container_width=True):
+        st.session_state.turn_phase = 0
+        st.rerun()
+    if c2.button(t('confirm_btn'), type="primary", use_container_width=True):
         commit_turn()
         st.rerun()
-else:
-    # PvP Mode (Human vs Human) -> 3-Phase Proposal System
-    c1, c2 = st.columns(2)
-    if st.session_state.turn_phase == 0:
-        if c2.button(t('btn_submit_prop'), type="primary", use_container_width=True):
-            st.session_state.turn_phase = 1
-            st.rerun()
-    elif st.session_state.turn_phase == 1:
-        if c2.button(t('btn_submit_react'), type="primary", use_container_width=True):
-            st.session_state.turn_phase = 2
-            st.rerun()
-    elif st.session_state.turn_phase == 2:
-        if c1.button(t('btn_revise'), use_container_width=True):
-            st.session_state.turn_phase = 0
-            st.rerun()
-        if c2.button(t('confirm_btn'), type="primary", use_container_width=True):
-            commit_turn()
-            st.rerun()
