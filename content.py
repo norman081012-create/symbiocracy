@@ -4,6 +4,7 @@
 # ==========================================
 
 DEFAULT_CONFIG = {
+    'CALENDAR_NAME': "星曆", 'PARTY_A_COLOR': "#2E8B57", 'PARTY_B_COLOR': "#4169E1",
     'PARTY_A_NAME': "Prosperity", 'PARTY_B_NAME': "Equity", 
     'INITIAL_WEALTH': 1000.0, 'END_YEAR': 12,
     'DECAY_MIN': 0.0, 'DECAY_MAX': 0.8,  
@@ -20,11 +21,12 @@ DEFAULT_CONFIG = {
     'ELECTION_CYCLE': 4,
     'SANITY_DEFAULT': 0.60, 
     'EMOTION_DEFAULT': 30.0,
-    'SUPPORT_CONVERSION_RATE': 0.05, # 新增：影響量轉換為支持度 % 的常數
-    'PERF_IMPACT_BASE': 500.0        # 新增：達標率影響的基礎常數量
+    'SUPPORT_CONVERSION_RATE': 0.05, 
+    'PERF_IMPACT_BASE': 500.0        
 }
 
 CONFIG_TRANSLATIONS = {
+    'CALENDAR_NAME': "紀元名稱", 'PARTY_A_COLOR': "A黨代表色", 'PARTY_B_COLOR': "B黨代表色",
     'PARTY_A_NAME': "A黨名稱", 'PARTY_B_NAME': "B黨名稱", 
     'INITIAL_WEALTH': "初始黨產", 'END_YEAR': "遊戲總年數",
     'DECAY_MIN': "最小衰退率", 'DECAY_MAX': "最大衰退率",  
@@ -70,17 +72,17 @@ def get_thinktank_eval(ability, diff):
     acc_lvl = "high" if diff <= 0.05 else "med" if diff <= 0.15 else "low"
     
     matrix = {
-        ('high', 'high'): "頂尖智庫發揮應有水準，完美預判走勢。",
-        ('high', 'med'): "頂尖智庫微幅誤差，仍在戰略可控範圍內。",
-        ('high', 'low'): "黑天鵝事件！頂尖智庫也未能看透經濟劇變。",
-        ('med', 'high'): "常規智庫表現超常，精準命中市場波動。",
-        ('med', 'med'): "常規智庫表現中規中矩，誤差在預期之內。",
-        ('med', 'low'): "常規智庫嚴重誤判形勢，建議升級預測能力。",
-        ('low', 'high'): "低階智庫瞎貓碰上死耗子，幸運猜中走向。",
-        ('low', 'med'): "低階智庫表現尚可，但數據參考價值有限。",
-        ('low', 'low'): "低階智庫完全失去功能，嚴重誤導決策！"
+        ('high', 'high'): "頂尖發揮，完美預判",
+        ('high', 'med'): "微幅誤差，戰略可控",
+        ('high', 'low'): "黑天鵝事件！未能看透劇變",
+        ('med', 'high'): "表現超常，精準命中",
+        ('med', 'med'): "中規中矩，誤差預期內",
+        ('med', 'low'): "嚴重誤判，建議升級",
+        ('low', 'high'): "瞎貓碰死耗子，幸運猜中",
+        ('low', 'med'): "表現尚可，參考價值低",
+        ('low', 'low'): "完全失能，嚴重誤導決策！"
     }
-    return matrix.get((abi_lvl, acc_lvl), "智庫系統運作異常。")
+    return matrix.get((abi_lvl, acc_lvl), "運作異常")
 
 def get_target_eval_text(actual, target):
     if target <= 0: return "無目標"
