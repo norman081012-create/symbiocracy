@@ -91,6 +91,33 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     
     return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
 
+def calculate_corruption_preview(cfg, game, d, h_corr_pct, ra_media, ha_media):
+    """專門為 Phase 2 貪污拉桿提供的即時預覽計算"""
+    rp, hp = game.r_role_party, game.h_role_party
+    corr_amt = d.get('total_funds', 0) * (h_corr_pct / 100.0)
+    act_build = d.get('total_funds', 0) - corr_amt
+    
+    eff_inv = rp.investigate_ability * cfg['R_INV_BONUS']
+    catch_prob = min(1.0, (eff_inv / cfg['MAX_ABILITY']) * (corr_amt / max(1.0, hp.wealth)) * 10.0)
+    
+    h_bst = (act_build * d.get('h_ratio', 1.0) * hp.build_ability) / max(0.1, d.get('r_value', 1.0)**2)
+    new_h_fund = max(0.0, game.h_fund + h_bst - (game.current_real_decay * (d.get('r_value', 1.0)**2) * 0.2 * game.h_fund))
+    
+    gdp_bst = (act_build * hp.build_ability) / cfg['BUILD_DIFF']
+    new_gdp = max(0.0, game.gdp + gdp_bst - (game.current_real_decay * 1000))
+    budg = cfg['BASE_TOTAL_BUDGET'] + (new_gdp * cfg['HEALTH_MULTIPLIER'])
+    h_shr = new_h_fund / max(1.0, budg) if budg > 0 else 0.5
+    
+    base_hp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == hp.name else 0) + (budg * h_shr) - d.get('h_pays',0)
+    net_inc_safe = base_hp_inc + corr_amt
+    net_inc_caught = base_hp_inc - (corr_amt * cfg['CORRUPTION_PENALTY'])
+    
+    shift = calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha_media, ra_media)
+    sup_shift_safe = shift['actual_shift']
+    sup_shift_caught = shift['actual_shift'] - 5.0
+    
+    return corr_amt, catch_prob, net_inc_safe, net_inc_caught, sup_shift_safe, sup_shift_caught
+
 def execute_poll(game, view_party, cost):
     view_party.wealth -= cost
     error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
