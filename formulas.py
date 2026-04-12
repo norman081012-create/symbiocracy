@@ -82,7 +82,6 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
 def execute_poll(game, view_party, cost):
     """執行一次性民調"""
     view_party.wealth -= cost
-    # 花費越高、預測能力越強，誤差越小 (最大誤差15%)
     error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
     a_actual = game.party_A.support
     a_poll = max(0.0, min(100.0, a_actual + random.uniform(-error_margin, error_margin)))
