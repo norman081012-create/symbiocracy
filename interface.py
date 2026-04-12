@@ -28,8 +28,6 @@ def render_yearly_review_banner(game):
             if rep['caught_corruption']: st.error("🚨 貪腐爆雷：執行者貪污遭逮，民心重挫。")
             elif not rep['caught_corruption'] and rep['h_perf'] < -15: st.warning("📉 執行效率極度低迷，資金轉換率不佳。")
             else: st.success("✅ 社會發展基本符合智庫預期。")
-    else:
-        st.info("🗞️ 歡迎來到共生內閣的第一年！請雙方展開預算與目標協商。")
 
 def render_think_tank_toast(view_party, acc_percent, fc_val):
     st.info(f"🕵️ **👁️ 智庫機密通報** | 經濟預估: {content.get_economic_forecast_text(fc_val)} (衰退參數: -{fc_val:.2f}) | 報告準確度: {acc_percent}%")
@@ -45,7 +43,7 @@ def render_status_bar(game, view_party, cfg):
         
         rep = game.last_year_report
         if rep:
-            gdp_change = ((game.gdp - rep['old_gdp']) / rep['old_gdp']) * 100
+            gdp_change = ((game.gdp - rep['old_gdp']) / max(1.0, rep['old_gdp'])) * 100
             st.markdown(f"**GDP:** `{game.gdp:.1f}` *(年變動: {gdp_change:+.2f}%)*")
             st.caption(f"↳ 去年目標: 成長 {rep['target_gdp_growth']}%")
             if rep['r_perf'] >= 0: st.success("✅ GDP 達標，帶動預算上升。")
@@ -68,7 +66,7 @@ def render_status_bar(game, view_party, cfg):
                 if h_perf >= -10: st.warning(f"⚠️ {h_party_name} 勉強及格 (落差 {h_perf:.1f}%)")
                 else: st.error(f"🚨 {h_party_name} 嚴重落後 (落差 {h_perf:.1f}%)")
                 if rep['h_blame_saved'] < 0:
-                    st.caption(f"🗣️ **媒體效應:** {h_party_name} 成功將 {abs(rep['h_blame_saved']):.1f} 點失分硬推給對手！選民分不清責任歸屬。")
+                    st.caption(f"🗣️ **媒體效應:** {h_party_name} 成功將 {abs(rep['h_blame_saved']):.1f} 點失分推給對手！")
 
     with c3:
         st.subheader("🕵️ 👁️ 智庫機密預測")
@@ -84,16 +82,11 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
         with col:
             is_h = (game.h_role_party.name == party.name)
             role_badge = "🛡️ **[執行者]**" if is_h else "⚖️ **[調節者]**"
-            
-            # 確保戴皇冠的一定是判定當選的執政黨
             is_winner = (game.ruling_party.name == party.name)
             crown = "👑" if is_winner else ""
             
             if is_election_year or god_mode: 
-                if is_election_year:
-                    disp_sup = f"{party.support:.1f}%" + (" 🏆(當選!)" if is_winner else " 💀(落選)")
-                else:
-                    disp_sup = f"{party.support:.1f}%"
+                disp_sup = f"{party.support:.1f}%" + (" 🏆(當選!)" if is_winner else " 💀(落選)")
             else:
                 if game.poll_done_this_year: disp_sup = f"📊 民調預估: {party.current_poll_result:.1f}%"
                 else: disp_sup = "??? (需作民調)"
@@ -102,7 +95,7 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             import random
             rng_status = random.Random(f"status_{game.year}_{party.name}_{view_party.name}")
             fog_w = rng_status.uniform(max(0, party.wealth * (1 - blur)), party.wealth * (1 + blur))
-            disp_w = f"{party.wealth:.0f}" if (party == view_party or god_mode) else f"估算約 {fog_w:.0f}"
+            disp_w = f"{party.wealth:.0f}" if (party.name == view_party.name or god_mode) else f"估算約 {fog_w:.0f}"
 
             if party.name == view_party.name: 
                 st.success(f"### 👁️ {party.name} {crown} {role_badge}\n**黨產:** {disp_w} | **支持度:** {disp_sup}")
