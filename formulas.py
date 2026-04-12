@@ -1,6 +1,6 @@
 # ==========================================
 # formulas.py
-# 負責核心量化、維護費、ROI 與 競選量計算
+# 負責核心量化、維護費、ROI 與年度結算
 # ==========================================
 import math
 import random
@@ -12,60 +12,142 @@ def get_ability_preview(current, invest, cfg):
     maint = max(0, (current - 3.0) * cfg['MAINTENANCE_RATE'])
     if invest < maint:
         drop = (maint - invest) * 0.02
-        return max(3.0, current - drop), maint
+        next_val = max(3.0, current - drop)
     else:
         gain = calc_log_gain(invest - maint)
-        return min(cfg['MAX_ABILITY'], current + gain), maint
+        next_val = min(cfg['MAX_ABILITY'], current + gain)
+    next_maint = max(0, (next_val - 3.0) * cfg['MAINTENANCE_RATE'])
+    return next_val, maint, next_maint
 
-def calculate_campaign_effect(a_media_volume, b_media_volume, base_mag):
-    """媒體競選邏輯：按操控量比例分配支持度變更"""
-    total_vol = a_media_volume + b_media_volume
+def calculate_campaign_effect(a_vol, b_vol, base_mag):
+    total_vol = a_vol + b_vol
     if total_vol <= 0: return 0.0, 0.0
-    a_share = a_media_volume / total_vol
-    b_share = b_media_volume / total_vol
-    # 轉換成支持度百分比
-    return (a_share - 0.5) * base_mag, (b_share - 0.5) * base_mag
+    return (a_vol / total_vol - 0.5) * base_mag, (b_vol / total_vol - 0.5) * base_mag
 
 def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val, forecast_decay, build_abi):
-    strictness_multiplier = r_val ** 2 
-    eff_decay_h = forecast_decay * strictness_multiplier * 0.2 * curr_h_fund
+    strict_mult = r_val ** 2 
+    eff_decay_h = forecast_decay * strict_mult * 0.2 * curr_h_fund
     req_boost_h = (t_h_fund - curr_h_fund) + eff_decay_h
-    funds_h = (req_boost_h * max(0.1, strictness_multiplier)) / max(0.01, build_abi) if req_boost_h > 0 else 0
+    funds_h = (req_boost_h * max(0.1, strict_mult)) / max(0.01, build_abi) if req_boost_h > 0 else 0
+
     eff_decay_gdp = forecast_decay * 1000
     req_boost_gdp = (t_gdp - curr_gdp) + eff_decay_gdp
     funds_gdp = (req_boost_gdp * cfg['BUILD_DIFF']) / max(0.01, build_abi) if req_boost_gdp > 0 else 0
+
     req_funds = max(0, int(funds_h + funds_gdp))
     h_ratio = funds_h / req_funds if req_funds > 0 else 1.0
     return req_funds, h_ratio
+
+def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, h_media, r_media):
+    h_perf = ((act_h - t_h) / max(1, t_h)) * 100.0  
+    r_perf = ((act_gdp - curr_gdp) / max(1, curr_gdp)) * 100.0 
+
+    h_media_pow = calc_log_gain(h_media) * cfg['H_MEDIA_BONUS'] * hp.media_ability
+    r_media_pow = calc_log_gain(r_media) * rp.media_ability
+
+    if h_perf >= 0: h_raw_shift = h_perf * (1 + h_media_pow * 0.15); h_shift_to_r = 0
+    else:
+        trans = min(1.0, h_media_pow * 0.05)
+        h_raw_shift = h_perf * (1 - trans); h_shift_to_r = h_perf * trans 
+
+    if r_perf >= 0: r_raw_shift = r_perf * (1 + r_media_pow * 0.15); r_shift_to_h = 0
+    else:
+        trans = min(1.0, r_media_pow * 0.05)
+        r_raw_shift = r_perf * (1 - trans); r_shift_to_h = r_perf * trans
+
+    shift_to_h = (h_raw_shift + r_shift_to_h) - (r_raw_shift + h_shift_to_r)
+    act_h_shift = shift_to_h * ((100.0 - hp.support) / 100.0) if shift_to_h > 0 else shift_to_h * (hp.support / 100.0)
+    
+    return {'actual_shift': act_h_shift, 'h_perf': h_perf, 'r_perf': r_perf}
 
 def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, r_pays, h_pays):
     gdp_bst = (req_funds * hp_build) / cfg['BUILD_DIFF']
     est_gdp = max(0.0, game.gdp + gdp_bst - (fc_decay * 1000))
     gdp_change_pct = ((est_gdp - game.gdp) / max(1.0, game.gdp)) * 100.0
+
     actual_h_funds = req_funds * h_ratio
-    strict_mult = r_val ** 2
-    h_bst = (actual_h_funds * hp_build) / max(0.1, strict_mult)
-    eff_decay_h = fc_decay * strict_mult * 0.2 * game.h_fund
-    est_h_fund = max(0.0, game.h_fund + h_bst - eff_decay_h)
+    h_bst = (actual_h_funds * hp_build) / max(0.1, r_val ** 2)
+    est_h_fund = max(0.0, game.h_fund + h_bst - (fc_decay * (r_val**2) * 0.2 * game.h_fund))
+
     future_budget = cfg['BASE_TOTAL_BUDGET'] + (est_gdp * cfg['HEALTH_MULTIPLIER'])
     h_share_ratio = est_h_fund / max(1.0, future_budget) if future_budget > 0 else 0.5
+    
     h_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.h_role_party.name else 0) + (future_budget * h_share_ratio)
     r_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.r_role_party.name else 0) + (future_budget * (1 - h_share_ratio))
+    
     h_net = h_gross - h_pays; r_net = r_gross - r_pays
     h_roi = (h_net / max(1.0, float(h_pays))) * 100.0 if h_pays > 0 else float('inf')
     r_roi = (r_net / max(1.0, float(r_pays))) * 100.0 if r_pays > 0 else float('inf')
-    current_share = game.h_fund / max(1.0, game.total_budget)
-    net_h_shift = (h_share_ratio - current_share) * 100.0
-    return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
+    
+    return gdp_change_pct, h_gross, h_net, r_gross, r_net, 0, 0, est_gdp, est_h_fund, h_roi, r_roi
+
+def execute_year_end(game, cfg, ra, ha, d):
+    rp, hp = game.r_role_party, game.h_role_party
+    corr_amt = d.get('total_funds', 0) * (ha['corr'] / 100.0)
+    act_build = d.get('total_funds', 0) - corr_amt
+    
+    caught = False; confiscated = 0.0
+    if ha['corr'] > 0:
+        eff_inv = rp.investigate_ability * cfg['R_INV_BONUS']
+        if random.random() < min(1.0, (eff_inv / cfg['MAX_ABILITY']) * (corr_amt / max(1.0, hp.wealth)) * 10.0):
+            caught = True; confiscated = corr_amt; corr_amt = 0 
+            
+    h_bst = (act_build * d.get('h_ratio', 1.0) * hp.build_ability) / max(0.1, d.get('r_value', 1.0)**2)
+    new_h_fund = max(0.0, game.h_fund + h_bst - (game.current_real_decay * (d.get('r_value', 1.0)**2) * 0.2 * game.h_fund))
+    gdp_bst = (act_build * hp.build_ability) / cfg['BUILD_DIFF']
+    new_gdp = max(0.0, game.gdp + gdp_bst - (game.current_real_decay * 1000))
+    
+    h_bonus_overflow = max(0.0, new_h_fund - d.get('target_h_fund', 600)) if new_h_fund >= d.get('target_h_fund', 600) else 0.0
+    
+    budg = cfg['BASE_TOTAL_BUDGET'] + (new_gdp * cfg['HEALTH_MULTIPLIER'])
+    h_shr = new_h_fund / max(1.0, budg) if budg > 0 else 0.5
+    
+    hp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == hp.name else 0) + (budg * h_shr) - d.get('h_pays',0) + corr_amt + h_bonus_overflow - (confiscated * cfg['CORRUPTION_PENALTY'] if caught else 0)
+    rp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == rp.name else 0) + (budg * (1 - h_shr)) - d.get('r_pays',0)
+    
+    shift = calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha['media'], ra['media'])
+    
+    a_vol = ra['camp'] * rp.media_ability * cfg['R_INV_BONUS'] if rp.name == game.party_A.name else ha['camp'] * hp.media_ability * cfg['H_MEDIA_BONUS']
+    b_vol = ra['camp'] * rp.media_ability * cfg['R_INV_BONUS'] if rp.name == game.party_B.name else ha['camp'] * hp.media_ability * cfg['H_MEDIA_BONUS']
+    a_camp, b_camp = calculate_campaign_effect(a_vol, b_vol, cfg['CAMPAIGN_MAGNITUDE'])
+    
+    game.party_A.support += a_camp; game.party_B.support += b_camp
+    final_h_shift = shift['actual_shift'] - (5.0 if caught else 0.0)
+    hp.support = max(0.0, min(100.0, hp.support + final_h_shift))
+    rp.support = 100.0 - hp.support
+    
+    gdp_grw_bonus = ((new_gdp - game.gdp)/max(1.0, game.gdp)) * 100.0
+    game.emotion = max(0.0, min(100.0, game.emotion + (ha['incite'] + ra['incite']) * 0.1 - gdp_grw_bonus - (game.sanity * 20.0)))
+    game.sanity = max(0.0, min(1.0, game.sanity - (game.emotion * 0.002) + ((ra['edu_up']+ha['edu_up']) * 0.005) - ((ra['edu_down']+ha['edu_down']) * 0.005)))
+    
+    game.last_year_report = {
+        'old_gdp': game.gdp, 'old_san': game.sanity, 'old_emo': game.emotion, 'old_budg': game.total_budget, 'old_h_fund': game.h_fund,
+        'target_gdp': d.get('target_gdp'), 'target_h_fund': d.get('target_h_fund'), 'h_party_name': hp.name, 'caught_corruption': caught,
+        'h_perf': shift['h_perf'], 'h_inc': hp_inc, 'r_inc': rp_inc,
+        'h_sup_shift': final_h_shift + (a_camp if hp.name == game.party_A.name else b_camp),
+        'r_sup_shift': -final_h_shift + (a_camp if rp.name == game.party_A.name else b_camp),
+        'est_h_inc': d.get('h_net_est', 0), 'est_r_inc': d.get('r_net_est', 0),
+        'est_h_sup_shift': d.get('h_sup_est', 0), 'est_r_sup_shift': d.get('r_sup_est', 0),
+        'real_decay': game.current_real_decay, 'view_party_forecast': game.proposing_party.current_forecast
+    }
+    game.h_fund, game.gdp, game.total_budget = new_h_fund, new_gdp, budg + confiscated
+    hp.wealth += hp_inc; rp.wealth += rp_inc
+
+def execute_poll(game, view_party, cost):
+    view_party.wealth -= cost
+    error = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
+    a_poll = max(0.0, min(100.0, game.party_A.support + random.uniform(-error, error)))
+    game.party_A.current_poll_result = a_poll
+    game.party_B.current_poll_result = 100.0 - a_poll
 
 class Party:
+    def __eq__(self, other): return self.name == other.name if hasattr(other, 'name') else False
     def __init__(self, name, cfg):
         self.name = name; self.wealth = cfg['INITIAL_WEALTH']; self.support = 50.0 
         self.build_ability = cfg['ABILITY_DEFAULT']; self.investigate_ability = cfg['ABILITY_DEFAULT']
         self.edu_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
         self.predict_ability = cfg['ABILITY_DEFAULT']
         self.current_forecast = 0.0; self.current_poll_result = None
-        self.active_campaign_bonus = 0.0 # 競選殘留效果
 
 class GameEngine:
     def __init__(self, cfg):
@@ -77,3 +159,8 @@ class GameEngine:
         self.sanity = cfg['SANITY_DEFAULT']; self.emotion = cfg['EMOTION_DEFAULT']
         self.current_real_decay = 0.0; self.proposal_count = 1; self.proposing_party = self.party_A
         self.history = []; self.swap_triggered_this_year = False; self.last_year_report = None
+        self.poll_done_this_year = False
+
+    def record_history(self, is_election):
+        self.history.append({
+            'Year
