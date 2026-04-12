@@ -31,38 +31,40 @@ def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val,
     h_ratio = funds_h / req_funds if req_funds > 0 else 1.0
     return req_funds, h_ratio
 
-def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, h_media, r_media):
-    h_perf = ((act_h - t_h) / max(1, t_h)) * 100.0  
-    r_perf = ((act_gdp - curr_gdp) / max(1, curr_gdp)) * 100.0 
-
-    h_media_pow = calc_log_gain(h_media) * cfg['H_MEDIA_BONUS'] * hp.media_ability
-    r_media_pow = calc_log_gain(r_media) * rp.media_ability
-
-    h_raw_shift = 0; h_shift_to_r = 0; r_raw_shift = 0; r_shift_to_h = 0
-
-    if h_perf >= 0: h_raw_shift = h_perf * (1 + h_media_pow * 0.15)
-    else:
-        transfer_ratio = min(1.0, h_media_pow * 0.05)
-        h_raw_shift = h_perf * (1 - transfer_ratio)
-        h_shift_to_r = h_perf * transfer_ratio 
-
-    if r_perf >= 0: r_raw_shift = r_perf * (1 + r_media_pow * 0.15)
-    else:
-        transfer_ratio = min(1.0, r_media_pow * 0.05)
-        r_raw_shift = r_perf * (1 - transfer_ratio)
-        r_shift_to_h = r_perf * transfer_ratio
-
-    net_h = h_raw_shift + r_shift_to_h
-    net_r = r_raw_shift + h_shift_to_r
-    shift_to_h = net_h - net_r
+def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra):
+    # 量化公式系統: 能力 -> 加成 -> 影響量 -> 支持度%
     
-    act_h_shift = shift_to_h * ((100.0 - hp.support) / 100.0) if shift_to_h > 0 else shift_to_h * (hp.support / 100.0)
-    act_blame_h_to_r = h_shift_to_r * ((100.0 - hp.support) / 100.0) if h_shift_to_r > 0 else h_shift_to_r * (hp.support / 100.0)
-    act_blame_r_to_h = r_shift_to_h * ((100.0 - rp.support) / 100.0) if r_shift_to_h > 0 else r_shift_to_h * (rp.support / 100.0)
+    # 1. 達標落後率 (%)
+    h_fail_pct = ((t_h - act_h) / max(1, float(t_h))) if act_h < t_h else 0.0
+    r_fail_pct = ((t_gdp - act_gdp) / max(1, float(t_gdp))) if act_gdp < t_gdp else 0.0
+
+    # 2. 媒體操控力(包含加成常數)
+    h_media_pow = ha['media'] * hp.media_ability * cfg['H_MEDIA_BONUS'] * cfg['MEDIA_DIFF']
+    r_media_pow = ra['media'] * rp.media_ability * cfg['MEDIA_DIFF']
+
+    # 3. 媒體攻擊產生負面影響量 = 落後率 * 基礎量 * 對手媒體操控力
+    h_blame_qty = h_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, r_media_pow * 0.01)
+    r_blame_qty = r_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, h_media_pow * 0.01)
+
+    # 4. 競選量計算 (A競選量 = A競選力 / 總競選力 * A投入資金)
+    h_camp_pow = ha['camp'] * hp.media_ability * cfg['MEDIA_DIFF']
+    r_camp_pow = ra['camp'] * rp.media_ability * cfg['MEDIA_DIFF']
+    total_camp_pow = max(1.0, h_camp_pow + r_camp_pow)
+    
+    h_eff_camp_qty = (h_camp_pow / total_camp_pow) * ha['camp']
+    r_eff_camp_qty = (r_camp_pow / total_camp_pow) * ra['camp']
+
+    # 5. 轉換為支持度 %
+    hp_shift = (h_eff_camp_qty - h_blame_qty + r_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
+    rp_shift = (r_eff_camp_qty - r_blame_qty + h_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
+
+    act_h_shift = hp_shift * ((100.0 - hp.support) / 100.0) if hp_shift > 0 else hp_shift * (hp.support / 100.0)
     
     return {
-        'actual_shift': act_h_shift, 'h_perf': h_perf, 'r_perf': r_perf,
-        'h_blame_saved_pct': act_blame_h_to_r, 'r_blame_saved_pct': act_blame_r_to_h
+        'actual_shift': act_h_shift, 
+        'h_perf': ((act_h - t_h) / max(1, t_h)) * 100.0, 
+        'r_perf': ((act_gdp - curr_gdp) / max(1, curr_gdp)) * 100.0,
+        'h_blame_qty': h_blame_qty, 'r_blame_qty': r_blame_qty
     }
 
 def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, r_pays, h_pays):
