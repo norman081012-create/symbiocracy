@@ -10,7 +10,6 @@ import interface
 
 st.set_page_config(page_title="Symbiocracy 共生民主模擬器 v3.0.0", layout="wide")
 
-# 強制每次互動後回到網頁頂端
 st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
 
 if 'cfg' not in st.session_state: st.session_state.cfg = content.DEFAULT_CONFIG.copy()
@@ -35,12 +34,12 @@ if 'turn_initialized' not in st.session_state:
     for p in [game.party_A, game.party_B]:
         error_margin = cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)
         p.current_forecast = max(0.0, round(game.current_real_decay + random.uniform(-error_margin, error_margin), 2))
-    game.proposal_count = 1
-    game.p1_state = 'drafting'
-    game.p1_proposals = {'R': None, 'H': None}
-    game.p1_selected_plan = None
     
-    # 清空去年的動態衰退值暫存區
+    if not hasattr(game, 'p1_step'):
+        game.p1_step = 'draft_r'
+        game.p1_proposals = {'R': None, 'H': None}
+        game.p1_selected_plan = None
+
     for k in list(st.session_state.keys()):
         if k.startswith('decay_') or k.startswith('ui_decay_'): del st.session_state[k]
     
@@ -113,6 +112,11 @@ if game.phase == 1:
             st.markdown(f"#### 📝 {view_party.name} ({'調節者' if active_role == 'R' else '執行者'}黨) 草案擬定室")
             col_l, col_r = st.columns(2)
             with col_l:
+                strategy = st.radio("🤖 策略", ["自訂", "🤝 友善", "⚖️ 公平", "🔥 極限"], horizontal=True)
+                r_ratio = 0.5; def_r = 1.0
+                if strategy == "🤝 友善": r_ratio = 0.7 if active_role == 'R' else 0.3; def_r = 0.8 if active_role == 'R' else 1.2
+                elif strategy == "🔥 極限": r_ratio = 0.3 if active_role == 'R' else 0.7; def_r = 1.8 if active_role == 'R' else 0.5
+                
                 opp_role = 'H' if active_role == 'R' else 'R'
                 opp_plan = game.p1_proposals.get(opp_role)
                 opp_claimed = opp_plan['claimed_decay'] if opp_plan else None
@@ -140,13 +144,13 @@ if game.phase == 1:
 
                 max_h = max(10.0, float(game.total_budget))
                 t_h_fund = st.slider("目標執行獎勵基金 (最高不超過當年總預算)", 0.0, max_h, float(min(game.h_fund, max_h)), 10.0)
-                r_val = st.slider("績效達成嚴格度 (平方級影響)", 0.5, 3.0, 1.0, 0.1)
+                r_val = st.slider("績效達成嚴格度 (平方級影響)", 0.5, 3.0, float(def_r), 0.1)
                 
                 t_gdp = game.gdp * (1 + (t_gdp_growth / 100.0))
                 req_funds, h_ratio = formulas.calculate_required_funds(cfg, t_h_fund, t_gdp, game.h_fund, game.gdp, r_val, claimed_decay, game.h_role_party.build_ability)
                 
                 safe_req = max(1, int(req_funds))
-                r_pays = st.slider(f"💰 調節者出資金額 (總需 {req_funds})", 0, safe_req, int(safe_req * 0.5))
+                r_pays = st.slider(f"💰 調節者出資金額 (總需 {req_funds})", 0, safe_req, int(safe_req * r_ratio))
                 h_pays = req_funds - r_pays
                 
                 o_gdp_pct, o_h_g, o_h_n, o_r_g, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_est_h_fund, o_h_roi, o_r_roi = formulas.calculate_preview(cfg, game, req_funds, h_ratio, r_val, view_party.current_forecast, game.h_role_party.build_ability, r_pays, h_pays)
@@ -161,7 +165,8 @@ if game.phase == 1:
                     game.p1_proposals[active_role] = {
                         'r_value': r_val, 'target_h_fund': t_h_fund, 'target_gdp_growth': t_gdp_growth, 
                         'target_gdp': t_gdp, 'r_pays': r_pays, 'claimed_decay': claimed_decay,
-                        'total_funds': req_funds, 'h_pays': h_pays, 'h_ratio': h_ratio, 'author': active_role
+                        'total_funds': req_funds, 'h_pays': h_pays, 'h_ratio': h_ratio, 'author': active_role,
+                        'h_roi': c_h_roi, 'r_roi': c_r_roi
                     }
                     if game.p1_step == 'draft_r': game.p1_step = 'draft_h'; game.proposing_party = game.h_role_party
                     else: game.p1_step = 'voting_pick'; game.proposing_party = game.ruling_party
@@ -171,27 +176,26 @@ if game.phase == 1:
                 def draw_preview(title, decay, gdp_pct, h_n, r_n, h_sup, r_sup, est_gdp, h_roi, r_roi):
                     my_net, my_sup, my_roi = (h_n, h_sup, h_roi) if my_is_h else (r_n, r_sup, r_roi)
                     opp_net, opp_sup, opp_roi = (r_n, r_sup, r_roi) if my_is_h else (h_n, h_sup, h_roi)
-                    st.markdown(f"**{title}** *(衰退估值: -{decay:.2f})*")
+                    st.markdown(f"**{title}** *(衰退估算: -{decay:.2f})*")
                     st.success(f"🟢 **我方預期收益:** `{my_net:.0f}` (ROI: {my_roi:.1f}%) | **支持度變化:** `{my_sup:+.2f}%`")
                     st.error(f"🔴 **對手預期收益:** `{opp_net:.0f}` (ROI: {opp_roi:.1f}%) | **支持度變化:** `{opp_sup:+.2f}%`")
                     st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {est_gdp:.0f}` ({gdp_pct:+.2f}%)")
                     st.markdown("---")
 
-                st.markdown("#### 📊 方案雙視角推演")
-                draw_preview("🛡️ 依據自己智庫估算", view_party.current_forecast, o_gdp_pct, o_h_n, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_h_roi, o_r_roi)
-                draw_preview("📢 依據法案公告估算", claimed_decay, c_gdp_pct, c_h_n, c_r_n, c_h_sup, c_r_sup, c_est_gdp, c_h_roi, c_r_roi)
+                st.markdown("#### 📊 方案雙盲視角推演")
+                draw_preview("🛡️ 依據自己智庫估計", view_party.current_forecast, o_gdp_pct, o_h_n, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_h_roi, o_r_roi)
+                draw_preview("📢 依據方案公告估計", claimed_decay, c_gdp_pct, c_h_n, c_r_n, c_h_sup, c_r_sup, c_est_gdp, c_h_roi, c_r_roi)
 
     elif game.p1_step == 'voting_pick':
         st.markdown(f"### 🗳️ 執政黨定奪 ({game.ruling_party.name})")
-        if view_party.name != game.ruling_party.name: st.warning("⏳ 等待執政黨定奪...")
+        if view_party.name != game.ruling_party.name:
+            st.warning("⏳ 等待執政黨定奪...")
         else:
             cols = st.columns(2)
             for idx, key in enumerate(['R', 'H']):
                 plan = game.p1_proposals.get(key)
                 with cols[idx]:
-                    if plan is None:
-                        st.info("等待對方發布草案...")
-                        continue
+                    if plan is None: st.info("等待對方發布草案..."); continue
                     interface.render_proposal_component('⚖️ 調節者草案' if key=='R' else '🛡️ 執行者草案', plan, game, view_party, cfg)
                     if st.button(f"✅ 選擇此方案", key=f"pick_{key}", use_container_width=True):
                         game.p1_selected_plan = plan; game.p1_step = 'voting_confirm'
@@ -244,8 +248,7 @@ elif game.phase == 2:
             h_corr_pct = st.slider("秘密貪污 (%)", 0, 100, 0)
             corr_amt = int(d.get('total_funds', 0) * (h_corr_pct / 100.0))
             st.caption(f"↳ 預計貪污落袋: `${corr_amt}`")
-        else:
-            h_corr_pct = 0
+        else: h_corr_pct = 0
         
     with c2:
         st.markdown("#### 🔒 內部升級與維護")
@@ -308,34 +311,3 @@ elif game.phase == 2:
                 'h_blame_saved_pct': shift['h_blame_saved_pct'], 'r_blame_saved_pct': shift['r_blame_saved_pct'], 'real_decay': game.current_real_decay,
                 'view_party_forecast': view_party.current_forecast, 'caught_corruption': caught
             }
-
-            hp.support, rp.support = hp_sup_new, 100.0 - hp_sup_new
-            
-            if game.year % cfg['ELECTION_CYCLE'] == 1:
-                if hp.support > rp.support: game.ruling_party = hp
-                elif rp.support > hp.support: game.ruling_party = rp
-
-            game.h_fund, game.gdp = new_h_fund, new_gdp
-            game.total_budget = budg + confiscated
-            hp.wealth += hp_inc; rp.wealth += rp_inc
-
-            rp.investigate_ability, _ = formulas.get_ability_preview(rp.investigate_ability, ra['p_inv'], cfg)
-            rp.predict_ability, _ = formulas.get_ability_preview(rp.predict_ability, ra['p_pre'], cfg)
-            rp.media_ability, _ = formulas.get_ability_preview(rp.media_ability, ra['p_media'], cfg)
-            rp.edu_ability, _ = formulas.get_ability_preview(rp.edu_ability, ra['p_edu'], cfg)
-            
-            hp.investigate_ability, _ = formulas.get_ability_preview(hp.investigate_ability, ha['p_inv'], cfg)
-            hp.predict_ability, _ = formulas.get_ability_preview(hp.predict_ability, ha['p_pre'], cfg)
-            hp.media_ability, _ = formulas.get_ability_preview(hp.media_ability, ha['p_media'], cfg)
-            hp.edu_ability, _ = formulas.get_ability_preview(hp.edu_ability, ha['p_edu'], cfg)
-            hp.build_ability, _ = formulas.get_ability_preview(hp.build_ability, ha['p_bld'], cfg)
-
-            game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
-            game.year += 1; game.phase = 1; game.p1_state = 'drafting'
-            game.poll_done_this_year = False
-            game.proposing_party = game.r_role_party # 強制切換視角至調節者
-            st.session_state.pop(f"{rp.name}_acts", None); st.session_state.pop(f"{hp.name}_acts", None)
-            del st.session_state.turn_initialized; st.rerun()
-
-if game.phase == 1 and game.p1_step in ['draft_r', 'draft_h'] and view_party.name == (game.r_role_party.name if game.p1_step == 'draft_r' else game.h_role_party.name):
-    interface.render_real_time_formulas(rt_req_funds, rt_h_ratio, rt_r_pays, rt_h_pays, rt_r_val, rt_t_h, rt_t_gdp, game.h_fund, game.gdp, rt_net_inc, rt_opp_inc, rt_my_sup, rt_opp_sup, (game.p1_step == 'draft_h'))
