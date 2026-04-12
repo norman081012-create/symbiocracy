@@ -140,4 +140,25 @@ def render_endgame_charts(history_data, cfg):
 
     st.subheader("📊 1. 總體經濟與公民識讀指數走勢")
     fig1 = make_subplots(specs=[[{"secondary_y": True}]])
-    fig1.add_trace(go.Scatter(x=df['Year'], y=df['
+    fig1.add_trace(go.Scatter(x=df['Year'], y=df['GDP'], name="總 GDP", line=dict(color='blue', width=3)), secondary_y=False)
+    fig1.add_trace(go.Scatter(x=df['Year'], y=df['Sanity']*100, name="公民識讀", line=dict(color='purple', width=3)), secondary_y=True)
+    fig1.update_yaxes(title_text="GDP (資金)", secondary_y=False)
+    fig1.update_yaxes(title_text="識讀指數", secondary_y=True, range=[0, 100])
+    for _, row in df.iterrows():
+        y = row['Year']
+        if row['Is_Swap']: fig1.add_vline(x=y, line_dash="dot", line_color="red", annotation_text="倒閣!")
+        if row['Is_Election']: fig1.add_vline(x=y, line_dash="dash", line_color="green", annotation_text="選舉")
+    st.plotly_chart(fig1, use_container_width=True)
+
+    st.subheader(f"📊 2. 雙方民意支持度與黨產角力")
+    fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+    fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Wealth'], name=f"{cfg['PARTY_A_NAME']} 存款", line=dict(color='cyan', dash='dash')), secondary_y=False)
+    fig2.add_trace(go.Scatter(x=df['Year'], y=df['B_Wealth'], name=f"{cfg['PARTY_B_NAME']} 存款", line=dict(color='orange', dash='dash')), secondary_y=False)
+    fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Support'], name=f"{cfg['PARTY_A_NAME']} 民意", line=dict(color='green', width=4)), secondary_y=True)
+    fig2.update_yaxes(title_text="財富總額", secondary_y=False)
+    fig2.update_yaxes(title_text="支持度 (%)", secondary_y=True, range=[0, 100])
+    for _, row in df.iterrows():
+        y = row['Year']
+        if row['Is_Swap']: fig2.add_vline(x=y, line_dash="dot", line_color="red")
+        if row['Is_Election']: fig2.add_vline(x=y, line_dash="dash", line_color="green")
+    st.plotly_chart(fig2, use_container_width=True)
