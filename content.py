@@ -2,6 +2,7 @@
 # content.py
 # 負責管理遊戲全域設定、UI 中文本與判讀邏輯
 # ==========================================
+import random
 
 DEFAULT_CONFIG = {
     'PARTY_A_NAME': "Prosperity", 'PARTY_B_NAME': "Equity", 
@@ -55,3 +56,38 @@ def get_emotion_text(emotion_val):
     elif emotion_val < 50: return f"些微躁動 ({emotion_val:.1f})"
     elif emotion_val < 80: return f"群情激憤 ({emotion_val:.1f})"
     else: return f"陷入狂熱 ({emotion_val:.1f})"
+
+def generate_phase2_flavor_text(game, view_party):
+    """根據國家現況生成帶入感文案 (Phase 2)"""
+    gdp_lvl = "high" if game.gdp > 6000 else "low" if game.gdp < 4000 else "med"
+    san_lvl = "high" if game.sanity > 0.7 else "low" if game.sanity < 0.4 else "med"
+    emo_lvl = "high" if game.emotion > 70 else "low" if game.emotion < 30 else "med"
+    decay_lvl = "high" if view_party.current_forecast > 0.5 else "low" if view_party.current_forecast < 0.2 else "med"
+    
+    prompts = {
+        ('high', 'high', 'low', 'low'): "經濟繁榮，社會理性且平靜。這是一個推動長遠建設的絕佳時機。",
+        ('low', 'low', 'high', 'high'): "經濟衰退，民怨沸騰，社會充滿盲從與狂熱。我們必須在風暴中尋找生存之道，任何政策都可能引發反彈。",
+        ('med', 'med', 'med', 'med'): "國家處於平穩狀態，各項指標皆在掌控之中。穩紮穩打是目前的最佳策略。",
+        ('high', 'low', 'high', 'low'): "雖然經濟數據亮眼，但社會理智低迷且情緒高漲。我們需要小心引導這股狂熱，避免局勢失控。",
+        ('low', 'high', 'low', 'high'): "經濟面臨嚴峻挑戰，但公民具備高度理智，社會情緒穩定。這是一場考驗我們韌性的持久戰。"
+    }
+    
+    key = (gdp_lvl, san_lvl, emo_lvl, decay_lvl)
+    return prompts.get(key, "局勢錯綜複雜，請審慎評估各項政策的影響，帶領國家度過這一年的挑戰。")
+
+def generate_phase1_flavor_text(game, view_party):
+    """根據國家現況生成帶入感文案 (Phase 1)"""
+    if game.year == 1:
+        return "新的一年開始了，國家百廢待舉，請盡快展開預算與目標協商，確立今年的施政方向。"
+    
+    rep = game.last_year_report
+    if not rep:
+        return "新的一年開始了，請展開預算與目標協商。"
+
+    gdp_diff = ((game.gdp - rep['old_gdp']) / max(1.0, rep['old_gdp'])) * 100
+    h_diff = rep['h_perf']
+    
+    gdp_str = f"成長 {gdp_diff:.1f}%" if gdp_diff >= 0 else f"衰退 {abs(gdp_diff):.1f}%"
+    h_str = "達標" if h_diff >= 0 else f"落後 {abs(h_diff):.1f}%"
+    
+    return f"回顧去年，GDP {gdp_str}，執行者目標 {h_str}。基於此現況，請擬定今年的預算草案。"
