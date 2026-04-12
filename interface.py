@@ -1,4 +1,7 @@
+# ==========================================
 # interface.py
+# 負責動態全域設定選單與遊戲結算圖表生成
+# ==========================================
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,7 +20,6 @@ def render_global_settings(cfg):
                 cfg[key] = st.text_input(key, value=str(cfg[key]))
 
 def add_event_vlines(fig, history_df):
-    """通用輔助函數：在圖表上畫出選舉年與 Swap 的垂直線"""
     for _, row in history_df.iterrows():
         y = row['Year']
         if row['Is_Swap']:
@@ -27,10 +29,10 @@ def add_event_vlines(fig, history_df):
 
 def render_endgame_charts(history_data, cfg):
     st.balloons()
-    st.title("🏁 遊戲結束！歷史軌跡總結算")
+    st.title("🏁 遊戲結束！共生內閣軌跡總結算")
     df = pd.DataFrame(history_data)
 
-    # ================= Chart 1: GDP vs Sanity =================
+    # 1. 總 GDP 與 理智度
     st.subheader("📊 1. 總體經濟與社會理智度走勢")
     fig1 = make_subplots(specs=[[{"secondary_y": True}]])
     fig1.add_trace(go.Scatter(x=df['Year'], y=df['GDP'], name="總 GDP", line=dict(color='blue', width=3)), secondary_y=False)
@@ -40,8 +42,8 @@ def render_endgame_charts(history_data, cfg):
     add_event_vlines(fig1, df)
     st.plotly_chart(fig1, use_container_width=True)
 
-    # ================= Chart 2: Support vs Wealth =================
-    st.subheader(f"📊 2. {cfg['PARTY_A_NAME']} 支持度與雙方資金角力")
+    # 2. 支持度與雙方財富
+    st.subheader(f"📊 2. 雙方民意支持度與黨產角力")
     fig2 = make_subplots(specs=[[{"secondary_y": True}]])
     fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Wealth'], name=f"{cfg['PARTY_A_NAME']} 存款", line=dict(color='cyan', dash='dash')), secondary_y=False)
     fig2.add_trace(go.Scatter(x=df['Year'], y=df['B_Wealth'], name=f"{cfg['PARTY_B_NAME']} 存款", line=dict(color='orange', dash='dash')), secondary_y=False)
@@ -51,8 +53,8 @@ def render_endgame_charts(history_data, cfg):
     add_event_vlines(fig2, df)
     st.plotly_chart(fig2, use_container_width=True)
 
-    # ================= Chart 3: Party Abilities =================
-    st.subheader("📊 3. 兩黨各項硬實力成長軌跡")
+    # 3. 兩黨各項能力
+    st.subheader("📊 3. 兩黨硬實力成長軌跡")
     fig3 = go.Figure()
     abilities = [('Build', '建設'), ('Inv', '調查'), ('Edu', '教育'), ('Prop', '宣傳'), ('Blame', '甩鍋')]
     colors = ['#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3']
