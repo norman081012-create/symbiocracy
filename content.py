@@ -40,7 +40,7 @@ def get_economic_forecast_text(decay_val):
     if decay_val <= 0.15: return "🌟 景氣極佳"
     elif decay_val <= 0.35: return "📈 穩定成長"
     elif decay_val <= 0.55: return "⚖️ 持平放緩"
-    elif decay_val <= 0.75: return "📉 衰قیع警報"
+    elif decay_val <= 0.75: return "📉 衰退警報"
     else: return "⚠️ 經濟風暴"
 
 def get_civic_index_text(index_val):
