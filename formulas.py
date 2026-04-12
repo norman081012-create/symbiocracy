@@ -83,13 +83,14 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
 
 def execute_year_end(game, cfg, ra, ha, d):
     rp, hp = game.r_role_party, game.h_role_party
-    corr_amt = d.get('total_funds', 0) * (ha['corr'] / 100.0)
+    corr_amt = d.get('total_funds', 0) * (ha.get('corr', 0) / 100.0)
     act_build = d.get('total_funds', 0) - corr_amt
     
     caught = False; confiscated = 0.0
-    if ha['corr'] > 0:
+    if ha.get('corr', 0) > 0:
         eff_inv = rp.investigate_ability * cfg['R_INV_BONUS']
-        if random.random() < min(1.0, (eff_inv / cfg['MAX_ABILITY']) * (corr_amt / max(1.0, hp.wealth)) * 10.0):
+        catch_prob = min(1.0, (eff_inv / cfg['MAX_ABILITY']) * (corr_amt / max(1.0, hp.wealth)) * 10.0)
+        if random.random() < catch_prob:
             caught = True; confiscated = corr_amt; corr_amt = 0 
             
     h_bst = (act_build * d.get('h_ratio', 1.0) * hp.build_ability) / max(0.1, d.get('r_value', 1.0)**2)
@@ -105,10 +106,10 @@ def execute_year_end(game, cfg, ra, ha, d):
     hp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == hp.name else 0) + (budg * h_shr) - d.get('h_pays',0) + corr_amt + h_bonus_overflow - (confiscated * cfg['CORRUPTION_PENALTY'] if caught else 0)
     rp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == rp.name else 0) + (budg * (1 - h_shr)) - d.get('r_pays',0)
     
-    shift = calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha['media'], ra['media'])
+    shift = calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha.get('media', 0), ra.get('media', 0))
     
-    a_vol = ra['camp'] * rp.media_ability * cfg['R_INV_BONUS'] if rp.name == game.party_A.name else ha['camp'] * hp.media_ability * cfg['H_MEDIA_BONUS']
-    b_vol = ra['camp'] * rp.media_ability * cfg['R_INV_BONUS'] if rp.name == game.party_B.name else ha['camp'] * hp.media_ability * cfg['H_MEDIA_BONUS']
+    a_vol = ra.get('camp', 0) * rp.media_ability * cfg['R_INV_BONUS'] if rp.name == game.party_A.name else ha.get('camp', 0) * hp.media_ability * cfg['H_MEDIA_BONUS']
+    b_vol = ra.get('camp', 0) * rp.media_ability * cfg['R_INV_BONUS'] if rp.name == game.party_B.name else ha.get('camp', 0) * hp.media_ability * cfg['H_MEDIA_BONUS']
     a_camp, b_camp = calculate_campaign_effect(a_vol, b_vol, cfg['CAMPAIGN_MAGNITUDE'])
     
     game.party_A.support += a_camp; game.party_B.support += b_camp
@@ -116,9 +117,9 @@ def execute_year_end(game, cfg, ra, ha, d):
     hp.support = max(0.0, min(100.0, hp.support + final_h_shift))
     rp.support = 100.0 - hp.support
     
-    gdp_grw_bonus = ((new_gdp - game.gdp)/max(1.0, game.gdp)) * 100.0
-    game.emotion = max(0.0, min(100.0, game.emotion + (ha['incite'] + ra['incite']) * 0.1 - gdp_grw_bonus - (game.sanity * 20.0)))
-    game.sanity = max(0.0, min(1.0, game.sanity - (game.emotion * 0.002) + ((ra['edu_up']+ha['edu_up']) * 0.005) - ((ra['edu_down']+ha['edu_down']) * 0.005)))
+    gdp_grw_bonus = ((new_gdp - game.gdp)/max(1.0, game.gdp)) * 100.0 if game.gdp > 0 else 0
+    game.emotion = max(0.0, min(100.0, game.emotion + (ha.get('incite', 0) + ra.get('incite', 0)) * 0.1 - gdp_grw_bonus - (game.sanity * 20.0)))
+    game.sanity = max(0.0, min(1.0, game.sanity - (game.emotion * 0.002) + ((ra.get('edu_up', 0)+ha.get('edu_up', 0)) * 0.005) - ((ra.get('edu_down', 0)+ha.get('edu_down', 0)) * 0.005)))
     
     game.last_year_report = {
         'old_gdp': game.gdp, 'old_san': game.sanity, 'old_emo': game.emotion, 'old_budg': game.total_budget, 'old_h_fund': game.h_fund,
@@ -126,8 +127,8 @@ def execute_year_end(game, cfg, ra, ha, d):
         'h_perf': shift['h_perf'], 'h_inc': hp_inc, 'r_inc': rp_inc,
         'h_sup_shift': final_h_shift + (a_camp if hp.name == game.party_A.name else b_camp),
         'r_sup_shift': -final_h_shift + (a_camp if rp.name == game.party_A.name else b_camp),
-        'est_h_inc': d.get('h_net_est', 0), 'est_r_inc': d.get('r_net_est', 0),
-        'est_h_sup_shift': d.get('h_sup_est', 0), 'est_r_sup_shift': d.get('r_sup_est', 0),
+        'est_h_inc': d.get('est_h_n', 0), 'est_r_inc': d.get('est_r_n', 0),
+        'est_h_sup_shift': d.get('est_h_sup', 0), 'est_r_sup_shift': d.get('est_r_sup', 0),
         'real_decay': game.current_real_decay, 'view_party_forecast': game.proposing_party.current_forecast
     }
     game.h_fund, game.gdp, game.total_budget = new_h_fund, new_gdp, budg + confiscated
