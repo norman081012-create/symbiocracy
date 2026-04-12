@@ -1,7 +1,9 @@
+# ==========================================
 # formulas.py
+# 負責所有數學計算、引擎邏輯與歷史資料記錄
+# ==========================================
 import math
 
-# 核心數學公式
 def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost))
 
@@ -64,8 +66,8 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     future_budget = cfg['BASE_TOTAL_BUDGET'] + (est_gdp * cfg['HEALTH_MULTIPLIER'])
     h_share_ratio = est_h_fund / max(1.0, future_budget) if future_budget > 0 else 0.5
     
-    h_ruling_bonus = cfg['RULING_BONUS'] if game.ruling_party == game.h_role_party else 0
-    r_ruling_bonus = cfg['RULING_BONUS'] if game.ruling_party == game.r_role_party else 0
+    h_ruling_bonus = cfg['RULING_BONUS'] if game.ruling_party.name == game.h_role_party.name else 0
+    r_ruling_bonus = cfg['RULING_BONUS'] if game.ruling_party.name == game.r_role_party.name else 0
     
     h_gross = cfg['DEFAULT_BONUS'] + h_ruling_bonus + (future_budget * h_share_ratio)
     r_gross = cfg['DEFAULT_BONUS'] + r_ruling_bonus + (future_budget * (1 - h_share_ratio))
@@ -78,10 +80,11 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     
     return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund
 
-# 資料結構
 class Party:
     def __eq__(self, other):
-        return self.name == other.name if hasattr(other, 'name') else False
+        if hasattr(other, 'name'):
+            return self.name == other.name
+        return False
 
     def __init__(self, name, cfg):
         self.name = name
@@ -94,11 +97,14 @@ class Party:
         self.predict_ability = 1.0
         self.blame_ability = 1.0 
         
+        self.last_prop = 100.0  
+        self.last_blame = 0.0
         self.current_forecast = 0.0
         self.last_forecast = 0.0
         self.last_income_diff = 0.0
         self.last_sup_diff = 0.0
         self.current_poll_result = None
+        self.current_poll_type = ""
 
 class GameEngine:
     def __init__(self, cfg):
@@ -108,6 +114,7 @@ class GameEngine:
         self.gdp = cfg['CURRENT_GDP']
         self.total_budget = cfg['BASE_TOTAL_BUDGET'] + (self.gdp * cfg['HEALTH_MULTIPLIER'])
         self.h_fund = cfg['H_FUND_DEFAULT']
+        self.confiscated_funds = 0.0 
         
         self.phase = 1 
         self.p1_state = 'drafting' 
@@ -121,12 +128,11 @@ class GameEngine:
         self.proposal_count = 0
         self.proposing_party = self.party_A
 
-        # 新增：歷史數據追蹤與單期事件標記
+        # 歷史軌跡追蹤
         self.history = []
         self.swap_triggered_this_year = False
 
     def record_history(self, is_election):
-        # 紀錄每年期末的結算數據供畫圖使用
         self.history.append({
             'Year': self.year,
             'GDP': self.gdp,
