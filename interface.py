@@ -10,7 +10,6 @@ import content
 import formulas
 
 def sync_party_names(game, cfg):
-    """確保側邊欄改名後，底層資料立刻同步"""
     game.party_A.name = cfg['PARTY_A_NAME']; game.party_B.name = cfg['PARTY_B_NAME']
 
 def render_global_settings(cfg, game):
@@ -116,7 +115,6 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
                 st.info(f"### {party.name} {crown} {role_badge}\n**黨產:** {disp_w} | **支持度:** {disp_sup}")
 
 def render_proposal_component(title, plan, game, view_party, cfg):
-    """標準化的提案與智庫預估渲染元件"""
     st.markdown(f"#### {title}")
     st.write(f"**公告衰退:** `{plan['claimed_decay']:.2f}` | **目標 GDP 成長:** `{plan['target_gdp_growth']}%`")
     st.write(f"**嚴格度:** `{plan['r_value']:.2f}` | **目標執行獎勵:** `{plan['target_h_fund']}`")
@@ -138,7 +136,6 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     st.error(f"🔴 **對手預期收益:** `{opp_net:.0f}` (ROI: {opp_roi:.1f}%) | **支持度變化:** `{opp_sup:+.2f}%`")
 
 def ability_slider(label, key, current_val, wealth, cfg):
-    """維護費與能力升級標準化滑桿"""
     maint = max(0, (current_val - 3.0) * cfg['MAINTENANCE_RATE'])
     default_val = min(int(maint), int(wealth))
     invest = st.slider(f"{label} (當前等級: {current_val*10:.0f}%)", 0, int(wealth), default_val, key=key)
