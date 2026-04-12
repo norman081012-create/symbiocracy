@@ -163,4 +163,9 @@ class GameEngine:
 
     def record_history(self, is_election):
         self.history.append({
-            'Year
+            'Year': self.year, 'GDP': self.gdp, 'Sanity': self.sanity, 'Emotion': self.emotion,
+            'A_Support': self.party_A.support, 'B_Support': self.party_B.support,
+            'A_Wealth': self.party_A.wealth, 'B_Wealth': self.party_B.wealth,
+            'Is_Election': is_election, 'Is_Swap': self.swap_triggered_this_year
+        })
+        self.swap_triggered_this_year = False
