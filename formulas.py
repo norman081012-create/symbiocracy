@@ -6,7 +6,7 @@ import math
 import random
 
 def calc_log_gain(invest_amount, base_cost=50.0):
-    return math.log2(1 + (invest_amount / base_cost))
+    return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
 def get_ability_preview(current, invest, cfg):
     maint = max(0, (current - 3.0) * cfg['MAINTENANCE_RATE'])
@@ -91,32 +91,6 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     
     return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
 
-def calculate_corruption_preview(cfg, game, d, h_corr_pct, ra_media, ha_media):
-    rp, hp = game.r_role_party, game.h_role_party
-    corr_amt = d.get('total_funds', 0) * (h_corr_pct / 100.0)
-    act_build = d.get('total_funds', 0) - corr_amt
-    
-    eff_inv = rp.investigate_ability * cfg['R_INV_BONUS']
-    catch_prob = min(1.0, (eff_inv / cfg['MAX_ABILITY']) * (corr_amt / max(1.0, hp.wealth)) * 10.0)
-    
-    h_bst = (act_build * d.get('h_ratio', 1.0) * hp.build_ability) / max(0.1, d.get('r_value', 1.0)**2)
-    new_h_fund = max(0.0, game.h_fund + h_bst - (game.current_real_decay * (d.get('r_value', 1.0)**2) * 0.2 * game.h_fund))
-    
-    gdp_bst = (act_build * hp.build_ability) / cfg['BUILD_DIFF']
-    new_gdp = max(0.0, game.gdp + gdp_bst - (game.current_real_decay * 1000))
-    budg = cfg['BASE_TOTAL_BUDGET'] + (new_gdp * cfg['HEALTH_MULTIPLIER'])
-    h_shr = new_h_fund / max(1.0, budg) if budg > 0 else 0.5
-    
-    base_hp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == hp.name else 0) + (budg * h_shr) - d.get('h_pays',0)
-    net_inc_safe = base_hp_inc + corr_amt
-    net_inc_caught = base_hp_inc - (corr_amt * cfg['CORRUPTION_PENALTY'])
-    
-    shift = calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha_media, ra_media)
-    sup_shift_safe = shift['actual_shift']
-    sup_shift_caught = shift['actual_shift'] - 5.0
-    
-    return corr_amt, catch_prob, net_inc_safe, net_inc_caught, sup_shift_safe, sup_shift_caught
-
 def execute_poll(game, view_party, cost):
     view_party.wealth -= cost
     error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
@@ -132,8 +106,7 @@ class Party:
         self.build_ability = cfg['ABILITY_DEFAULT']; self.investigate_ability = cfg['ABILITY_DEFAULT']
         self.edu_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
         self.predict_ability = cfg['ABILITY_DEFAULT']
-        self.current_forecast = 0.0; self.last_forecast = 0.0
-        self.last_income_diff = 0.0; self.last_sup_diff = 0.0
+        self.current_forecast = 0.0
         self.current_poll_result = None
 
 class GameEngine:
@@ -141,18 +114,15 @@ class GameEngine:
         self.year = 1
         self.party_A = Party(cfg['PARTY_A_NAME'], cfg); self.party_B = Party(cfg['PARTY_B_NAME'], cfg)
         self.gdp = cfg['CURRENT_GDP']; self.total_budget = cfg['BASE_TOTAL_BUDGET'] + (self.gdp * cfg['HEALTH_MULTIPLIER'])
-        self.h_fund = cfg['H_FUND_DEFAULT']; self.confiscated_funds = 0.0 
-        self.phase = 1 
-        self.p1_step = 'draft_r' 
-        self.p1_proposals = {'R': None, 'H': None}
-        self.p1_selected_plan = None
+        self.h_fund = cfg['H_FUND_DEFAULT']
+        self.phase = 1; self.p1_step = 'draft_r' 
+        self.p1_proposals = {'R': None, 'H': None}; self.p1_selected_plan = None
         self.ruling_party = self.party_A; self.r_role_party = self.party_A; self.h_role_party = self.party_B  
         self.sanity = cfg['SANITY_DEFAULT']; self.emotion = cfg['EMOTION_DEFAULT']
         self.current_real_decay = 0.0; self.last_real_decay = 0.0
         self.proposal_count = 1; self.proposing_party = self.party_A
         self.history = []; self.swap_triggered_this_year = False
         self.last_year_report = None
-        self.poll_done_this_year = False
 
     def record_history(self, is_election):
         self.history.append({
