@@ -248,4 +248,18 @@ elif game.phase == 2:
                 p = game.r_role_party if p_key == game.r_role_party.name else game.h_role_party
                 p.investigate_ability, _, _ = formulas.get_ability_preview(p.investigate_ability, act_data['p_inv'], cfg)
                 p.predict_ability, _, _ = formulas.get_ability_preview(p.predict_ability, act_data['p_pre'], cfg)
-                p.media_ability, _,
+                p.media_ability, _, _ = formulas.get_ability_preview(p.media_ability, act_data['p_media'], cfg)
+                p.edu_ability, _, _ = formulas.get_ability_preview(p.edu_ability, act_data['p_edu'], cfg)
+                p.build_ability, _, _ = formulas.get_ability_preview(p.build_ability, act_data['p_bld'], cfg)
+
+            if game.year % cfg['ELECTION_CYCLE'] == 1:
+                winner = game.party_A if game.party_A.support > game.party_B.support else game.party_B
+                game.ruling_party = winner
+
+            game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
+            game.year += 1; game.phase = 1; game.p1_step = 'draft_r'
+            game.p1_proposals = {'R': None, 'H': None}; game.p1_selected_plan = None
+            game.poll_done_this_year = False; game.proposing_party = game.r_role_party
+            for k in list(st.session_state.keys()):
+                if k.startswith('ui_decay_') or k.endswith('_acts'): del st.session_state[k]
+            del st.session_state.turn_initialized; st.rerun()
