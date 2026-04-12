@@ -354,3 +354,25 @@ elif game.phase == 2:
                     'h_blame_saved': shift_data['h_blame_saved'], 'r_blame_saved': shift_data['r_blame_saved'],
                     'real_decay': game.current_real_decay, 'view_party_forecast': view_party.current_forecast,
                     'caught_corruption': caught
+                }
+
+                hp.support, rp.support = hp_sup_new, 100.0 - hp_sup_new
+                game.sanity, game.h_fund, game.gdp = new_san, new_h_fund, new_gdp
+                game.total_budget = cfg['BASE_TOTAL_BUDGET'] + (new_gdp * cfg['HEALTH_MULTIPLIER']) + confis
+                hp.wealth += hp_inc; rp.wealth += rp_inc
+                game.party_A.current_poll_result = None; game.party_B.current_poll_result = None
+
+                game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
+
+                game.year += 1; game.phase = 1; game.p1_state = 'drafting'; game.proposal_count = 0
+                game.r_role_party = game.ruling_party
+                game.h_role_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A
+                game.proposing_party = game.r_role_party
+                
+                st.session_state.pop(f"{rp.name}_acts", None); st.session_state.pop(f"{hp.name}_acts", None)
+                del st.session_state.turn_initialized
+                st.rerun()
+
+# 在 Phase 1 繪製即時面板 (如果處於草案模式)
+if game.phase == 1 and game.p1_step in ['draft_r', 'draft_h'] and view_party.name == (game.r_role_party.name if game.p1_step == 'draft_r' else game.h_role_party.name):
+    interface.render_real_time_formulas(rt_req_funds, rt_h_ratio, rt_r_pays, rt_h_pays, rt_r_val, rt_t_h, rt_t_gdp, game.h_fund, game.gdp)
