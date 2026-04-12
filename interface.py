@@ -138,14 +138,14 @@ def render_proposal_component(title, plan, game, view_party, cfg):
 def ability_slider(label, key, current_val, wealth, cfg):
     maint = max(0, (current_val - 3.0) * cfg['MAINTENANCE_RATE'])
     default_val = min(int(maint), int(wealth))
-    invest = st.slider(f"{label} (當前等級: {current_val*10:.0f}%)", 0, int(wealth), default_val, key=key)
+    invest = st.slider(f"{label} (當前: {current_val*10:.0f}%)", 0, int(wealth), default_val, key=key)
     
     if invest < maint:
         drop = (maint - invest) * 0.02
-        st.caption(f"📉 投入不足維護費 (${int(maint)})，預計衰退至: {max(30.0, (current_val - drop)*10):.1f}%")
+        st.caption(f"📉 投入不足維護費 (${int(maint)})，預計降至: {max(30.0, (current_val - drop)*10):.1f}%")
     else:
         gain = formulas.calc_log_gain(invest - maint)
-        st.caption(f"📈 已達維護費 (${int(maint)})，預計提升至: {min(100.0, (current_val + gain)*10):.1f}%")
+        st.caption(f"📈 已達維護費 (${int(maint)})，預計升至: {min(100.0, (current_val + gain)*10):.1f}%")
     return invest
 
 def render_real_time_formulas(req_funds, h_ratio, r_pays, h_pays, r_val, t_h, t_gdp, act_h, act_gdp, net_inc, opp_net_inc, my_sup, opp_sup, is_h):
