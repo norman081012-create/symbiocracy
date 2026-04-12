@@ -32,21 +32,15 @@ def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val,
     return req_funds, h_ratio
 
 def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra):
-    # 量化公式系統: 能力 -> 加成 -> 影響量 -> 支持度%
-    
-    # 1. 達標落後率 (%)
     h_fail_pct = ((t_h - act_h) / max(1, float(t_h))) if act_h < t_h else 0.0
     r_fail_pct = ((t_gdp - act_gdp) / max(1, float(t_gdp))) if act_gdp < t_gdp else 0.0
 
-    # 2. 媒體操控力(包含加成常數)
     h_media_pow = ha['media'] * hp.media_ability * cfg['H_MEDIA_BONUS'] * cfg['MEDIA_DIFF']
     r_media_pow = ra['media'] * rp.media_ability * cfg['MEDIA_DIFF']
 
-    # 3. 媒體攻擊產生負面影響量 = 落後率 * 基礎量 * 對手媒體操控力
     h_blame_qty = h_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, r_media_pow * 0.01)
     r_blame_qty = r_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, h_media_pow * 0.01)
 
-    # 4. 競選量計算 (A競選量 = A競選力 / 總競選力 * A投入資金)
     h_camp_pow = ha['camp'] * hp.media_ability * cfg['MEDIA_DIFF']
     r_camp_pow = ra['camp'] * rp.media_ability * cfg['MEDIA_DIFF']
     total_camp_pow = max(1.0, h_camp_pow + r_camp_pow)
@@ -54,7 +48,6 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra
     h_eff_camp_qty = (h_camp_pow / total_camp_pow) * ha['camp']
     r_eff_camp_qty = (r_camp_pow / total_camp_pow) * ra['camp']
 
-    # 5. 轉換為支持度 %
     hp_shift = (h_eff_camp_qty - h_blame_qty + r_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
     rp_shift = (r_eff_camp_qty - r_blame_qty + h_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
 
@@ -98,8 +91,16 @@ def execute_poll(game, view_party, cost):
     error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
     a_actual = game.party_A.support
     a_poll = max(0.0, min(100.0, a_actual + random.uniform(-error_margin, error_margin)))
-    game.party_A.current_poll_result = a_poll
-    game.party_B.current_poll_result = 100.0 - a_poll
+    
+    if view_party.poll_count == 0:
+        game.party_A.current_poll_result = a_poll
+    else:
+        # 平均化以增加準確度
+        prev_a = game.party_A.current_poll_result
+        game.party_A.current_poll_result = ((prev_a * view_party.poll_count) + a_poll) / (view_party.poll_count + 1)
+        
+    game.party_B.current_poll_result = 100.0 - game.party_A.current_poll_result
+    view_party.poll_count += 1
 
 class Party:
     def __eq__(self, other): return self.name == other.name if hasattr(other, 'name') else False
@@ -110,6 +111,8 @@ class Party:
         self.predict_ability = cfg['ABILITY_DEFAULT']
         self.current_forecast = 0.0
         self.current_poll_result = None
+        self.poll_count = 0
+        self.last_acts = {'policy': 0, 'legal': 0, 'maint': 0}
 
 class GameEngine:
     def __init__(self, cfg):
