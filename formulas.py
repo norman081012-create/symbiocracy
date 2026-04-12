@@ -116,13 +116,17 @@ class GameEngine:
         self.party_A = Party(cfg['PARTY_A_NAME'], cfg); self.party_B = Party(cfg['PARTY_B_NAME'], cfg)
         self.gdp = cfg['CURRENT_GDP']; self.total_budget = cfg['BASE_TOTAL_BUDGET'] + (self.gdp * cfg['HEALTH_MULTIPLIER'])
         self.h_fund = cfg['H_FUND_DEFAULT']; self.confiscated_funds = 0.0 
-        self.phase = 1; self.p1_state = 'drafting' 
+        self.phase = 1 
+        self.p1_step = 'draft_r' 
+        self.p1_proposals = {'R': None, 'H': None}
+        self.p1_selected_plan = None
         self.ruling_party = self.party_A; self.r_role_party = self.party_A; self.h_role_party = self.party_B  
         self.sanity = cfg['SANITY_DEFAULT']; self.emotion = cfg['EMOTION_DEFAULT']
         self.current_real_decay = 0.0; self.last_real_decay = 0.0
-        self.proposal_count = 0; self.proposing_party = self.party_A
+        self.proposal_count = 1; self.proposing_party = self.party_A
         self.history = []; self.swap_triggered_this_year = False
         self.last_year_report = None
+        self.poll_done_this_year = False
 
     def record_history(self, is_election):
         self.history.append({
