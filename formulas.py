@@ -56,7 +56,7 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, h_medi
 def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, r_pays, h_pays):
     gdp_bst = (req_funds * hp_build) / cfg['BUILD_DIFF']
     est_gdp = max(0.0, game.gdp + gdp_bst - (fc_decay * 1000))
-    gdp_change_pct = ((est_gdp - game.gdp) / game.gdp) * 100.0 if game.gdp > 0 else 0.0
+    gdp_change_pct = ((est_gdp - game.gdp) / max(1.0, game.gdp)) * 100.0
 
     actual_h_funds = req_funds * h_ratio
     strict_mult = r_val ** 2
@@ -80,7 +80,6 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
 
 def execute_poll(game, view_party, cost):
-    """執行一次性民調"""
     view_party.wealth -= cost
     error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
     a_actual = game.party_A.support
