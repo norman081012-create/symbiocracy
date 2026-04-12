@@ -25,11 +25,14 @@ def render_yearly_review_banner(game):
             rd = rep['real_decay']; fc = rep['view_party_forecast']
             st.write(f"**真實衰退:** `{rd:.2f}` | **我方原估:** `{fc:.2f}`")
             if abs(fc - rd) > 0.15: st.error("❌ 預估嚴重失準：智庫未能察覺經濟異常。建議提升預測預算。")
-            if rep['caught_corruption']: st.error("🚨 貪腐爆雷：執行方貪污遭逮，民心重挫。")
+            if rep['caught_corruption']: st.error("🚨 貪腐爆雷：執行者貪污遭逮，民心重挫。")
             elif not rep['caught_corruption'] and rep['h_perf'] < -15: st.warning("📉 執行效率極度低迷，資金轉換率不佳。")
             else: st.success("✅ 社會發展基本符合智庫預期。")
     else:
         st.info("🗞️ 歡迎來到共生內閣的第一年！請雙方展開預算與目標協商。")
+
+def render_think_tank_toast(view_party, acc_percent, fc_val):
+    st.info(f"🕵️ **👁️ 智庫機密通報** | 經濟預估: {content.get_economic_forecast_text(fc_val)} (衰退參數: -{fc_val:.2f}) | 報告準確度: {acc_percent}%")
 
 def render_status_bar(game, view_party, cfg):
     st.markdown("---")
@@ -68,10 +71,10 @@ def render_status_bar(game, view_party, cfg):
                     st.caption(f"🗣️ **媒體效應:** {h_party_name} 成功將 {abs(rep['h_blame_saved']):.1f} 點失分硬推給對手！選民分不清責任歸屬。")
 
     with c3:
-        st.subheader("🕵️ 智庫機密預測")
+        st.subheader("🕵️ 👁️ 智庫機密預測")
         fc = view_party.current_forecast
         acc = min(100, int((view_party.predict_ability / cfg['MAX_ABILITY']) * 100))
-        st.info(f"**[{view_party.name} 視角]**\n\n經濟預估: **{content.get_economic_forecast_text(fc)}**\n*(衰退參數: -{fc:.2f})*\n\n報告準確度: {acc}%")
+        st.info(f"經濟預估: **{content.get_economic_forecast_text(fc)}**\n*(衰退參數: -{fc:.2f})*\n\n報告準確度: {acc}%")
     st.markdown("---")
 
 def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
@@ -81,15 +84,16 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
         with col:
             is_h = (game.h_role_party.name == party.name)
             role_badge = "🛡️ **[執行者]**" if is_h else "⚖️ **[調節者]**"
-            crown = "👑" if game.ruling_party.name == party.name else ""
             
-            # 支持度與大選標記
+            # 確保戴皇冠的一定是判定當選的執政黨
+            is_winner = (game.ruling_party.name == party.name)
+            crown = "👑" if is_winner else ""
+            
             if is_election_year or god_mode: 
-                is_winner = False
                 if is_election_year:
-                    if party.name == game.party_A.name and game.party_A.support > game.party_B.support: is_winner = True
-                    if party.name == game.party_B.name and game.party_B.support > game.party_A.support: is_winner = True
-                disp_sup = f"{party.support:.1f}%" + (" 🏆(當選!)" if is_winner and is_election_year else " 💀(落選)" if is_election_year else "")
+                    disp_sup = f"{party.support:.1f}%" + (" 🏆(當選!)" if is_winner else " 💀(落選)")
+                else:
+                    disp_sup = f"{party.support:.1f}%"
             else:
                 if game.poll_done_this_year: disp_sup = f"📊 民調預估: {party.current_poll_result:.1f}%"
                 else: disp_sup = "??? (需作民調)"
@@ -102,7 +106,6 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
 
             if party.name == view_party.name: 
                 st.success(f"### 👁️ {party.name} {crown} {role_badge}\n**黨產:** {disp_w} | **支持度:** {disp_sup}")
-                # 民調按鈕介面
                 if not is_election_year and not game.poll_done_this_year:
                     b1, b2, b3 = st.columns(3)
                     if b1.button("小型民調 ($5)", key=f"p1_{party.name}"): formulas.execute_poll(game, view_party, 5); st.rerun()
@@ -115,7 +118,7 @@ def render_real_time_formulas(req_funds, h_ratio, r_pays, h_pays, r_val, t_h, t_
     with st.expander("🧮 運算公式與數值追蹤面板 (動態解構)", expanded=False):
         st.markdown(f"""
         **1. 資金總池推算 (Required Funds)**: 
-        總需資金 = {req_funds} (H端分配率: {h_ratio:.2f}) | 投資方: (調節者出 {r_pays} / 執行者出 {h_pays})
+        總需資金 = {req_funds} (分配率: {h_ratio:.2f}) | 投資方: (調節者出 {r_pays} / 執行者出 {h_pays})
         
         **2. 淨利推算 (Net Income)**: 
         我方淨利 = {net_inc:.0f} | 對手淨利 = {opp_net_inc:.0f}
@@ -149,4 +152,18 @@ def render_endgame_charts(history_data, cfg):
     fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Wealth'], name=f"{cfg['PARTY_A_NAME']} 存款", line=dict(color='cyan', dash='dash')), secondary_y=False)
     fig2.add_trace(go.Scatter(x=df['Year'], y=df['B_Wealth'], name=f"{cfg['PARTY_B_NAME']} 存款", line=dict(color='orange', dash='dash')), secondary_y=False)
     fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Support'], name=f"{cfg['PARTY_A_NAME']} 民意支持度", line=dict(color='green', width=4)), secondary_y=True)
-    fig2.update_y
+    fig2.update_yaxes(title_text="財富總額", secondary_y=False)
+    fig2.update_yaxes(title_text="支持度 (%)", secondary_y=True, range=[0, 100])
+    add_event_vlines(fig2, df)
+    st.plotly_chart(fig2, use_container_width=True)
+
+    st.subheader("📊 3. 兩黨硬實力成長軌跡")
+    fig3 = go.Figure()
+    abilities = [('Build', '建設'), ('Inv', '調查'), ('Edu', '教育'), ('Media', '媒體操控')]
+    colors = ['#EF553B', '#00CC96', '#AB63FA', '#FFA15A']
+    for i, (key, label) in enumerate(abilities):
+        fig3.add_trace(go.Scatter(x=df['Year'], y=df[f'A_{key}'], name=f"A黨-{label}", line=dict(color=colors[i])))
+        fig3.add_trace(go.Scatter(x=df['Year'], y=df[f'B_{key}'], name=f"B黨-{label}", line=dict(color=colors[i], dash='dot')))
+    fig3.update_layout(yaxis_title="能力等級")
+    add_event_vlines(fig3, df)
+    st.plotly_chart(fig3, use_container_width=True)
