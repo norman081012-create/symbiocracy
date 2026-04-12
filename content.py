@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
     'H_FUND_DEFAULT': 600.0, 
     'H_MEDIA_BONUS': 1.2, 'R_INV_BONUS': 1.2,
     'CORRUPTION_PENALTY': 2.0,
-    'MAX_ABILITY': 10.0,
+    'MAX_ABILITY': 10.0, 'ABILITY_DEFAULT': 3.0, 'MAINTENANCE_RATE': 10.0,
     'TRUST_BREAK_PENALTY_RATIO': 0.05,
     'ELECTION_CYCLE': 4,
     'SANITY_DEFAULT': 0.60, 
@@ -31,7 +31,7 @@ CONFIG_TRANSLATIONS = {
     'RULING_BONUS': "執政紅利", 'DEFAULT_BONUS': "基本政黨補助金", 
     'H_FUND_DEFAULT': "初始執行獎勵基金", 
     'H_MEDIA_BONUS': "執行者媒體加成倍率", 'R_INV_BONUS': "調節者調查加成倍率",
-    'CORRUPTION_PENALTY': "貪污被逮罰金倍率", 'MAX_ABILITY': "能力值上限",
+    'CORRUPTION_PENALTY': "貪污被逮罰金倍率", 'MAX_ABILITY': "能力值上限", 'ABILITY_DEFAULT': "初始能力值", 'MAINTENANCE_RATE': "能力維護費倍率",
     'TRUST_BREAK_PENALTY_RATIO': "談判破裂扣款比例", 'ELECTION_CYCLE': "大選週期(年)",
     'SANITY_DEFAULT': "初始識讀指數(0~1)", 'EMOTION_DEFAULT': "初始選民情緒(0~100)"
 }
@@ -40,7 +40,7 @@ def get_economic_forecast_text(decay_val):
     if decay_val <= 0.15: return "🌟 景氣極佳"
     elif decay_val <= 0.35: return "📈 穩定成長"
     elif decay_val <= 0.55: return "⚖️ 持平放緩"
-    elif decay_val <= 0.75: return "📉 衰退警報"
+    elif decay_val <= 0.75: return "📉 衰قیع警報"
     else: return "⚠️ 經濟風暴"
 
 def get_civic_index_text(index_val):
