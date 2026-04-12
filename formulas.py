@@ -83,8 +83,8 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     r_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.r_role_party.name else 0) + (future_budget * (1 - h_share_ratio))
     
     h_net = h_gross - h_pays; r_net = r_gross - r_pays
-    h_roi = (h_net / max(1.0, float(h_pays))) * 100.0
-    r_roi = (r_net / max(1.0, float(r_pays))) * 100.0
+    h_roi = (h_net / max(1.0, float(h_pays))) * 100.0 if h_pays > 0 else float('inf')
+    r_roi = (r_net / max(1.0, float(r_pays))) * 100.0 if r_pays > 0 else float('inf')
 
     current_share = game.h_fund / max(1.0, game.total_budget)
     net_h_shift = (h_share_ratio - current_share) * 100.0
@@ -92,7 +92,6 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
 
 def calculate_corruption_preview(cfg, game, d, h_corr_pct, ra_media, ha_media):
-    """專門為 Phase 2 貪污拉桿提供的即時預覽計算"""
     rp, hp = game.r_role_party, game.h_role_party
     corr_amt = d.get('total_funds', 0) * (h_corr_pct / 100.0)
     act_build = d.get('total_funds', 0) - corr_amt
