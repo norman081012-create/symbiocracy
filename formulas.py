@@ -1,8 +1,9 @@
 # ==========================================
 # formulas.py
-# 負責核心數學模型、情緒機制與戰報記錄
+# 負責核心數學模型、情緒機制、民調與戰報記錄
 # ==========================================
 import math
+import random
 
 def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost))
@@ -30,15 +31,13 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, h_medi
 
     h_raw_shift = 0; h_shift_to_r = 0; r_raw_shift = 0; r_shift_to_h = 0
 
-    if h_perf >= 0:
-        h_raw_shift = h_perf * (1 + h_media_pow * 0.15)
+    if h_perf >= 0: h_raw_shift = h_perf * (1 + h_media_pow * 0.15)
     else:
         transfer_ratio = min(1.0, h_media_pow * 0.05)
         h_raw_shift = h_perf * (1 - transfer_ratio)
         h_shift_to_r = h_perf * transfer_ratio 
 
-    if r_perf >= 0:
-        r_raw_shift = r_perf * (1 + r_media_pow * 0.15)
+    if r_perf >= 0: r_raw_shift = r_perf * (1 + r_media_pow * 0.15)
     else:
         transfer_ratio = min(1.0, r_media_pow * 0.05)
         r_raw_shift = r_perf * (1 - transfer_ratio)
@@ -72,8 +71,6 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     r_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.r_role_party.name else 0) + (future_budget * (1 - h_share_ratio))
     
     h_net = h_gross - h_pays; r_net = r_gross - r_pays
-    
-    # ROI = 預期淨利 / 投資額 (若投資為0視為1避免除以零)
     h_roi = (h_net / max(1.0, float(h_pays))) * 100.0
     r_roi = (r_net / max(1.0, float(r_pays))) * 100.0
 
@@ -81,6 +78,17 @@ def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, 
     net_h_shift = (h_share_ratio - current_share) * 100.0
     
     return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
+
+def execute_poll(game, view_party, cost):
+    """執行一次性民調"""
+    view_party.wealth -= cost
+    # 花費越高、預測能力越強，誤差越小 (最大誤差15%)
+    error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
+    a_actual = game.party_A.support
+    a_poll = max(0.0, min(100.0, a_actual + random.uniform(-error_margin, error_margin)))
+    game.party_A.current_poll_result = a_poll
+    game.party_B.current_poll_result = 100.0 - a_poll
+    game.poll_done_this_year = True
 
 class Party:
     def __eq__(self, other): return self.name == other.name if hasattr(other, 'name') else False
@@ -114,13 +122,11 @@ class GameEngine:
         
         self.sanity = cfg['SANITY_DEFAULT']
         self.emotion = cfg['EMOTION_DEFAULT']
+        self.poll_done_this_year = False
         
-        self.current_real_decay = 0.0
-        self.last_real_decay = 0.0
-        self.proposal_count = 0
-        self.proposing_party = self.party_A
-        self.history = []
-        self.swap_triggered_this_year = False
+        self.current_real_decay = 0.0; self.last_real_decay = 0.0
+        self.proposal_count = 0; self.proposing_party = self.party_A
+        self.history = []; self.swap_triggered_this_year = False
         self.last_year_report = None
 
     def record_history(self, is_election):
