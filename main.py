@@ -70,8 +70,7 @@ with st.sidebar:
 st.title("🏛️ Symbiocracy 共生民主模擬器 v3.0.0")
 
 elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-# 更新為需求的行事曆格式
-st.subheader(f"📅 {cfg['CALENDAR_NAME']} {game.year} 年({elec_status})")
+st.subheader(f"📅 {cfg['CALENDAR_NAME']} {game.year} 年 ({elec_status})")
 
 if god_mode: st.error(f"👁️ **上帝視角：** 真實衰退率為 **{game.current_real_decay:.2f}**")
 
