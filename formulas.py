@@ -28,24 +28,37 @@ def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val,
     return req_funds, h_ratio
 
 def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra):
+    # 司法審查減弱媒體效果，並帶來負面支持度
+    r_judicial = ra.get('judicial', 0)
+    jud_factor = min(0.5, r_judicial / 500.0) 
+    
+    effective_h_media = hp.media_ability * (1 - jud_factor)
+    effective_r_media = rp.media_ability * (1 - jud_factor)
+
     h_fail_pct = ((t_h - act_h) / max(1, float(t_h))) if act_h < t_h else 0.0
     r_fail_pct = ((t_gdp - act_gdp) / max(1, float(t_gdp))) if act_gdp < t_gdp else 0.0
 
-    h_media_pow = ha['media'] * hp.media_ability * cfg['H_MEDIA_BONUS'] * cfg['MEDIA_DIFF']
-    r_media_pow = ra['media'] * rp.media_ability * cfg['MEDIA_DIFF']
+    h_media_pow = ha.get('media', 0) * effective_h_media * cfg['H_MEDIA_BONUS'] * cfg['MEDIA_DIFF']
+    r_media_pow = ra.get('media', 0) * effective_r_media * cfg['MEDIA_DIFF']
 
     h_blame_qty = h_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, r_media_pow * 0.01)
     r_blame_qty = r_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, h_media_pow * 0.01)
 
-    h_camp_pow = ha['camp'] * hp.media_ability * cfg['MEDIA_DIFF']
-    r_camp_pow = ra['camp'] * rp.media_ability * cfg['MEDIA_DIFF']
+    h_camp_pow = ha.get('camp', 0) * effective_h_media * cfg['MEDIA_DIFF']
+    r_camp_pow = ra.get('camp', 0) * effective_r_media * cfg['MEDIA_DIFF']
     total_camp_pow = max(1.0, h_camp_pow + r_camp_pow)
     
-    h_eff_camp_qty = (h_camp_pow / total_camp_pow) * ha['camp']
-    r_eff_camp_qty = (r_camp_pow / total_camp_pow) * ra['camp']
+    h_eff_camp_qty = (h_camp_pow / total_camp_pow) * ha.get('camp', 0)
+    r_eff_camp_qty = (r_camp_pow / total_camp_pow) * ra.get('camp', 0)
 
-    hp_shift = (h_eff_camp_qty - h_blame_qty + r_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
-    rp_shift = (r_eff_camp_qty - r_blame_qty + h_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
+    # 媒體操控直接轉移對手正向支持度給自己
+    h_steal = (ha.get('media', 0) * effective_h_media) / 500.0
+    r_steal = (ra.get('media', 0) * effective_r_media) / 500.0
+
+    r_jud_penalty = r_judicial * 0.1
+
+    hp_shift = (h_eff_camp_qty - h_blame_qty + r_blame_qty + h_steal - r_steal) * cfg['SUPPORT_CONVERSION_RATE']
+    rp_shift = (r_eff_camp_qty - r_blame_qty + h_blame_qty + r_steal - h_steal - r_jud_penalty) * cfg['SUPPORT_CONVERSION_RATE']
 
     act_h_shift = hp_shift * ((100.0 - hp.support) / 100.0) if hp_shift > 0 else hp_shift * (hp.support / 100.0)
     
