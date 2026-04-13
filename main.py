@@ -25,6 +25,14 @@ if 'game' not in st.session_state:
 
 game = st.session_state.game
 
+# 動畫處理
+if st.session_state.get('anim') == 'balloons':
+    st.balloons()
+    st.session_state.anim = None
+elif st.session_state.get('anim') == 'snow':
+    st.snow()
+    st.session_state.anim = None
+
 if game.year > cfg['END_YEAR']:
     ui_core.render_endgame_charts(game.history, cfg)
     if st.button("🔄 重新開始全新遊戲", use_container_width=True): st.session_state.clear(); st.rerun()
@@ -35,6 +43,8 @@ if 'turn_initialized' not in st.session_state:
     for p in [game.party_A, game.party_B]:
         error_margin = cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)
         p.current_forecast = max(0.0, round(game.current_real_decay + random.uniform(-error_margin, error_margin), 2))
+        p.poll_history = {'小型': [], '中型': [], '大型': []}
+        p.latest_poll = None
         p.poll_count = 0 
     
     if not hasattr(game, 'p1_step'):
@@ -53,20 +63,21 @@ is_election_year = (game.year % cfg['ELECTION_CYCLE'] == 1)
 
 with st.sidebar:
     ui_core.render_global_settings(cfg, game)
+    ui_core.render_sidebar_intel_audit(game, view_party, cfg)
     god_mode = st.toggle("👁️ 上帝視角", False)
     if st.button("🔄 重新開始遊戲", use_container_width=True): st.session_state.clear(); st.rerun()
 
 st.title("🏛️ Symbiocracy 共生民主模擬器 v3.0.0")
 
 elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-st.subheader(f"📅 遊戲年份: {cfg['CALENDAR_NAME']}{game.year}年 / {cfg['END_YEAR']}年 ({elec_status})")
+st.subheader(f"📅 {cfg['CALENDAR_NAME']} {game.year} 年 / {cfg['END_YEAR']} 年 ({elec_status})")
 if god_mode: st.error(f"👁️ **上帝視角：** 真實衰退率為 **{game.current_real_decay:.2f}**")
 
 # 全局介面渲染
 if game.phase == 1:
-    ui_core.render_dashboard(game, view_party, opponent_party, cfg, is_preview=False)
+    ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
 ui_core.render_message_board(game)
-ui_core.render_party_cards(game, view_party, opponent_party, god_mode, is_election_year, cfg)
+ui_core.render_party_cards(game, view_party, god_mode, is_election_year, cfg)
 
 # 階段路由
 if game.phase == 1:
