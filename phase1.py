@@ -29,7 +29,8 @@ def render(game, view_party, cfg):
             c_decay, c_gdp = st.columns(2)
             input_key = f"ui_decay_val_{game.year}_{active_role}"
             
-            if input_key not in st.session_state: st.session_state[input_key] = float(view_party.current_forecast)
+            if input_key not in st.session_state: 
+                st.session_state[input_key] = float(view_party.current_forecast)
             
             with c_decay:
                 opp_txt = f"對手公告: {opp_claimed:.2f}" if opp_claimed is not None else "等待對手公告"
@@ -46,7 +47,8 @@ def render(game, view_party, cfg):
             r_val = st.slider("標案利潤 (右低利潤/高嚴格度，左高利潤/低嚴格度)", 0.5, 3.0, 1.0, 0.1)
             
             t_gdp = game.gdp * (1 + (t_gdp_growth / 100.0))
-            req_funds, h_ratio = formulas.calculate_required_funds(cfg, t_h_fund, t_gdp, game.h_fund, game.gdp, r_val, claimed_decay, game.h_role_party.build_ability)
+            # 修復：改為呼叫 depts['build'].eff
+            req_funds, h_ratio = formulas.calculate_required_funds(cfg, t_h_fund, t_gdp, game.h_fund, game.gdp, r_val, claimed_decay, game.h_role_party.depts['build'].eff)
             
             safe_req = max(1, int(req_funds))
             r_pays = st.slider(f"💰 資金分配調整", 0, safe_req, int(safe_req * 0.5), label_visibility="collapsed")
@@ -54,12 +56,18 @@ def render(game, view_party, cfg):
             r_pct = (r_pays / max(1, req_funds)) * 100
             h_pct = (h_pays / max(1, req_funds)) * 100
             
-            st.markdown(f"<h4><span style='font-size: 1.2em'>監管出資: {r_pays} ({r_pct:.1f}%)</span> / 總額: {req_funds} / <span style='font-size: 1.2em'>執行出資: {h_pays} ({h_pct:.1f}%)</span></h4>", unsafe_allow_html=True)
+            st.markdown(f"<h4><span style='font-size: 1.2em'>監管出資</span> <span style='font-size: 1.5em'>{r_pays}</span> <span style='font-size: 1.0em'>({r_pct:.1f}%)</span> / <span style='font-size: 1.5em'>總額: {req_funds}</span> / <span style='font-size: 1.2em'>執行出資</span> <span style='font-size: 1.5em'>{h_pays}</span> <span style='font-size: 1.0em'>({h_pct:.1f}%)</span></h4>", unsafe_allow_html=True)
             
+            # 修復：改為呼叫 depts['build'].eff
+            o_gdp_pct, o_h_g, o_h_n, o_r_g, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_est_h_fund, o_h_roi, o_r_roi = formulas.calculate_preview(cfg, game, req_funds, h_ratio, r_val, view_party.current_forecast, game.h_role_party.depts['build'].eff, r_pays, h_pays)
+            c_gdp_pct, c_h_g, c_h_n, c_r_g, c_r_n, c_h_sup, c_r_sup, c_est_gdp, c_est_h_fund, c_h_roi, c_r_roi = formulas.calculate_preview(cfg, game, req_funds, h_ratio, r_val, claimed_decay, game.h_role_party.depts['build'].eff, r_pays, h_pays)
+
             plan_dict = {
                 'r_value': r_val, 'target_h_fund': t_h_fund, 'target_gdp_growth': t_gdp_growth, 
                 'target_gdp': t_gdp, 'r_pays': r_pays, 'claimed_decay': claimed_decay,
-                'total_funds': req_funds, 'h_pays': h_pays, 'h_ratio': h_ratio, 'author': active_role
+                'total_funds': req_funds, 'h_pays': h_pays, 'h_ratio': h_ratio, 'author': active_role,
+                'h_roi': c_h_roi, 'r_roi': c_r_roi,
+                'est_h_n': o_h_n, 'est_r_n': o_r_n, 'est_h_sup': o_h_sup, 'est_r_sup': o_r_sup
             }
 
             c_btn1, c_btn2, c_btn3 = st.columns(3)
@@ -88,7 +96,26 @@ def render(game, view_party, cfg):
                     game.proposing_party = game.ruling_party; st.rerun()
 
             st.markdown("---")
-            ui_core.render_proposal_component('📜 當前草案預覽', plan_dict, game, view_party, cfg)
+            c_prev1, c_prev2 = st.columns(2)
+            my_is_h = (active_role == 'H')
+            
+            with c_prev1:
+                my_net, my_sup, my_roi = (o_h_n, o_h_sup, o_h_roi) if my_is_h else (o_r_n, o_r_sup, o_r_roi)
+                opp_net, opp_sup, opp_roi = (o_r_n, o_r_sup, o_r_roi) if my_is_h else (o_h_n, o_h_sup, o_h_roi)
+                st.markdown(f"**🛡️ 依據自己智庫估算** *(衰退估算: -{view_party.current_forecast:.2f})*")
+                st.markdown(f"1. 我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
+                st.markdown(f"2. 對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
+                st.markdown(f"3. 支持度預估: {my_sup:+.2f}%")
+                st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {o_est_gdp:.0f}` ({o_gdp_pct:+.2f}%)")
+            
+            with c_prev2:
+                my_net, my_sup, my_roi = (c_h_n, c_h_sup, c_h_roi) if my_is_h else (c_r_n, c_r_sup, c_r_roi)
+                opp_net, opp_sup, opp_roi = (c_r_n, c_r_sup, c_r_roi) if my_is_h else (c_h_n, c_h_sup, c_h_roi)
+                st.markdown(f"**📢 依據方案公告估算** *(衰退估算: -{claimed_decay:.2f})*")
+                st.markdown(f"1. 我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
+                st.markdown(f"2. 對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
+                st.markdown(f"3. 支持度預估: {my_sup:+.2f}%")
+                st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {c_est_gdp:.0f}` ({c_gdp_pct:+.2f}%)")
 
             if opp_plan:
                 st.markdown("---")
@@ -99,20 +126,23 @@ def render(game, view_party, cfg):
         if view_party.name != game.ruling_party.name:
             st.warning("⏳ 等待執政黨定奪...")
         else:
+            cols = st.columns(2)
             for idx, key in enumerate(['R', 'H']):
                 plan = game.p1_proposals.get(key)
-                if plan is None: st.info("等待對方發布草案..."); continue
-                st.markdown("---")
-                ui_core.render_proposal_component('⚖️ 監管系統草案' if key=='R' else '🛡️ 執行系統草案', plan, game, view_party, cfg)
-                if st.button(f"✅ 選擇此方案", key=f"pick_{key}"):
-                    game.p1_selected_plan = plan; game.p1_step = 'voting_confirm'
-                    game.proposing_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A; st.rerun()
+                with cols[idx]:
+                    if plan is None: 
+                        st.info("等待對方發布草案...")
+                        continue
+                    ui_core.render_proposal_component('⚖️ 監管系統草案' if key=='R' else '🛡️ 執行系統草案', plan, game, view_party, cfg)
+                    if st.button(f"✅ 選擇此方案", key=f"pick_{key}", use_container_width=True):
+                        game.p1_selected_plan = plan; game.p1_step = 'voting_confirm'
+                        game.proposing_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A; st.rerun()
 
     elif game.p1_step == 'voting_confirm':
-        if view_party.name != game.proposing_party.name: st.warning("⏳ 等待對手覆議...")
+        if view_party.name != game.proposing_party.name: 
+            st.warning("⏳ 等待對手覆議...")
         else:
             ui_core.render_proposal_component('📜 待覆議草案內容', game.p1_selected_plan, game, view_party, cfg)
-            st.markdown("---")
             c1, c2, c3, c4 = st.columns(4)
             if c1.button("✅ 同意法案", use_container_width=True, type="primary"):
                 st.session_state.turn_data.update(game.p1_selected_plan)
@@ -123,13 +153,13 @@ def render(game, view_party, cfg):
             if c2.button("❌ 拒絕並重談", use_container_width=True):
                 game.proposal_count += 1; game.p1_step = 'draft_r'; game.proposing_party = game.r_role_party; st.rerun()
             
-            if c3.button(f"🔄 同意但換位\n(各付 {penalty_amt})", use_container_width=True):
+            if c3.button(f"🔄 同意但換位\n(警告: 各付 {penalty_amt} 給第三政黨)", use_container_width=True):
                 st.session_state.turn_data.update(game.p1_selected_plan)
                 engine.trigger_swap(game, penalty_amt, "執政權轉移！")
                 game.proposing_party = game.ruling_party; st.rerun()
             
             if game.proposing_party.name == game.h_role_party.name:
-                if c4.button("💥 逼迫最終提案 (通牒)", use_container_width=True):
+                if c4.button("💥 逼迫最終提案 (最後通牒)", use_container_width=True):
                     st.session_state.news_flash = f"🗞️ **【快訊】執行系統下達最後通牒！** {view_party.name} 逼迫監管系統只能再提最後一次案！"
                     game.p1_step = 'ultimatum_draft_r'; game.proposing_party = game.r_role_party; st.rerun()
 
@@ -139,14 +169,13 @@ def render(game, view_party, cfg):
             st.warning(f"⏳ 等待執行系統 {game.h_role_party.name} 決斷...")
         else:
             ui_core.render_proposal_component('📜 監管系統最終底線/通牒方案', game.p1_selected_plan, game, view_party, cfg)
-            st.markdown("---")
             c1, c2 = st.columns(2)
             if c1.button("✅ 忍辱負重 (接受通牒)", use_container_width=True, type="primary"):
                 st.session_state.turn_data.update(game.p1_selected_plan)
                 st.session_state.news_flash = f"🗞️ **【快訊】通牒生效！** 執行系統妥協吞下底線方案。"
                 st.session_state.anim = 'balloons'
                 game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
-            if c2.button(f"🔄 掀桌倒閣換位\n(警告: 各付 {penalty_amt})", use_container_width=True):
+            if c2.button(f"🔄 掀桌倒閣換位\n(警告: 各付 {penalty_amt} 給第三政黨)", use_container_width=True):
                 st.session_state.turn_data.update(game.p1_selected_plan)
                 engine.trigger_swap(game, penalty_amt, "掀桌倒閣！")
                 game.proposing_party = game.r_role_party; st.rerun()
