@@ -11,7 +11,7 @@ class Party:
         self.name = name; self.wealth = cfg['INITIAL_WEALTH']; self.support = 50.0 
         self.build_ability = cfg['ABILITY_DEFAULT']; self.investigate_ability = cfg['ABILITY_DEFAULT']
         self.edu_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
-        self.predict_ability = cfg['ABILITY_DEFAULT']
+        self.predict_ability = cfg['ABILITY_DEFAULT']; self.stealth_ability = cfg['ABILITY_DEFAULT']
         self.current_forecast = 0.0
         self.current_poll_result = None
         self.poll_count = 0
@@ -61,5 +61,5 @@ def trigger_swap(game, penalty_amt, msg_prefix="政局動盪！"):
     game.h_role_party, game.r_role_party = game.r_role_party, game.h_role_party
     game.swap_triggered_this_year = True
     game.emotion = min(100.0, game.emotion + 30.0) 
-    st.session_state.news_flash = f"🗞️ **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發換位！"
+    st.session_state.news_flash = f"📢 **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發換位！"
     game.phase = 2
