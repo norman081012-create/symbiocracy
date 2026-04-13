@@ -7,14 +7,11 @@ import math
 def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
-def get_ability_preview(current, invest, cfg):
-    maint = max(0, (current - 3.0) * cfg['MAINTENANCE_RATE'])
-    if invest < maint:
-        drop = (maint - invest) * 0.02
-        return max(3.0, current - drop), maint
-    else:
-        gain = calc_log_gain(invest - maint)
-        return min(cfg['MAX_ABILITY'], current + gain), maint
+def get_ability_maintenance(ability, cfg):
+    return max(0, (ability - 3.0) * cfg['MAINTENANCE_RATE'])
+
+def calculate_upgrade_cost(current, target):
+    return max(0, (2**(target - current) - 1) * 50) if target > current else 0
 
 def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val, forecast_decay, build_abi):
     strictness_multiplier = r_val ** 2 
