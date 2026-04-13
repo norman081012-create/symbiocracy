@@ -4,6 +4,8 @@
 # ==========================================
 import random
 import streamlit as st
+import i18n
+t = i18n.t
 
 class Party:
     def __eq__(self, other): return self.name == other.name if hasattr(other, 'name') else False
@@ -65,6 +67,12 @@ def trigger_swap(game, penalty_amt, msg_prefix="政局動盪！"):
     game.h_role_party, game.r_role_party = game.r_role_party, game.h_role_party
     game.swap_triggered_this_year = True
     game.emotion = min(100.0, game.emotion + 30.0) 
-    st.session_state.news_flash = f"🗞️ **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發換位！"
+    
+    msg_en = "Political Turmoil!" if msg_prefix == "政局動盪！" else "Takeover!" if msg_prefix == "監管系統強制接管！" else "Power Shift!" if msg_prefix == "執政權轉移！" else "Cabinet Fall!" if msg_prefix == "掀桌倒閣！" else msg_prefix
+    
+    st.session_state.news_flash = t(
+        f"🗞️ **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發換位！",
+        f"🗞️ **[BREAKING] {msg_en}** Both parties forced to donate {penalty_amt} to third party, swap triggered!"
+    )
     st.session_state.anim = 'snow'
     game.phase = 2
