@@ -39,7 +39,9 @@ if game.year > cfg['END_YEAR']:
 if 'turn_initialized' not in st.session_state:
     game.current_real_decay = max(0.0, round(random.uniform(cfg['DECAY_MIN'], cfg['DECAY_MAX']), 2))
     for p in [game.party_A, game.party_B]:
-        error_margin = cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)
+        # 🐛 修正：不再依賴舊的 PREDICT_DIFF，改用 V3.1 的 0~100 能力值動態計算誤差
+        # 當能力為預設 20 時，誤差為 ±0.5；當能力升級到 100 時，誤差縮小到 ±0.1
+        error_margin = 10.0 / max(1.0, p.predict_ability)
         p.current_forecast = max(0.0, round(game.current_real_decay + random.uniform(-error_margin, error_margin), 2))
     st.session_state.turn_initialized = True
 
