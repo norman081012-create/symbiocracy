@@ -3,11 +3,12 @@
 # 負責 第一階段 (提案與談判) 的 UI 與邏輯
 # ==========================================
 import streamlit as st
+import formulas
 import engine
 import ui_core
 
 def render(game, view_party, cfg):
-    penalty_amt = int(game.gdp * cfg['TRUST_BREAK_PENALTY_RATIO'])
+    penalty_amt = int(game.total_budget * cfg['TRUST_BREAK_PENALTY_RATIO'])
     st.subheader(f"🤝 Phase 1: 監管系統委託執行系統建設提案 (輪數: {game.proposal_count})")
     
     if game.p1_step in ['draft_r', 'draft_h', 'ultimatum_draft_r']:
@@ -21,15 +22,44 @@ def render(game, view_party, cfg):
         else:
             st.markdown(f"#### 📝 {view_party.name} ({'監管系統' if active_role == 'R' else '執行系統'}黨) 草案擬定室")
             
+            opp_role = 'H' if active_role == 'R' else 'R'
+            opp_plan = game.p1_proposals.get(opp_role)
+            opp_claimed = opp_plan['claimed_decay'] if opp_plan else None
+            
             c_decay, c_gdp = st.columns(2)
-            with c_decay: claimed_decay = st.number_input("公告衰退值", value=float(view_party.current_forecast), step=0.01)
+            input_key = f"ui_decay_val_{game.year}_{active_role}"
+            
+            if input_key not in st.session_state: st.session_state[input_key] = float(view_party.current_forecast)
+            
+            with c_decay:
+                opp_txt = f"對手公告: {opp_claimed:.2f}" if opp_claimed is not None else "等待對手公告"
+                st.markdown(f"**公告衰退值 (當前: {st.session_state[input_key]:.2f})** | {opp_txt}")
+                claimed_decay = st.number_input("公告衰退值", value=float(st.session_state[input_key]), step=0.01, key=f"num_{input_key}", label_visibility="collapsed")
+                st.session_state[input_key] = claimed_decay
+                
+            with c_gdp:
+                st.markdown("**目標 GDP 成長率 (%)**")
+                t_gdp_growth = st.number_input("GDP成長", value=0.0, step=0.5, label_visibility="collapsed")
 
-            max_c = float(game.budget_t)
-            c_funds = st.slider("投標資金 (C) (最高不超過當年總預算)", 0.0, max_c, min(max_c, 1000.0), 10.0)
-            d_cost = st.slider("標案實質成本 (D) (備註:留點賺頭給對手)", 0.0, float(c_funds * 2), float(c_funds * 0.8), 10.0)
+            max_h = max(10.0, float(game.total_budget))
+            t_h_fund = st.slider("標案達標付款 (最高不超過當年總預算)", 0.0, max_h, float(min(game.h_fund, max_h)), 10.0)
+            r_val = st.slider("標案利潤 (右低利潤/高嚴格度，左高利潤/低嚴格度)", 0.5, 3.0, 1.0, 0.1)
+            
+            t_gdp = game.gdp * (1 + (t_gdp_growth / 100.0))
+            req_funds, h_ratio = formulas.calculate_required_funds(cfg, t_h_fund, t_gdp, game.h_fund, game.gdp, r_val, claimed_decay, game.h_role_party.build_ability)
+            
+            safe_req = max(1, int(req_funds))
+            r_pays = st.slider(f"💰 資金分配調整", 0, safe_req, int(safe_req * 0.5), label_visibility="collapsed")
+            h_pays = req_funds - r_pays
+            r_pct = (r_pays / max(1, req_funds)) * 100
+            h_pct = (h_pays / max(1, req_funds)) * 100
+            
+            st.markdown(f"<h4><span style='font-size: 1.2em'>監管出資: {r_pays} ({r_pct:.1f}%)</span> / 總額: {req_funds} / <span style='font-size: 1.2em'>執行出資: {h_pays} ({h_pct:.1f}%)</span></h4>", unsafe_allow_html=True)
             
             plan_dict = {
-                'claimed_decay': claimed_decay, 'c_funds': c_funds, 'd_cost': d_cost, 'author': active_role
+                'r_value': r_val, 'target_h_fund': t_h_fund, 'target_gdp_growth': t_gdp_growth, 
+                'target_gdp': t_gdp, 'r_pays': r_pays, 'claimed_decay': claimed_decay,
+                'total_funds': req_funds, 'h_pays': h_pays, 'h_ratio': h_ratio, 'author': active_role
             }
 
             c_btn1, c_btn2, c_btn3 = st.columns(3)
@@ -60,8 +90,6 @@ def render(game, view_party, cfg):
             st.markdown("---")
             ui_core.render_proposal_component('📜 當前草案預覽', plan_dict, game, view_party, cfg)
 
-            opp_role = 'H' if active_role == 'R' else 'R'
-            opp_plan = game.p1_proposals.get(opp_role)
             if opp_plan:
                 st.markdown("---")
                 ui_core.render_proposal_component('📜 對手 (執行系統) 既有草案參考', opp_plan, game, view_party, cfg)
@@ -89,6 +117,7 @@ def render(game, view_party, cfg):
             if c1.button("✅ 同意法案", use_container_width=True, type="primary"):
                 st.session_state.turn_data.update(game.p1_selected_plan)
                 st.session_state.news_flash = f"🗞️ **【快訊】預算案三讀通過！** 歷經 {game.proposal_count} 輪黨團協商，雙方正式簽署法案。"
+                st.session_state.anim = 'balloons'
                 game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
             
             if c2.button("❌ 拒絕並重談", use_container_width=True):
@@ -115,6 +144,7 @@ def render(game, view_party, cfg):
             if c1.button("✅ 忍辱負重 (接受通牒)", use_container_width=True, type="primary"):
                 st.session_state.turn_data.update(game.p1_selected_plan)
                 st.session_state.news_flash = f"🗞️ **【快訊】通牒生效！** 執行系統妥協吞下底線方案。"
+                st.session_state.anim = 'balloons'
                 game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
             if c2.button(f"🔄 掀桌倒閣換位\n(警告: 各付 {penalty_amt})", use_container_width=True):
                 st.session_state.turn_data.update(game.p1_selected_plan)
