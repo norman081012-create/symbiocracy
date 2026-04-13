@@ -1,70 +1,94 @@
 # ==========================================
-# engine.py
-# 負責遊戲引擎、政黨類別與全域事件觸發邏輯
+# formulas.py
+# 負責核心無狀態的純數學模型計算
 # ==========================================
-import random
-import streamlit as st
+import math
 
-class Party:
-    def __eq__(self, other): return self.name == other.name if hasattr(other, 'name') else False
-    def __init__(self, name, cfg):
-        self.name = name; self.wealth = cfg['INITIAL_WEALTH']; self.support = 50.0 
-        self.build_ability = cfg['ABILITY_DEFAULT']; self.investigate_ability = cfg['ABILITY_DEFAULT']
-        self.edu_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
-        self.predict_ability = cfg['ABILITY_DEFAULT']; self.stealth_ability = cfg['ABILITY_DEFAULT']
-        self.current_forecast = 0.0
-        
-        self.poll_history = {'小型': [], '中型': [], '大型': []}
-        self.latest_poll = None
-        self.poll_count = 0
-        self.last_acts = {'policy': 0, 'legal': 0, 'maint': 0}
+def calc_log_gain(invest_amount, base_cost=50.0):
+    return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
-class GameEngine:
-    def __init__(self, cfg):
-        self.year = 1
-        self.party_A = Party(cfg['PARTY_A_NAME'], cfg); self.party_B = Party(cfg['PARTY_B_NAME'], cfg)
-        self.gdp = cfg['CURRENT_GDP']; self.total_budget = cfg['BASE_TOTAL_BUDGET'] + (self.gdp * cfg['HEALTH_MULTIPLIER'])
-        self.h_fund = cfg['H_FUND_DEFAULT']
-        self.phase = 1; self.p1_step = 'draft_r' 
-        self.p1_proposals = {'R': None, 'H': None}; self.p1_selected_plan = None
-        self.ruling_party = self.party_A; self.r_role_party = self.party_A; self.h_role_party = self.party_B  
-        self.sanity = cfg['SANITY_DEFAULT']; self.emotion = cfg['EMOTION_DEFAULT']
-        self.current_real_decay = 0.0; self.last_real_decay = 0.0
-        self.proposal_count = 1; self.proposing_party = self.party_A
-        self.history = []; self.swap_triggered_this_year = False
-        self.last_year_report = None
+def get_max_ability_cost(initial_gdp, divisor):
+    init_budget = initial_gdp / 5.0
+    return init_budget / max(0.01, divisor)
 
-    def record_history(self, is_election):
-        self.history.append({
-            'Year': self.year, 'GDP': self.gdp, 'Sanity': self.sanity, 'Emotion': self.emotion,
-            'A_Support': self.party_A.support, 'B_Support': self.party_B.support,
-            'A_Wealth': self.party_A.wealth, 'B_Wealth': self.party_B.wealth,
-            'Is_Election': is_election, 'Is_Swap': self.swap_triggered_this_year
-        })
-        self.swap_triggered_this_year = False
+def get_ability_maintenance(ability_pct, max_cost, maint_rate):
+    total_value = ability_pct * (max_cost / 100.0)
+    return total_value * maint_rate
 
-def execute_poll(game, view_party, cost):
-    view_party.wealth -= cost
-    error_margin = max(0.0, 15.0 - (view_party.predict_ability * 0.5) - (cost * 0.4))
-    a_actual = game.party_A.support
-    a_poll = max(0.0, min(100.0, a_actual + random.uniform(-error_margin, error_margin)))
+def calculate_upgrade_cost(current_pct, target_pct, max_cost):
+    if target_pct <= current_pct: return 0.0
+    return (target_pct - current_pct) * (max_cost / 100.0)
+
+def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val, forecast_decay, build_abi_pct):
+    build_abi = max(0.1, build_abi_pct / 10.0)
+    strictness_multiplier = r_val ** 2 
+    eff_decay_h = forecast_decay * strictness_multiplier * 0.2 * curr_h_fund
+    req_boost_h = (t_h_fund - curr_h_fund) + eff_decay_h
+    funds_h = (req_boost_h * max(0.1, strictness_multiplier)) / max(0.01, build_abi) if req_boost_h > 0 else 0
+
+    eff_decay_gdp = forecast_decay * 1000
+    req_boost_gdp = (t_gdp - curr_gdp) + eff_decay_gdp
+    funds_gdp = (req_boost_gdp * cfg['BUILD_DIFF']) / max(0.01, build_abi) if req_boost_gdp > 0 else 0
+
+    req_funds = max(0, int(funds_h + funds_gdp))
+    h_ratio = funds_h / req_funds if req_funds > 0 else 1.0
+    return req_funds, h_ratio
+
+def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra):
+    h_fail_pct = ((t_h - act_h) / max(1, float(t_h))) if act_h < t_h else 0.0
+    r_fail_pct = ((t_gdp - act_gdp) / max(1, float(t_gdp))) if act_gdp < t_gdp else 0.0
+
+    h_media_reduction = 1.0 - (cfg['JUDICIAL_MEDIA_REDUCTION'] if ra.get('judicial', False) else 0.0)
+    r_media_reduction = 1.0 - (cfg['JUDICIAL_MEDIA_REDUCTION'] if ha.get('judicial', False) else 0.0)
+
+    h_media_pow = ha['media'] * (hp.media_ability / 10.0) * cfg['H_MEDIA_BONUS'] * cfg['MEDIA_DIFF'] * h_media_reduction
+    r_media_pow = ra['media'] * (rp.media_ability / 10.0) * cfg['MEDIA_DIFF'] * r_media_reduction
+
+    h_blame_qty = h_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, r_media_pow * 0.01)
+    r_blame_qty = r_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, h_media_pow * 0.01)
+
+    h_camp_pow = ha['camp'] * (hp.media_ability / 10.0) * cfg['MEDIA_DIFF'] * h_media_reduction
+    r_camp_pow = ra['camp'] * (rp.media_ability / 10.0) * cfg['MEDIA_DIFF'] * r_media_reduction
+    total_camp_pow = max(1.0, h_camp_pow + r_camp_pow)
     
-    poll_type = '小型' if cost == 5 else '中型' if cost == 10 else '大型'
-    
-    game.party_A.latest_poll = a_poll
-    game.party_A.poll_history[poll_type].append(a_poll)
-    
-    b_poll = 100.0 - a_poll
-    game.party_B.latest_poll = b_poll
-    game.party_B.poll_history[poll_type].append(b_poll)
-    
-    view_party.poll_count += 1
+    h_eff_camp_qty = (h_camp_pow / total_camp_pow) * ha['camp']
+    r_eff_camp_qty = (r_camp_pow / total_camp_pow) * ra['camp']
 
-def trigger_swap(game, penalty_amt, msg_prefix="政局動盪！"):
-    game.party_A.wealth -= penalty_amt; game.party_B.wealth -= penalty_amt
-    game.h_role_party, game.r_role_party = game.r_role_party, game.h_role_party
-    game.swap_triggered_this_year = True
-    game.emotion = min(100.0, game.emotion + 30.0) 
-    st.session_state.news_flash = f"🗞️ **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發換位！"
-    st.session_state.anim = 'snow'
-    game.phase = 2
+    hp_shift = (h_eff_camp_qty - h_blame_qty + r_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
+    rp_shift = (r_eff_camp_qty - r_blame_qty + h_blame_qty) * cfg['SUPPORT_CONVERSION_RATE']
+
+    act_h_shift = hp_shift * ((100.0 - hp.support) / 100.0) if hp_shift > 0 else hp_shift * (hp.support / 100.0)
+    
+    return {
+        'actual_shift': act_h_shift, 
+        'h_perf': ((act_h - t_h) / max(1, t_h)) * 100.0, 
+        'r_perf': ((act_gdp - curr_gdp) / max(1, curr_gdp)) * 100.0,
+        'h_blame_qty': h_blame_qty, 'r_blame_qty': r_blame_qty
+    }
+
+def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build_pct, r_pays, h_pays):
+    hp_build = max(0.1, hp_build_pct / 10.0)
+    gdp_bst = (req_funds * hp_build) / cfg['BUILD_DIFF']
+    est_gdp = max(0.0, game.gdp + gdp_bst - (fc_decay * 1000))
+    gdp_change_pct = ((est_gdp - game.gdp) / max(1.0, game.gdp)) * 100.0
+
+    actual_h_funds = req_funds * h_ratio
+    strict_mult = r_val ** 2
+    h_bst = (actual_h_funds * hp_build) / max(0.1, strict_mult)
+    eff_decay_h = fc_decay * strict_mult * 0.2 * game.h_fund
+    est_h_fund = max(0.0, game.h_fund + h_bst - eff_decay_h)
+
+    future_budget = cfg['BASE_TOTAL_BUDGET'] + (est_gdp * cfg['HEALTH_MULTIPLIER'])
+    h_share_ratio = est_h_fund / max(1.0, future_budget) if future_budget > 0 else 0.5
+    
+    h_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.h_role_party.name else 0) + (future_budget * h_share_ratio)
+    r_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.r_role_party.name else 0) + (future_budget * (1 - h_share_ratio))
+    
+    h_net = h_gross - h_pays; r_net = r_gross - r_pays
+    h_roi = (h_net / max(1.0, float(h_pays))) * 100.0 if h_pays > 0 else float('inf')
+    r_roi = (r_net / max(1.0, float(r_pays))) * 100.0 if r_pays > 0 else float('inf')
+
+    current_share = game.h_fund / max(1.0, game.total_budget)
+    net_h_shift = (h_share_ratio - current_share) * 100.0
+    
+    return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
