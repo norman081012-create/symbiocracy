@@ -3,7 +3,6 @@
 # ==========================================
 import streamlit as st
 import formulas
-import engine
 import random
 
 def render(game, cfg):
@@ -13,7 +12,6 @@ def render(game, cfg):
     ra, ha = st.session_state[f"{rp.name}_acts"], st.session_state[f"{hp.name}_acts"]
     d = st.session_state.turn_data
     
-    # 1. 貪污與調查結算
     corr_amt = d.get('total_funds', 0) * (ha['corr'] / 100.0)
     crony_base = d.get('total_funds', 0) * (ha['crony'] / 100.0)
     suspicious_total = corr_amt + crony_base
@@ -27,7 +25,6 @@ def render(game, cfg):
             caught = True; fine = suspicious_total * cfg['CORRUPTION_PENALTY']; corr_amt = 0
             st.error(f"🚨 **弊案爆發！** 執行系統被查獲不法資金，重罰 ${fine:.0f}")
 
-    # 2. 物理建設與 GDP 結算
     h_bst = (act_build * d.get('h_ratio', 1.0) * (hp.depts['build'].eff/100.0)) / max(0.1, d.get('r_value', 1.0)**2)
     new_h_fund = max(0.0, game.h_fund + h_bst - (game.current_real_decay * (d.get('r_value', 1.0)**2) * 0.2 * game.h_fund))
     
@@ -35,7 +32,6 @@ def render(game, cfg):
     new_gdp = max(0.0, game.gdp + gdp_bst - (game.current_real_decay * 1000))
     gdp_growth_pct = ((new_gdp - game.gdp) / max(1.0, game.gdp)) * 100.0
 
-    # 3. 民心與情緒變化 (含理智過濾)
     new_san, new_emo = formulas.calculate_civic_shifts(
         cfg, game.sanity, game.emotion, gdp_growth_pct, 
         ha['edu_up']+ra['edu_up'], ha['edu_down']+ra['edu_down'], 
@@ -43,29 +39,35 @@ def render(game, cfg):
         hp.depts['media'].eff + rp.depts['media'].eff
     )
     
-    # 4. 支持度位移
     shift = formulas.calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha, ra)
-    if caught: shift['actual_shift'] -= 10.0 # 貪污重懲支持度
+    if caught: shift['actual_shift'] -= 10.0 
     hp_sup_new = max(0.0, min(100.0, hp.support + shift['actual_shift']))
     
     st.success(f"📈 **GDP 結算:** {game.gdp:.0f} ➔ {new_gdp:.0f} ({gdp_growth_pct:+.2f}%)")
     st.info(f"🧠 **社會狀態:** 辨識度 {new_san*100:.1f} / 情緒值 {new_emo:.1f}")
     
-    # 確認跨年
     if st.button("⏩ 確認財報並進入下一年", type="primary", use_container_width=True):
         hp.support, rp.support = hp_sup_new, 100.0 - hp_sup_new
         game.gdp, game.sanity, game.emotion, game.h_fund = new_gdp, new_san, new_emo, new_h_fund
         
-        # 扣除花費與升級部門
+        # 扣除花費、升級部門與結算退款
         for p, acts in [(hp, ha), (rp, ra)]:
+            # 1. 扣除政策基礎開銷
             p.wealth -= (acts['legal'] + acts['media'] + acts['camp'] + acts['incite'] + acts['edu_up'] + acts['edu_down'] + acts['inv_corr'])
+            
+            # 2. 部門資金結算 (扣除投資，若達標溢出則退款)
             u = acts['upgrades']
-            formulas.calc_upgrade(p.depts['investigate'], u['inv'][0], u['inv'][1], cfg)
-            formulas.calc_upgrade(p.depts['stealth'], u['stl'][0], u['stl'][1], cfg)
-            formulas.calc_upgrade(p.depts['predict'], u['pre'][0], u['pre'][1], cfg)
-            formulas.calc_upgrade(p.depts['media'], u['med'][0], u['med'][1], cfg)
-            formulas.calc_upgrade(p.depts['edu'], u['edu'][0], u['edu'][1], cfg)
-            formulas.calc_upgrade(p.depts['build'], u['bld'][0], u['bld'][1], cfg)
+            for dept_key, ui_key in [('investigate', 'inv'), ('stealth', 'stl'), ('predict', 'pre'), ('media', 'med'), ('edu', 'edu'), ('build', 'bld')]:
+                target_eff = u[ui_key][0]
+                invested = u[ui_key][1]
+                dept = p.depts[dept_key]
+                _, refund = formulas.calc_upgrade(dept, target_eff, invested, cfg)
+                p.wealth -= invested # 扣除這回合投資的錢
+                p.wealth += refund   # 若達標溢出，退回溢出金額
+            
+            # 3. 扣除部門維護費 (依照「目標」計算)
+            maint_cost = sum([formulas.get_ability_maintenance(dept, cfg) for dept in p.depts.values()])
+            p.wealth -= maint_cost
             
         if game.year % cfg['ELECTION_CYCLE'] == 1:
             winner = hp if hp.support > rp.support else rp
