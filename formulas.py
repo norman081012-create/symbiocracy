@@ -4,29 +4,26 @@
 import math
 
 def get_ability_maintenance(dept, cfg):
-    # 維護費依照「目標 (target)」收取，降級馬上省錢
     return cfg['MAINTENANCE_BASE'] + max(0, (dept.target - cfg['EFF_DEFAULT']) * 0.5)
 
 def calc_upgrade(dept, new_target, invest_this_turn, cfg):
     dept.target = new_target
     refund = 0.0
 
-    # 1. 升級邏輯
     if dept.target > dept.eff:
         total_cost = (dept.target - dept.eff) * cfg['UPGRADE_COST_PER_PCT']
         dept.invested += invest_this_turn
 
         if dept.invested >= total_cost and total_cost > 0:
-            refund = dept.invested - total_cost # 計算溢出的退款
+            refund = dept.invested - total_cost 
             dept.eff = dept.target
-            dept.invested = 0.0 # 達標清空池子
+            dept.invested = 0.0 
         elif total_cost > 0:
             progress = invest_this_turn / total_cost
             dept.eff += (dept.target - dept.eff) * progress
 
-    # 2. 降級邏輯 (不需要投錢，每年自然衰退，維護費即刻降低)
     elif dept.target < dept.eff:
-        dept.invested = 0.0 # 清空舊資金
+        dept.invested = 0.0 
         dept.eff -= cfg['DOWNGRADE_RATE_PER_YEAR']
         if dept.eff <= dept.target:
             dept.eff = dept.target
@@ -76,3 +73,31 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra
     act_h_shift = hp_shift * ((100.0 - hp.support) / 100.0) if hp_shift > 0 else hp_shift * (hp.support / 100.0)
     
     return {'actual_shift': act_h_shift}
+
+def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build_eff, r_pays, h_pays):
+    # 此處加入 hp_build_eff/100.0 換算回原本的百分比邏輯
+    gdp_bst = (req_funds * (hp_build_eff/100.0)) / cfg['BUILD_DIFF']
+    est_gdp = max(0.0, game.gdp + gdp_bst - (fc_decay * 1000))
+    gdp_change_pct = ((est_gdp - game.gdp) / max(1.0, game.gdp)) * 100.0
+
+    actual_h_funds = req_funds * h_ratio
+    strict_mult = r_val ** 2
+    h_bst = (actual_h_funds * (hp_build_eff/100.0)) / max(0.1, strict_mult)
+    eff_decay_h = fc_decay * strict_mult * 0.2 * game.h_fund
+    est_h_fund = max(0.0, game.h_fund + h_bst - eff_decay_h)
+
+    future_budget = cfg['BASE_TOTAL_BUDGET'] + (est_gdp * cfg['HEALTH_MULTIPLIER'])
+    h_share_ratio = est_h_fund / max(1.0, future_budget) if future_budget > 0 else 0.5
+    
+    h_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.h_role_party.name else 0) + (future_budget * h_share_ratio)
+    r_gross = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == game.r_role_party.name else 0) + (future_budget * (1 - h_share_ratio))
+    
+    h_net = h_gross - h_pays
+    r_net = r_gross - r_pays
+    h_roi = (h_net / max(1.0, float(h_pays))) * 100.0 if h_pays > 0 else float('inf')
+    r_roi = (r_net / max(1.0, float(r_pays))) * 100.0 if r_pays > 0 else float('inf')
+
+    current_share = game.h_fund / max(1.0, game.total_budget)
+    net_h_shift = (h_share_ratio - current_share) * 100.0
+    
+    return gdp_change_pct, h_gross, h_net, r_gross, r_net, net_h_shift, -net_h_shift, est_gdp, est_h_fund, h_roi, r_roi
