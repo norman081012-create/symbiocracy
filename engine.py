@@ -10,10 +10,12 @@ class Party:
     def __init__(self, name, cfg):
         self.name = name; self.wealth = cfg['INITIAL_WEALTH']; self.support = 50.0 
         self.build_ability = cfg['ABILITY_DEFAULT']; self.investigate_ability = cfg['ABILITY_DEFAULT']
-        self.covert_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
-        self.predict_ability = cfg['ABILITY_DEFAULT']
+        self.edu_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
+        self.predict_ability = cfg['ABILITY_DEFAULT']; self.stealth_ability = cfg['ABILITY_DEFAULT']
         self.current_forecast = 0.0
-        self.current_poll_result = None
+        
+        self.poll_history = {'小型': [], '中型': [], '大型': []}
+        self.latest_poll = None
         self.poll_count = 0
         self.last_acts = {'policy': 0, 'legal': 0, 'maint': 0}
 
@@ -47,13 +49,15 @@ def execute_poll(game, view_party, cost):
     a_actual = game.party_A.support
     a_poll = max(0.0, min(100.0, a_actual + random.uniform(-error_margin, error_margin)))
     
-    if view_party.poll_count == 0:
-        game.party_A.current_poll_result = a_poll
-    else:
-        prev_a = game.party_A.current_poll_result
-        game.party_A.current_poll_result = ((prev_a * view_party.poll_count) + a_poll) / (view_party.poll_count + 1)
-        
-    game.party_B.current_poll_result = 100.0 - game.party_A.current_poll_result
+    poll_type = '小型' if cost == 5 else '中型' if cost == 10 else '大型'
+    
+    game.party_A.latest_poll = a_poll
+    game.party_A.poll_history[poll_type].append(a_poll)
+    
+    b_poll = 100.0 - a_poll
+    game.party_B.latest_poll = b_poll
+    game.party_B.poll_history[poll_type].append(b_poll)
+    
     view_party.poll_count += 1
 
 def trigger_swap(game, penalty_amt, msg_prefix="政局動盪！"):
@@ -61,5 +65,6 @@ def trigger_swap(game, penalty_amt, msg_prefix="政局動盪！"):
     game.h_role_party, game.r_role_party = game.r_role_party, game.h_role_party
     game.swap_triggered_this_year = True
     game.emotion = min(100.0, game.emotion + 30.0) 
-    st.session_state.news_flash = f"🗞️ **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發當權轉換！"
+    st.session_state.news_flash = f"🗞️ **【快訊】{msg_prefix}** 雙方被迫各強制捐款 {penalty_amt} 資金給第三政黨，觸發換位！"
+    st.session_state.anim = 'snow'
     game.phase = 2
