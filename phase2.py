@@ -34,7 +34,7 @@ def render(game, view_party, opponent_party, cfg):
         san_move = (target_san - game.sanity) * 0.2
         new_san_preview = game.sanity + san_move
         if not is_h:
-            st.caption(f"資訊辨識: {config.get_civic_index_text(game.sanity)} -> {config.get_civic_index_text(new_san_preview)} (變動: {san_move:+.1f}/年{abs(edu_policy_amt):.0f}元, 目標: {target_san:.1f})")
+            st.caption(f"資訊辨識: {config.get_civic_index_text(game.sanity)} -> {config.get_civic_index_text(new_san_preview)} (變動: {san_move:+.1f}/年 {abs(edu_policy_amt):.0f}元)")
             
         camp_amt = st.slider("🎉 舉辦競選 (提升自身支持度, 投入資金)", 0, cw, 0)
         incite_emo = st.slider("🔥 煽動情緒 (短期降資訊辨識, 投入資金)", 0, cw, 0)
@@ -51,7 +51,11 @@ def render(game, view_party, opponent_party, cfg):
     tot_maint = c_inv + c_pre + c_med + c_stl + c_bld
     tot = req_pay + tot_action + tot_maint
     
-    st.write(f"**法定專案款:** `{int(req_pay)}` / **升級與維護費:** `{int(tot - req_pay)}` / **剩餘可用淨值:** `{int(cw - tot)}`")
+    st.write(f"**法定專案款:** `{int(req_pay)}` / **政策與媒體:** `{int(tot_action)}` / **內部部門投資:** `{int(tot_maint)}` / **剩餘可用淨值:** `{int(cw - tot)}`")
+    
+    # 防呆提示：如果拉桿花費超過資產，按鈕會隱藏並給予明確警告
+    if tot > cw:
+        st.error(f"🚨 資金不足！當前行動預算已超支 {int(tot - cw)} 元，請降低投入資金。")
     
     ra, ha = {}, {}
     if f"{opponent_party.name}_acts" in st.session_state:
@@ -80,103 +84,4 @@ def render(game, view_party, opponent_party, cfg):
     shift_preview = formulas.calc_support_shift(cfg, game.h_role_party, game.r_role_party, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha, ra)
     
     # 預覽資訊辨識的漸近線變動
-    t_san = max(0.0, min(100.0, 50.0 + (ra.get('edu_amt', 0) / 500.0) * 50.0))
-    s_move = (t_san - game.sanity) * 0.2
-    
-    preview_data = {
-        'gdp': new_gdp, 'budg': budg, 'h_fund': new_h_fund,
-        'san': max(0.0, min(100.0, game.sanity - (game.emotion * 0.02) + s_move)),
-        'emo': max(0.0, min(100.0, game.emotion + (ha['incite'] + ra['incite']) * 0.1 - (((new_gdp - game.gdp)/max(1.0, game.gdp))*100) - (game.sanity * 0.20))),
-        'h_inc': hp_inc_est, 'r_inc': rp_inc_est,
-        'h_roi': (hp_inc_est / max(1.0, float(d.get('h_pays',0)))) * 100.0 if d.get('h_pays',0) > 0 else float('inf'),
-        'r_roi': (rp_inc_est / max(1.0, float(d.get('r_pays',0)))) * 100.0 if d.get('r_pays',0) > 0 else float('inf'),
-        'my_sup_shift': shift_preview['actual_shift'] if is_h else -shift_preview['actual_shift'],
-        'opp_sup_shift': -shift_preview['actual_shift'] if is_h else shift_preview['actual_shift']
-    }
-    
-    ui_core.render_dashboard(game, view_party, cfg, is_preview=True, preview_data=preview_data)
-    
-    if tot <= cw and st.button("確認行動/結算", use_container_width=True, type="primary"):
-        st.session_state[f"{view_party.name}_acts"] = {
-            'media': media_ctrl, 'camp': camp_amt, 'incite': incite_emo, 'edu_amt': edu_policy_amt, 
-            'corr': h_corr_pct, 'crony': h_crony_pct, 'judicial': judicial_amt,
-            't_inv': t_inv, 't_pre': t_pre, 't_med': t_med, 't_edu': view_party.edu_ability, 't_stl': t_stl, 't_bld': t_bld,
-            'legal': req_pay
-        }
-        
-        if f"{opponent_party.name}_acts" not in st.session_state:
-            game.proposing_party = opponent_party; st.rerun()
-        else:
-            rp, hp = game.r_role_party, game.h_role_party
-            ra, ha = st.session_state[f"{rp.name}_acts"], st.session_state[f"{hp.name}_acts"]
-            
-            hp.last_acts = {'policy': ha['media']+ha['camp']+ha['incite']+abs(ha['edu_amt'])+ha['judicial'], 'legal': ha['legal']}
-            rp.last_acts = {'policy': ra['media']+ra['camp']+ra['incite']+abs(ra['edu_amt'])+ra['judicial'], 'legal': ra['legal']}
-
-            confiscated = 0.0; caught = False; fine = 0.0
-            corr_amt = d.get('total_funds', 0) * (ha['corr'] / 100.0)
-            crony_base = d.get('total_funds', 0) * (ha['crony'] / 100.0)
-            crony_income = crony_base * 0.1 * d.get('r_value', 1.0)
-            suspicious_total = corr_amt + crony_base
-            act_build = d.get('total_funds', 0) - corr_amt
-            
-            if suspicious_total > 0:
-                eff_inv = (rp.investigate_ability * cfg['R_INV_BONUS'])
-                catch_prob = min(1.0, (eff_inv / max(0.1, hp.stealth_ability)) * (suspicious_total / max(1.0, hp.wealth)) * 5.0)
-                if random.random() < catch_prob:
-                    caught = True; fine = suspicious_total * cfg['CORRUPTION_PENALTY']; confiscated = suspicious_total; corr_amt = 0; crony_income = 0
-            
-            h_bst = (act_build * d.get('h_ratio', 1.0) * hp.build_ability) / max(0.1, d.get('r_value', 1.0)**2)
-            new_h_fund = max(0.0, game.h_fund + h_bst - (game.current_real_decay * (d.get('r_value', 1.0)**2) * 0.2 * game.h_fund))
-            
-            gdp_bst = (act_build * hp.build_ability) / cfg['BUILD_DIFF']
-            new_gdp = max(0.0, game.gdp + gdp_bst - (game.current_real_decay * 1000))
-            budg = cfg['BASE_TOTAL_BUDGET'] + (new_gdp * cfg['HEALTH_MULTIPLIER'])
-            h_shr = new_h_fund / max(1.0, budg) if budg > 0 else 0.5
-            
-            hp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == hp.name else 0) + (budg * h_shr) - d.get('h_pays',0) + corr_amt + crony_income - fine
-            rp_inc = cfg['DEFAULT_BONUS'] + (cfg['RULING_BONUS'] if game.ruling_party.name == rp.name else 0) + (budg * (1 - h_shr)) - d.get('r_pays',0)
-            
-            shift = formulas.calc_support_shift(cfg, hp, rp, new_h_fund, new_gdp, d.get('target_h_fund', 600), d.get('target_gdp', 5000), game.gdp, ha, ra)
-            if caught: shift['actual_shift'] -= 5.0
-            hp_sup_new = max(0.0, min(100.0, hp.support + shift['actual_shift']))
-            
-            gdp_grw_bonus = ((new_gdp - game.gdp)/max(1.0, game.gdp)) * 100.0
-            emotion_delta = (ha['incite'] + ra['incite']) * 0.1 - gdp_grw_bonus - (game.sanity * 0.20)
-            game.emotion = max(0.0, min(100.0, game.emotion + emotion_delta))
-            
-            # 正式結算資訊辨識分數變動
-            f_target_san = max(0.0, min(100.0, 50.0 + (ra.get('edu_amt', 0) / 500.0) * 50.0))
-            f_san_move = (f_target_san - game.sanity) * 0.2
-            game.sanity = max(0.0, min(100.0, game.sanity - (game.emotion * 0.02) + f_san_move))
-            
-            game.last_year_report = {
-                'old_gdp': game.gdp, 'old_san': game.sanity, 'old_emo': game.emotion, 'old_budg': game.total_budget, 'old_h_fund': game.h_fund,
-                'h_party_name': hp.name, 'h_perf': shift['h_perf'], 'r_perf': shift['r_perf'],
-                'h_inc': hp_inc, 'r_inc': rp_inc, 'est_h_inc': preview_data['h_inc'], 'est_r_inc': preview_data['r_inc'],
-                'real_decay': game.current_real_decay, 'view_party_forecast': view_party.current_forecast
-            }
-
-            hp.support, rp.support = hp_sup_new, 100.0 - hp_sup_new
-            
-            if game.year % cfg['ELECTION_CYCLE'] == 1:
-                winner = hp if hp.support > rp.support else rp
-                st.session_state.news_flash = f"🎉 **【大選結果】** {winner.name} 取勝，成為當權派！"
-                st.session_state.anim = 'balloons'
-                game.ruling_party = winner
-
-            game.h_fund, game.gdp = new_h_fund, new_gdp
-            game.total_budget = budg + confiscated
-            hp.wealth += hp_inc; rp.wealth += rp_inc
-
-            rp.investigate_ability = ra['t_inv']; rp.predict_ability = ra['t_pre']; rp.media_ability = ra['t_med']; rp.stealth_ability = ra['t_stl']
-            hp.investigate_ability = ha['t_inv']; hp.predict_ability = ha['t_pre']; hp.media_ability = ha['t_med']; hp.stealth_ability = ha['t_stl']; hp.build_ability = ha['t_bld']
-
-            game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
-            
-            game.year += 1; game.phase = 1; game.p1_step = 'draft_r'
-            game.p1_proposals = {'R': None, 'H': None}; game.p1_selected_plan = None
-            game.proposing_party = game.r_role_party
-            for k in list(st.session_state.keys()):
-                if k.startswith('ui_decay_') or k.endswith('_acts'): del st.session_state[k]
-            del st.session_state.turn_initialized; st.rerun()
+    t_san_preview = max(0.0, min(100.0, 50.0 + (ra.get('edu_amt', 0) / 500
