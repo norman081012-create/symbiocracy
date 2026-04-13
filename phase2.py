@@ -161,4 +161,22 @@ def render(game, view_party, opponent_party, cfg):
             
             if game.year % cfg['ELECTION_CYCLE'] == 1:
                 winner = hp if hp.support > rp.support else rp
-                st.session_state.news_flash = f"🎉 **【大選
+                st.session_state.news_flash = f"🎉 **【大選結果】** {winner.name} 取勝，成為當權派！"
+                st.session_state.anim = 'balloons'
+                game.ruling_party = winner
+
+            game.h_fund, game.gdp = new_h_fund, new_gdp
+            game.total_budget = budg + confiscated
+            hp.wealth += hp_inc; rp.wealth += rp_inc
+
+            rp.investigate_ability = ra['t_inv']; rp.predict_ability = ra['t_pre']; rp.media_ability = ra['t_med']; rp.stealth_ability = ra['t_stl']
+            hp.investigate_ability = ha['t_inv']; hp.predict_ability = ha['t_pre']; hp.media_ability = ha['t_med']; hp.stealth_ability = ha['t_stl']; hp.build_ability = ha['t_bld']
+
+            game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
+            
+            game.year += 1; game.phase = 1; game.p1_step = 'draft_r'
+            game.p1_proposals = {'R': None, 'H': None}; game.p1_selected_plan = None
+            game.proposing_party = game.r_role_party
+            for k in list(st.session_state.keys()):
+                if k.startswith('ui_decay_') or k.endswith('_acts'): del st.session_state[k]
+            del st.session_state.turn_initialized; st.rerun()
