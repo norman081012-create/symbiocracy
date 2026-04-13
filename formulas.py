@@ -28,7 +28,6 @@ def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val,
     return req_funds, h_ratio
 
 def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra):
-    # 司法審查減弱媒體效果，並帶來負面支持度
     r_judicial = ra.get('judicial', 0)
     jud_factor = min(0.5, r_judicial / 500.0) 
     
@@ -51,7 +50,6 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra
     h_eff_camp_qty = (h_camp_pow / total_camp_pow) * ha.get('camp', 0)
     r_eff_camp_qty = (r_camp_pow / total_camp_pow) * ra.get('camp', 0)
 
-    # 媒體操控直接轉移對手正向支持度給自己
     h_steal = (ha.get('media', 0) * effective_h_media) / 500.0
     r_steal = (ra.get('media', 0) * effective_r_media) / 500.0
 
