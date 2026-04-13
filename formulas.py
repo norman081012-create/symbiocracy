@@ -1,5 +1,6 @@
-\# ==========================================
+# ==========================================
 # formulas.py
+# 負責核心無狀態的純數學模型計算 (完全替換為 v3 邏輯)
 # ==========================================
 import math
 
@@ -28,7 +29,6 @@ def calc_support_shift_v3(v, weight, sanity, emotion, h_media, r_media, is_posit
         else: return v_abs * weight * media_delta * s_mult
 
 def get_cost_to_next_level(current_lvl, cfg):
-    """計算升下一級所需的資金 (單級)"""
     return cfg['BASE_UPGRADE_COST'] * (1.2 ** (current_lvl / 10.0))
 
 def get_upgrade_cost_and_time(current_lvl, target_lvl, cfg):
@@ -40,7 +40,6 @@ def get_upgrade_cost_and_time(current_lvl, target_lvl, cfg):
     return cost, est_years
 
 def process_upgrades(current_level, pool, is_h, cfg):
-    """計算資金池溢出與立即升級"""
     mult = 1.2 if is_h else 1.0 # 執行系統工程處 buff
     effective_pool = pool * mult
     
@@ -52,7 +51,6 @@ def process_upgrades(current_level, pool, is_h, cfg):
         else:
             break
             
-    # 把剩餘的有效資金還原回真實資金池
     new_pool = effective_pool / mult if mult > 0 else effective_pool
     return min(current_level, cfg['MAX_ABILITY']), new_pool
 
@@ -61,7 +59,6 @@ def get_maintenance_fee(level, cfg):
 
 def calc_preview(cfg, gdp, budget_t, c_funds, r_decay, h_build_abi):
     new_gdp, h_idx, _, _ = calculate_economics_and_payouts(cfg, gdp, budget_t, c_funds, r_decay, c_funds, h_build_abi)
-    
     h_est_income = c_funds * h_idx
     r_est_income = c_funds * (1 - h_idx) + (budget_t - c_funds)
     
