@@ -1,5 +1,5 @@
 # ==========================================
-# content.py
+# config.py
 # 負責管理遊戲全域設定、UI 中文本與判讀邏輯
 # ==========================================
 
@@ -32,7 +32,7 @@ CONFIG_TRANSLATIONS = {
     'DECAY_MIN': "最小衰退率", 'DECAY_MAX': "最大衰退率",  
     'BUILD_DIFF': "建設難度", 'INVESTIGATE_DIFF': "調查難度", 'EDU_DIFF': "教育難度", 'PREDICT_DIFF': "預測難度", 'MEDIA_DIFF': "媒體難度",
     'CURRENT_GDP': "初始 GDP", 'HEALTH_MULTIPLIER': "GDP轉預算乘數", 'BASE_TOTAL_BUDGET': "基礎預算",  
-    'RULING_BONUS': "執政紅利", 'DEFAULT_BONUS': "基本補助金", 
+    'RULING_BONUS': "當權紅利", 'DEFAULT_BONUS': "基本補助金", 
     'H_FUND_DEFAULT': "初始執行獎勵基金", 
     'H_MEDIA_BONUS': "執行系統媒體加成", 'R_INV_BONUS': "監管系統調查加成",
     'CORRUPTION_PENALTY': "貪污罰金倍率", 'MAX_ABILITY': "能力上限", 'ABILITY_DEFAULT': "初始能力", 'MAINTENANCE_RATE': "維護費倍率",
@@ -67,9 +67,14 @@ def get_election_icon(year, cycle):
     rem = year % cycle
     if rem == 1: return "🗳️ 大選年"
     elif rem == 2: return "🌱 施政元年"
-    elif rem == cycle - 1: return "⏳ 距選舉2年"
+    elif rem == cycle - 1: return "⏳ 距選舉 2 年"
     elif rem == 0: return "🚨 明年選舉"
-    else: return f"🏛️ 距選舉 {cycle - rem + 1} 年"
+    else: return f"距大選 {cycle - rem + 1} 年"
+
+def get_party_logo(name):
+    if name == "Prosperity": return "🦅"
+    elif name == "Equity": return "⚖️"
+    return "🚩"
 
 def get_target_eval_text(actual, target):
     if target <= 0: return "無目標"
@@ -80,8 +85,3 @@ def get_target_eval_text(actual, target):
     elif diff_pct >= -5: return f"🔴 微幅落後 ({diff_pct:.1f}%)"
     elif diff_pct >= -15: return f"🔴 中幅落後 ({diff_pct:.1f}%)"
     else: return f"🔴 嚴重落後 ({diff_pct:.1f}%)"
-
-def get_party_logo(name):
-    if name == "Prosperity": return "🦅"
-    elif name == "Equity": return "⚖️"
-    return "🚩"
