@@ -79,7 +79,7 @@ def render(game, view_party, cfg):
                 st.rerun()
                 
             if active_role == 'R' and game.p1_step == 'draft_r':
-                if c_btn2.button("💥 最後通牒 (逼迫接受或換位)", use_container_width=True):
+                if c_btn2.button("💥 發布最後通牒", use_container_width=True):
                     game.p1_selected_plan = plan_dict
                     game.p1_step = 'ultimatum_resolve_h'
                     game.proposing_party = game.h_role_party
@@ -102,7 +102,7 @@ def render(game, view_party, cfg):
                 st.markdown(f"**🛡️ 依據自己智庫估算** *(衰退估算: -{view_party.current_forecast:.2f})*")
                 st.markdown(f"<h3>🟢 我方預期收益: {my_net:.0f} (ROI: {my_roi:.1f}%)</h3>", unsafe_allow_html=True)
                 st.markdown(f"<h3>🔴 對手預期收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)</h3>", unsafe_allow_html=True)
-                st.info(f"<h2>📈 預期 GDP: {game.gdp:.0f} ➔ {o_est_gdp:.0f} ({o_gdp_pct:+.2f}%)</h2>", unsafe_allow_html=True)
+                st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {o_est_gdp:.0f}` ({o_gdp_pct:+.2f}%)")
             
             with c_prev2:
                 my_net, my_sup, my_roi = (c_h_n, c_h_sup, c_h_roi) if my_is_h else (c_r_n, c_r_sup, c_r_roi)
@@ -110,7 +110,7 @@ def render(game, view_party, cfg):
                 st.markdown(f"**📢 依據方案公告估算** *(衰退估算: -{claimed_decay:.2f})*")
                 st.markdown(f"<h3>🟢 我方預期收益: {my_net:.0f} (ROI: {my_roi:.1f}%)</h3>", unsafe_allow_html=True)
                 st.markdown(f"<h3>🔴 對手預期收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)</h3>", unsafe_allow_html=True)
-                st.info(f"<h2>📈 預期 GDP: {game.gdp:.0f} ➔ {c_est_gdp:.0f} ({c_gdp_pct:+.2f}%)</h2>", unsafe_allow_html=True)
+                st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {c_est_gdp:.0f}` ({c_gdp_pct:+.2f}%)")
 
             if opp_plan:
                 st.markdown("---")
@@ -165,9 +165,7 @@ def render(game, view_party, cfg):
                 st.session_state.turn_data.update(game.p1_selected_plan)
                 st.session_state.news_flash = f"🗞️ **【快訊】通牒生效！** 執行系統妥協吞下底線方案。"
                 game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
-            
-            swap_cost = 0 if view_party.name == game.ruling_party.name else penalty_amt
-            if c2.button(f"🔄 掀桌倒閣換位\n(費用: {swap_cost})", use_container_width=True):
+            if c2.button(f"🔄 掀桌倒閣換位\n(警告: 各付 {penalty_amt} 給第三政黨)", use_container_width=True):
                 st.session_state.turn_data.update(game.p1_selected_plan)
-                engine.trigger_swap(game, swap_cost, "掀桌倒閣！")
+                engine.trigger_swap(game, penalty_amt, "掀桌倒閣！")
                 game.proposing_party = game.r_role_party; st.rerun()
