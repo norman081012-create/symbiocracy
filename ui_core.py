@@ -74,7 +74,8 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
     with c4:
         if game.phase == 1:
             st.markdown("### 📊 財報")
-            total_maint = sum([formulas.get_ability_maintenance(a, cfg) for a in [view_party.build_ability, view_party.investigate_ability, view_party.media_ability, view_party.predict_ability, view_party.stealth_ability]])
+            total_maint = sum([formulas.get_ability_maintenance(dept, cfg) for dept in view_party.depts.values()])
+            st.write(f"可用淨資產: {int(view_party.wealth + total_maint)} - 維護成本: {int(total_maint)} = **{int(view_party.wealth)}**")
             
             if game.year == 1:
                 st.write(f"可用淨資產: {int(view_party.wealth)} ({int(view_party.wealth)} - 0)")
@@ -184,12 +185,13 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.write(f"工程處: {opp.build_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
 
     st.markdown("---")
-    st.title("📈 審計處 - 內部部門投資")
-    total_maint = sum([formulas.get_ability_maintenance(a, cfg) for a in [view_party.build_ability, view_party.investigate_ability, view_party.media_ability, view_party.predict_ability, view_party.stealth_ability]])
-    st.write(f"智庫: {view_party.predict_ability*10:.1f}% | 情報處: {view_party.investigate_ability*10:.1f}%")
-    st.write(f"黨媒: {view_party.media_ability*10:.1f}% | 反情報處: {view_party.stealth_ability*10:.1f}%")
-    st.write(f"工程處: {view_party.build_ability*10:.1f}%")
-    st.write(f"**(依據當前機構投資，明年維護費估算: -${total_maint:.0f})**")
+    st.title("📈 審計處")
+    total_maint = sum([formulas.get_ability_maintenance(dept, cfg) for dept in view_party.depts.values()])
+    with st.expander("自身各項能力及維護費", expanded=True):
+        st.write(f"建設:{view_party.depts['build'].eff:.1f} | 調查:{view_party.depts['investigate'].eff:.1f}")
+        st.write(f"教育:{view_party.depts['edu'].eff:.1f} | 媒體:{view_party.depts['media'].eff:.1f}")
+        st.write(f"預測:{view_party.depts['predict'].eff:.1f} | 隱密:{view_party.depts['stealth'].eff:.1f}")
+        st.write(f"**明年維護費估算:** -${total_maint:.0f}")
 
 def render_proposal_component(title, plan, game, view_party, cfg):
     st.markdown(f"#### {title}")
