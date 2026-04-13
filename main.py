@@ -41,9 +41,19 @@ opponent_party = game.party_B if view_party.name == game.party_A.name else game.
 
 with st.sidebar:
     ui_core.render_global_settings(cfg, game)
+    ui_core.render_sidebar_intel_audit(game, view_party, cfg) # 補回審計處
     god_mode = st.toggle("👁️ 上帝視角", False)
+    if st.button("🔄 重新開始遊戲", use_container_width=True): 
+        st.session_state.clear()
+        st.rerun()
 
 st.title("🏛️ Symbiocracy 共生民主模擬器 v3.1.0")
+
+# 補回年份標題
+elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
+st.subheader(f"📅 {cfg['CALENDAR_NAME']} {game.year} 年 / {cfg['END_YEAR']} 年 ({elec_status})")
+if god_mode: 
+    st.error(f"👁️ **上帝視角：** 真實衰退率為 **{game.current_real_decay:.2f}**")
 
 if game.phase == 1:
     ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
