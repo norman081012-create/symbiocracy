@@ -1,84 +1,68 @@
 # ==========================================
 # formulas.py
-# 負責核心無狀態的純數學模型計算
 # ==========================================
 import math
 
-def get_ability_maintenance(ability, cfg):
-    # 維護費為當前等級的 10%
-    return ability * 0.1
+def get_dept_cost_cumulative(eff, cfg):
+    # 使用等比級數或指數累加模擬對數曲線，越高等級越貴
+    return cfg['UPGRADE_BASE_COST'] * (math.pow(cfg['UPGRADE_EXP_MULT'], eff) - 1) / (cfg['UPGRADE_EXP_MULT'] - 1)
 
-def calculate_upgrade_cost(current, target):
-    # 升級成本呈現指數上升：1-2是2，2-3是4，3-4是8...
-    # 公式: sum(2^x) 從 current 到 target-1
-    if target <= current: return 0
-    cost = 0
-    c_int = int(current)
-    t_int = int(target)
-    for x in range(c_int, t_int):
-        cost += (2 ** x)
-    # 處理小數點(若有)的粗略估算
-    return cost
+def get_ability_maintenance(dept, cfg):
+    # 維護費為升級總成本的 10%
+    return get_dept_cost_cumulative(dept.target, cfg) * 0.1
 
-def calc_economic_physics(cfg, gdp, decay_val, h_invest, build_abi):
-    # 1. 衰退與阻力（本年環境）
-    r_decay = decay_val * cfg['DECAY_COEFF']
-    l_gdp = r_decay * gdp
-    resistance = r_decay * cfg['M_RESISTANCE'] * 100 # 基準化阻力
-    
-    # 2. 實質產出與 GDP 更新（本年結算）
-    gross = h_invest * build_abi
-    c_net = max(0.0, gross - resistance)
-    new_gdp = max(0.0, gdp + c_net - l_gdp)
-    
-    return new_gdp, c_net, l_gdp, gross, resistance
+def calc_upgrade(dept, new_target, invest_this_turn, cfg):
+    dept.target = new_target
+    refund = 0.0
+    if dept.target > dept.eff:
+        current_total_value = get_dept_cost_cumulative(dept.eff, cfg)
+        target_total_value = get_dept_cost_cumulative(dept.target, cfg)
+        total_cost_needed = target_total_value - current_total_value
+        
+        dept.invested += invest_this_turn
+        if dept.invested >= total_cost_needed and total_cost_needed > 0:
+            refund = dept.invested - total_cost_needed 
+            dept.eff = dept.target
+            dept.invested = 0.0 
+        elif total_cost_needed > 0:
+            progress = invest_this_turn / total_cost_needed
+            dept.eff += (dept.target - dept.eff) * progress
 
-def calculate_preview(cfg, game, c_funds, c_diff, forecast_decay, view_party):
-    # 預估 Phase 2 執行黨會投入的合理資金 (假設投入自己黨產的一半)
-    est_h_invest = game.h_role_party.wealth * 0.5 
-    
-    new_gdp, c_net, l_gdp, gross, res = calc_economic_physics(cfg, game.gdp, forecast_decay, est_h_invest, game.h_role_party.build_ability)
-    
-    # 計算 H 達標率
-    target_req = c_funds * max(0.1, c_diff)
-    h_rate = min(1.0, c_net / target_req) if target_req > 0 else 1.0
-    
-    # 計算明年收益 (H領達標, R領失敗退款+標案殘值)
-    my_is_h = (view_party.name == game.h_role_party.name)
-    residual = game.project_pool - c_funds
-    
-    h_project_inc = c_funds * h_rate
-    r_project_inc = c_funds * (1.0 - h_rate) + residual
-    
-    # 隔年發放的基礎金估算 (先不含明年的T，僅算專案本身回收)
-    est_h_inc = h_project_inc
-    est_r_inc = r_project_inc
-    
-    gdp_pct = ((new_gdp - game.gdp) / max(1.0, game.gdp)) * 100.0
-    
-    # 簡易支持度估算 (依照表現)
-    sup_shift = (h_rate - 0.5) * 5.0 # 達標率大於 50% 加分，否則扣分
-    
-    return {
-        'est_gdp': new_gdp, 'gdp_pct': gdp_pct,
-        'h_inc': est_h_inc, 'r_inc': est_r_inc,
-        'my_inc': est_h_inc if my_is_h else est_r_inc,
-        'opp_inc': est_r_inc if my_is_h else est_h_inc,
-        'h_roi': (est_h_inc / max(1.0, est_h_invest)) * 100.0 if est_h_invest > 0 else 0,
-        'r_roi': (est_r_inc / max(1.0, game.total_budget)) * 100.0,
-        'sup_shift': sup_shift if my_is_h else -sup_shift,
-        'c_net': c_net, 'h_rate': h_rate
-    }
+    elif dept.target < dept.eff:
+        dept.invested = 0.0 
+        dept.eff -= cfg['DOWNGRADE_RATE_PER_YEAR']
+        if dept.eff <= dept.target:
+            dept.eff = dept.target
+    return dept, refund
 
-def calc_support_shift(cfg, hp, rp, act_h_rate, gdp_pct, ha, ra):
-    # 依據實際達標率與 GDP 成長率進行支持度轉移
-    h_perf_score = act_h_rate * 100.0
-    r_perf_score = max(0, gdp_pct * 10) # 經濟成長對 R 的監管算分
+def calc_economic_preview(cfg, forecast_decay, gdp, budget_pool, proj_fund, strictness, build_eff):
+    # 2. 衰退與阻力
+    r_decay = forecast_decay * cfg['DECAY_COEFF']
+    l_gdp = gdp * r_decay
+    resistance = l_gdp * cfg['RESISTANCE_MULT']
     
-    h_media_pow = ha.get('media', 0) * hp.media_ability * cfg['H_MEDIA_BONUS']
-    r_media_pow = ra.get('media', 0) * rp.media_ability
+    # 3. 建設與達標 (預估若投入全部 proj_fund)
+    gross_output = proj_fund * (build_eff / 100.0)
+    c_net = max(0.0, gross_output - resistance)
     
-    h_blame = max(0, (1.0 - act_h_rate) * cfg['PERF_IMPACT_BASE'] * max(1.0, r_media_pow * 0.01))
+    # Target 定義為標案資金 * 實質成本(嚴格度)
+    target_req = proj_fund * strictness
+    h_index = min(1.0, c_net / max(1.0, target_req))
     
-    hp_shift = (ha.get('camp', 0) * 0.5 - h_blame) * cfg['SUPPORT_CONVERSION_RATE']
-    return {'actual_shift': hp_shift}
+    # 4. GDP 結算預估
+    est_gdp = max(0.0, gdp - l_gdp + c_net)
+    
+    # 5. 跨年資金預估
+    residual = budget_pool - proj_fund
+    est_h_income = proj_fund * h_index
+    est_r_income = proj_fund * (1.0 - h_index) + residual
+    
+    return est_gdp, est_h_income, est_r_income, h_index, c_net
+
+def calculate_civic_shifts(cfg, old_san, old_emo, gdp_growth_pct, edu_up, edu_down, incite, edu_eff, media_eff):
+    san_delta = (edu_up * (edu_eff/100.0) * 0.002) - (edu_down * (edu_eff/100.0) * 0.002)
+    new_san = max(0.0, min(1.0, old_san + san_delta))
+    gdp_emo_effect = -(gdp_growth_pct * cfg['LIVELIHOOD_WEIGHT'] * (1.0 - new_san))
+    incite_effect = incite * (media_eff/100.0) * 0.5
+    new_emo = max(0.0, min(100.0, old_emo + gdp_emo_effect + incite_effect))
+    return new_san, new_emo
