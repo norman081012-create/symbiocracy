@@ -1,4 +1,7 @@
+# ==========================================
 # config.py
+# ==========================================
+
 DEFAULT_CONFIG = {
     'CALENDAR_NAME': "星曆", 'PARTY_A_COLOR': "#2E8B57", 'PARTY_B_COLOR': "#4169E1",
     'PARTY_A_NAME': "Prosperity", 'PARTY_B_NAME': "Equity", 
@@ -6,21 +9,24 @@ DEFAULT_CONFIG = {
     'INITIAL_WEALTH': 1000.0, 'END_YEAR': 12,
     'DECAY_MIN': 0.0, 'DECAY_MAX': 0.8,  
     'CURRENT_GDP': 5000.0, 
-    # v3.1 經濟系統參數
-    'TAX_RATE': 0.20,             # 稅收預算化比例
-    'BASE_ANNUITY': 0.05,         # 政黨基本金比例
-    'RULING_ANNUITY': 0.10,       # 當權紅利比例
-    'RESISTANCE_MULT': 5.0,       # 衰退阻力放大倍率
-    'DECAY_COEFF': 0.072,         # 衰退基準係數 (0.5=3.6%)
-    'H_INDEX_PERF_WEIGHT': 100.0, # H-Index 政績影響權重
-    'GDP_PERF_WEIGHT': 500.0,     # GDP 政績影響權重
-    'BASE_UPGRADE_COST': 10.0,    # 部門升級基準花費
-    'ABILITY_DEGRADE_RATE': 10.0, # 每年未維護自然下降的速度
     
+    # 經濟系統參數
+    'TAX_RATE': 0.20,             
+    'BASE_ANNUITY': 0.05,         
+    'RULING_ANNUITY': 0.10,       
+    'RESISTANCE_MULT': 5.0,       
+    'DECAY_COEFF': 0.072,         
+    'H_INDEX_PERF_WEIGHT': 100.0, 
+    'GDP_PERF_WEIGHT': 500.0,     
+    
+    # 升級系統 (基礎成本已乘以 3)
+    'BASE_UPGRADE_COST': 30.0,    
     'MAX_ABILITY': 100.0, 'ABILITY_DEFAULT': 20.0, 'MAINTENANCE_RATE': 0.1,
+    
     'TRUST_BREAK_PENALTY_RATIO': 0.05,
     'ELECTION_CYCLE': 4,
     'SANITY_DEFAULT': 60.0, 'EMOTION_DEFAULT': 30.0,
+    'CORRUPTION_PENALTY': 2.0,
 }
 
 CONFIG_TRANSLATIONS = {
