@@ -92,12 +92,12 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 final_profit = real_inc - pol_cost - total_maint
                 st.write(f"收益總結: {real_inc:.0f} - {pol_cost:.0f} - {total_maint:.0f} = **{final_profit:.0f}**")
         else:
-            # Phase 2 預覽也套用 📊 智庫評估報告格式
             if is_preview:
                 my_is_h = view_party.name == game.h_role_party.name
                 my_net = preview_data['h_inc'] if my_is_h else preview_data['r_inc']
                 opp_net = preview_data['r_inc'] if my_is_h else preview_data['h_inc']
                 my_roi = preview_data['h_roi'] if my_is_h else preview_data['r_roi']
+                opp_roi = preview_data['r_roi'] if my_is_h else preview_data['h_roi'] # 修復 NameError
                 
                 st.markdown("### 📊 智庫評估報告")
                 st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
@@ -131,7 +131,6 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
     </style>
     """, unsafe_allow_html=True)
 
-    # 第一年或剛選舉完的 Phase 1 才顯示當選/落選徽章，保證一年最多顯示一次(通常是第一回合)
     show_badge = (is_election_year and game.phase == 1 and game.p1_step == 'draft_r' and game.proposal_count == 1)
 
     for col, party in zip([c1, c2], [view_party, opp]):
@@ -196,12 +195,12 @@ def render_sidebar_intel_audit(game, view_party, cfg):
 def render_proposal_component(title, plan, game, view_party, cfg):
     st.markdown(f"#### {title}")
     st.write(f"公告衰退: {plan['claimed_decay']:.2f} | 目標 GDP 成長: {plan['target_gdp_growth']}%")
-    st.write(f"總額: {plan['total_funds']} (監管出資: {plan['r_pays']} | 執行出資: {plan['h_pays']})")
+    st.write(f"總額: {plan['total_funds']} (監管出資: {plan['r_pays']} |執行出資: {plan['h_pays']})")
 
 def ability_slider(label, key, current_val, wealth, cfg):
-    # 底層能力是 3.0 ~ 10.0，UI 端呈現 30.0% ~ 100.0%
+    # 顯示出目前的百分比
     current_pct = current_val * 10.0
-    t_pct = st.slider(f"{label} (%)", 30.0, 100.0, float(current_pct), 1.0, key=key)
+    t_pct = st.slider(f"{label} (當前: {current_pct:.1f}%)", 30.0, 100.0, float(current_pct), 1.0, key=key)
     t_val = t_pct / 10.0
     
     cost = formulas.calculate_upgrade_cost(current_val, t_val)
