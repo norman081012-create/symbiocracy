@@ -97,7 +97,7 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 my_net = preview_data['h_inc'] if my_is_h else preview_data['r_inc']
                 opp_net = preview_data['r_inc'] if my_is_h else preview_data['h_inc']
                 my_roi = preview_data['h_roi'] if my_is_h else preview_data['r_roi']
-                opp_roi = preview_data['r_roi'] if my_is_h else preview_data['h_roi'] # 修復 NameError
+                opp_roi = preview_data['r_roi'] if my_is_h else preview_data['h_roi']
                 
                 st.markdown("### 📊 智庫評估報告")
                 st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
@@ -165,6 +165,7 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             
             st.markdown(f"### 📊 支持度: {disp_sup}")
             
+            # 選舉年隱藏做民調的功能
             if party.name == view_party.name and not is_election_year:
                 b1, b2, b3 = st.columns(3)
                 if b1.button("小民調 ($5)", key=f"p1_{party.name}"): engine.execute_poll(game, view_party, 5); st.rerun()
@@ -193,14 +194,37 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.write(f"**(依據當前機構投資，明年維護費估算: -${total_maint:.0f})**")
 
 def render_proposal_component(title, plan, game, view_party, cfg):
+    """渲染草案內容，並自動在旁邊附上智庫評估報告"""
     st.markdown(f"#### {title}")
-    st.write(f"公告衰退: {plan['claimed_decay']:.2f} | 目標 GDP 成長: {plan['target_gdp_growth']}%")
-    st.write(f"總額: {plan['total_funds']} (監管出資: {plan['r_pays']} |執行出資: {plan['h_pays']})")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.write(f"**公告衰退:** {plan['claimed_decay']:.2f} | **目標 GDP 成長:** {plan['target_gdp_growth']}%")
+        st.write(f"**總額:** {plan['total_funds']} (監管出資: {plan['r_pays']} | 執行出資: {plan['h_pays']})")
+        
+    with c2:
+        # 計算智庫預覽資料
+        o_gdp_pct, o_h_g, o_h_n, o_r_g, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_est_h_fund, o_h_roi, o_r_roi = formulas.calculate_preview(cfg, game, plan['total_funds'], plan['h_ratio'], plan['r_value'], view_party.current_forecast, game.h_role_party.build_ability, plan['r_pays'], plan['h_pays'])
+        my_is_h = (view_party.name == game.h_role_party.name)
+        my_net, my_sup, my_roi = (o_h_n, o_h_sup, o_h_roi) if my_is_h else (o_r_n, o_r_sup, o_r_roi)
+        opp_net, opp_sup, opp_roi = (o_r_n, o_r_sup, o_r_roi) if my_is_h else (o_h_n, o_h_sup, o_h_roi)
+        
+        st.markdown(f"**📊 智庫評估報告 (依自己預測: -{view_party.current_forecast:.2f})**")
+        st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
+        st.markdown(f"對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
+        st.markdown(f"支持度預估: {my_sup:+.2f}%")
+        st.markdown(f"📈 預期 GDP: {game.gdp:.0f} ➔ {o_est_gdp:.0f} ({o_gdp_pct:+.2f}%)")
+        
+        diff = abs(plan['claimed_decay'] - view_party.current_forecast)
+        if diff > 0.3: risk_txt = "🔴 風險極高 (數據嚴重偏離預估)"
+        elif diff > 0.1: risk_txt = "🟡 風險中等 (數據略有出入)"
+        else: risk_txt = "🟢 風險較低 (基準比對)"
+        st.markdown(f"衰退值判讀: {risk_txt}")
 
 def ability_slider(label, key, current_val, wealth, cfg):
-    # 顯示出目前的百分比
+    # 起點降至 0.0%
     current_pct = current_val * 10.0
-    t_pct = st.slider(f"{label} (當前: {current_pct:.1f}%)", 30.0, 100.0, float(current_pct), 1.0, key=key)
+    t_pct = st.slider(f"{label} (當前: {current_pct:.1f}%)", 0.0, 100.0, float(current_pct), 1.0, key=key)
     t_val = t_pct / 10.0
     
     cost = formulas.calculate_upgrade_cost(current_val, t_val)
@@ -222,7 +246,7 @@ def add_event_vlines(fig, history_df):
 
 def render_endgame_charts(history_data, cfg):
     st.balloons()
-    st.title("🏁 遊戲結束！共生民主軌跡總結算")
+    st.title("🏁 遊戲結束！共生內閣軌跡總結算")
     df = pd.DataFrame(history_data)
 
     st.subheader("📊 1. 總體經濟與資訊辨識指數走勢")
