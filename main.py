@@ -12,7 +12,8 @@ import phase3
 
 st.set_page_config(page_title="Symbiocracy v3.1.0", layout="wide")
 
-if 'cfg' not in st.session_state: st.session_state.cfg = config.DEFAULT_CONFIG.copy()
+if 'cfg' not in st.session_state:
+    st.session_state.cfg = config.DEFAULT_CONFIG.copy()
 cfg = st.session_state.cfg
 
 if 'game' not in st.session_state:
