@@ -59,13 +59,12 @@ with st.sidebar:
 st.title("🏛️ Symbiocracy 共生民主模擬器 v3.0.0")
 
 elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-st.subheader(f"📅 遊戲年份: {cfg['CALENDAR_NAME']} {game.year} 年 / {cfg['END_YEAR']} 年 ({elec_status})")
+st.subheader(f"📅 遊戲年份: {cfg['CALENDAR_NAME']}{game.year}年 / {cfg['END_YEAR']}年 ({elec_status})")
 if god_mode: st.error(f"👁️ **上帝視角：** 真實衰退率為 **{game.current_real_decay:.2f}**")
 
 # 全局介面渲染
 if game.phase == 1:
     ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
-    
 ui_core.render_message_board(game)
 ui_core.render_party_cards(game, view_party, god_mode, is_election_year, cfg)
 
