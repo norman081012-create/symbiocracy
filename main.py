@@ -1,87 +1,79 @@
 # ==========================================
-# main.py
-# 主程式入口：負責路由、全局初始化與整合
+# phase2.py
 # ==========================================
 import streamlit as st
-import random
-import config
-import engine
-import ui_core
-import phase1
-import phase2
 
-st.set_page_config(page_title="Symbiocracy 共生民主模擬器 v3.0.0", layout="wide")
-st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
-
-if 'cfg' not in st.session_state: st.session_state.cfg = config.DEFAULT_CONFIG.copy()
-cfg = st.session_state.cfg
-
-if 'game' not in st.session_state:
-    st.session_state.game = engine.GameEngine(cfg)
-    st.session_state.turn_data = {
-        'r_value': 1.0, 'target_h_fund': 600.0, 'target_gdp_growth': 0.0,
-        'r_pays': 0, 'total_funds': 0, 'agreed': False, 'target_gdp': 5000.0, 'h_ratio': 1.0
-    }
-
-game = st.session_state.game
-
-# 動畫處理
-if st.session_state.get('anim') == 'balloons':
-    st.balloons()
-    st.session_state.anim = None
-elif st.session_state.get('anim') == 'snow':
-    st.snow()
-    st.session_state.anim = None
-
-if game.year > cfg['END_YEAR']:
-    ui_core.render_endgame_charts(game.history, cfg)
-    if st.button("🔄 重新開始全新遊戲", use_container_width=True): st.session_state.clear(); st.rerun()
-    st.stop()
-
-if 'turn_initialized' not in st.session_state:
-    game.current_real_decay = max(0.0, round(random.uniform(cfg['DECAY_MIN'], cfg['DECAY_MAX']), 2))
-    for p in [game.party_A, game.party_B]:
-        error_margin = cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)
-        p.current_forecast = max(0.0, round(game.current_real_decay + random.uniform(-error_margin, error_margin), 2))
-        p.poll_history = {'小型': [], '中型': [], '大型': []}
-        p.latest_poll = None
-        p.poll_count = 0 
+def render_dept_upgrade(label, key, dept, cw, cfg):
+    st.markdown(f"**{label}** (當前效率: `{dept.eff:.1f}%`)")
+    t_val = st.slider("🎯 目標效率", float(dept.eff), 100.0, float(dept.target), 1.0, key=f"t_{key}", label_visibility="collapsed")
     
-    if not hasattr(game, 'p1_step'):
-        game.p1_step = 'draft_r'
-        game.p1_proposals = {'R': None, 'H': None}
-        game.p1_selected_plan = None
-
-    for k in list(st.session_state.keys()):
-        if k.startswith('ui_decay_') or k.endswith('_acts'): del st.session_state[k]
+    total_cost = max(0, (t_val - dept.eff) * cfg['UPGRADE_COST_PER_PCT'])
+    rem_cost = max(0, total_cost - dept.invested)
+    maint = cfg['MAINTENANCE_BASE'] + max(0, (t_val - cfg['EFF_DEFAULT']) * 0.5)
     
-    st.session_state.turn_initialized = True
+    if rem_cost > 0:
+        inv_val = st.slider(f"💰 本年投入資金 (剩餘需 ${rem_cost:.0f})", 0.0, float(min(cw, rem_cost)), 0.0, 1.0, key=f"i_{key}")
+        eta = rem_cost / inv_val if inv_val > 0 else float('inf')
+        st.caption(f"🔧 目標維護費: ${maint:.0f} | 預計 {eta:.1f} 年完成")
+        return t_val, inv_val
+    else:
+        st.caption(f"✅ 已達標或不升級 | 維護費: ${maint:.0f}")
+        return t_val, 0.0
 
-view_party = game.proposing_party
-opponent_party = game.party_B if view_party.name == game.party_A.name else game.party_A
-is_election_year = (game.year % cfg['ELECTION_CYCLE'] == 1)
+def render(game, view_party, opponent_party, cfg):
+    is_h = (view_party.name == game.h_role_party.name)
+    st.subheader(f"🛠️ Phase 2: 資源分配 - {view_party.name} ({'🛡️ 執行系統' if is_h else '⚖️ 監管系統'})")
+    
+    d = st.session_state.turn_data
+    req_pay = d.get('h_pays', 0) if is_h else d.get('r_pays', 0)
+    cw = int(view_party.wealth)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("#### 📣 政策與行動")
+        st.info(f"📜法定專案款: `${req_pay}`")
+        
+        h_corr_pct = st.slider("💸 秘密貪污 (%)", 0, 100, 0) if is_h else 0
+        h_crony_pct = st.slider("🏢 圖利自身廠商 (%)", 0, max(0, 100 - h_corr_pct), 0) if is_h else 0
+        
+        inv_corr_amt = st.slider("🔍 調查貪污 (投入資金)", 0, cw, 0) if not is_h else 0
+        edu_up = st.slider("🎓 教育方針: 促進思辨 (投入資金)", 0, cw, 0)
+        edu_down = st.slider("🎓 教育方針: 填鴨愚化 (投入資金)", 0, cw, 0)
+        
+        media_ctrl = st.slider("📺 媒體操控 (推卸責任/攻擊)", 0, cw, 0)
+        camp_amt = st.slider("🎉 舉辦競選 (提升短期支持)", 0, cw, 0)
+        incite_emo = st.slider("🔥 煽動情緒 (短期降理智)", 0, cw, 0)
+        
+        policy_tot = req_pay + media_ctrl + camp_amt + incite_emo + edu_up + edu_down + inv_corr_amt
+        
+    with c2:
+        st.markdown("#### 🏢 部門效率升級計畫")
+        rem_w = cw - policy_tot
+        
+        t_inv, i_inv = render_dept_upgrade("🔍 調查部門", "inv", view_party.depts['investigate'], rem_w, cfg); rem_w -= i_inv
+        t_stl, i_stl = render_dept_upgrade("🥷 隱密部門", "stl", view_party.depts['stealth'], rem_w, cfg); rem_w -= i_stl
+        t_pre, i_pre = render_dept_upgrade("🕵️ 預測部門", "pre", view_party.depts['predict'], rem_w, cfg); rem_w -= i_pre
+        t_med, i_med = render_dept_upgrade("📺 媒體部門", "med", view_party.depts['media'], rem_w, cfg); rem_w -= i_med
+        t_edu, i_edu = render_dept_upgrade("🎓 教育部門", "edu", view_party.depts['edu'], rem_w, cfg); rem_w -= i_edu
+        
+        if is_h:
+            t_bld, i_bld = render_dept_upgrade("🏗️ 建設部門", "bld", view_party.depts['build'], rem_w, cfg); rem_w -= i_bld
+        else:
+            t_bld, i_bld = view_party.depts['build'].target, 0.0
+            
+        upg_tot = i_inv + i_stl + i_pre + i_med + i_edu + i_bld
 
-with st.sidebar:
-    ui_core.render_global_settings(cfg, game)
-    ui_core.render_sidebar_intel_audit(game, view_party, cfg)
-    god_mode = st.toggle("👁️ 上帝視角", False)
-    if st.button("🔄 重新開始遊戲", use_container_width=True): st.session_state.clear(); st.rerun()
-
-st.title("🏛️ Symbiocracy 共生民主模擬器 v3.0.0")
-
-elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-st.subheader(f"📅 {cfg['CALENDAR_NAME']} {game.year} 年 ({elec_status})")
-
-if god_mode: st.error(f"👁️ **上帝視角：** 真實衰退率為 **{game.current_real_decay:.2f}**")
-
-# 全局介面渲染
-if game.phase == 1:
-    ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
-ui_core.render_message_board(game)
-ui_core.render_party_cards(game, view_party, god_mode, is_election_year, cfg)
-
-# 階段路由
-if game.phase == 1:
-    phase1.render(game, view_party, cfg)
-elif game.phase == 2:
-    phase2.render(game, view_party, opponent_party, cfg)
+    tot = policy_tot + upg_tot
+    st.write(f"**總花費:** `{int(tot)}` / 預算餘額: `{cw - int(tot)}`")
+    
+    if tot <= cw and st.button("✅ 鎖定決策 (進入結算)", use_container_width=True, type="primary"):
+        st.session_state[f"{view_party.name}_acts"] = {
+            'media': media_ctrl, 'camp': camp_amt, 'incite': incite_emo, 'edu_up': edu_up, 'edu_down': edu_down, 
+            'corr': h_corr_pct, 'crony': h_crony_pct, 'inv_corr': inv_corr_amt, 'legal': req_pay,
+            'upgrades': {'inv': (t_inv, i_inv), 'stl': (t_stl, i_stl), 'pre': (t_pre, i_pre), 'med': (t_med, i_med), 'edu': (t_edu, i_edu), 'bld': (t_bld, i_bld)}
+        }
+        
+        if f"{opponent_party.name}_acts" not in st.session_state:
+            game.proposing_party = opponent_party; st.rerun()
+        else:
+            game.phase = 3; game.proposing_party = game.ruling_party; st.rerun()
