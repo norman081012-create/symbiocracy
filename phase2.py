@@ -53,7 +53,7 @@ def render(game, view_party, opponent_party, cfg):
     
     st.write(f"**法定專案款:** `{int(req_pay)}` / **政策與媒體:** `{int(tot_action)}` / **內部部門投資:** `{int(tot_maint)}` / **剩餘可用淨值:** `{int(cw - tot)}`")
     
-    # 防呆提示：如果拉桿花費超過資產，按鈕會隱藏並給予明確警告
+    # 防呆提示：如果拉桿花費超過資產，顯示紅字警告，並且不顯示結算按鈕
     if tot > cw:
         st.error(f"🚨 資金不足！當前行動預算已超支 {int(tot - cw)} 元，請降低投入資金。")
     
