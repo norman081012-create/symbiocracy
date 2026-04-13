@@ -2,7 +2,13 @@
 # main.py
 # ==========================================
 import streamlit as st
-import random, config, engine, ui_core, phase1, phase2, phase3
+import random
+import config
+import engine
+import ui_core
+import phase1
+import phase2
+import phase3
 
 st.set_page_config(page_title="Symbiocracy v3.1.0", layout="wide")
 
@@ -48,5 +54,4 @@ elif game.phase == 2:
 elif game.phase == 3:
     phase3.render(game, cfg)
 
-# 最底部的公式 Debugger
 ui_core.render_debug_panel(game, cfg)
