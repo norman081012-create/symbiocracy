@@ -136,14 +136,13 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             is_h = (game.h_role_party.name == party.name)
             role_badge = "🛡️ [執行系統]" if is_h else "⚖️ [監管系統]"
             is_winner = (game.ruling_party.name == party.name)
-            crown = "👑 當權派" if is_winner else "🎯 在野派"
+            crown_str = cfg.get('CROWN_WINNER', '👑 當權') if is_winner else cfg.get('CROWN_LOSER', '🎯 候選')
             logo = config.get_party_logo(party.name)
             
             eye = "👁️ " if party.name == view_party.name else ""
-            st.markdown(f"## {eye}{logo} {party.name} {crown}")
+            st.markdown(f"## {eye}{logo} {party.name} {crown_str}")
             st.markdown(f"#### {role_badge}")
 
-            # 只要是選舉年，直接顯示支持度並取消隱藏
             if is_election_year or god_mode: 
                 disp_sup = f"{party.support:.1f}%" + (" 🏆(當選!)" if is_winner else " 💀(落選)")
             else:
@@ -164,7 +163,7 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             
             st.markdown(f"### 📊 支持度: {disp_sup}")
             
-            # 選舉年隱藏作民調的功能
+            # 選舉年不顯示民調按鈕
             if party.name == view_party.name and not is_election_year:
                 b1, b2, b3 = st.columns(3)
                 if b1.button("小民調 ($5)", key=f"p1_{party.name}"): engine.execute_poll(game, view_party, 5); st.rerun()
@@ -175,50 +174,4 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     opp = game.party_B if view_party.name == game.party_A.name else game.party_A
     st.markdown("---")
     st.title("🕵️ 情報處 - 對手機構指標")
-    blur = max(0.0, 1.0 - (view_party.investigate_ability / max(0.1, opp.stealth_ability))) if not st.session_state.get('god_mode') else 0.0
-    acc = int((1.0 - blur)*100)
-    st.progress(1.0 - blur, text=f"準確度: {acc}%")
-    rng = random.Random(f"intel_{opp.name}_{game.year}")
-    
-    st.write(f"智庫: {opp.predict_ability*(1+rng.uniform(-blur, blur))*10:.1f}% | 情報處: {opp.investigate_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
-    st.write(f"黨媒: {opp.media_ability*(1+rng.uniform(-blur, blur))*10:.1f}% | 反情報處: {opp.stealth_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
-    st.write(f"工程處: {opp.build_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
-
-    st.markdown("---")
-    st.title("📈 審計處 - 內部部門投資")
-    total_maint = sum([formulas.get_ability_maintenance(a, cfg) for a in [view_party.build_ability, view_party.investigate_ability, view_party.media_ability, view_party.predict_ability, view_party.stealth_ability]])
-    st.write(f"智庫: {view_party.predict_ability*10:.1f}% | 情報處: {view_party.investigate_ability*10:.1f}%")
-    st.write(f"黨媒: {view_party.media_ability*10:.1f}% | 反情報處: {view_party.stealth_ability*10:.1f}%")
-    st.write(f"工程處: {view_party.build_ability*10:.1f}%")
-    st.write(f"**(依據當前機構投資，明年維護費估算: -${total_maint:.0f})**")
-
-def render_proposal_component(title, plan, game, view_party, cfg):
-    st.markdown(f"#### {title}")
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.write(f"**公告衰退:** {plan['claimed_decay']:.2f} | **目標 GDP 成長:** {plan['target_gdp_growth']}%")
-        st.write(f"**總額:** {plan['total_funds']} (監管出資: {plan['r_pays']} | 執行出資: {plan['h_pays']})")
-        
-    with c2:
-        o_gdp_pct, o_h_g, o_h_n, o_r_g, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_est_h_fund, o_h_roi, o_r_roi = formulas.calculate_preview(cfg, game, plan['total_funds'], plan['h_ratio'], plan['r_value'], view_party.current_forecast, game.h_role_party.build_ability, plan['r_pays'], plan['h_pays'])
-        my_is_h = (view_party.name == game.h_role_party.name)
-        my_net, my_sup, my_roi = (o_h_n, o_h_sup, o_h_roi) if my_is_h else (o_r_n, o_r_sup, o_r_roi)
-        opp_net, opp_sup, opp_roi = (o_r_n, o_r_sup, o_r_roi) if my_is_h else (o_h_n, o_h_sup, o_h_roi)
-        
-        st.markdown(f"**📊 智庫評估報告 (依自己預測: -{view_party.current_forecast:.2f})**")
-        st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
-        st.markdown(f"對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
-        st.markdown(f"支持度預估: {my_sup:+.2f}%")
-        st.markdown(f"📈 預期 GDP: {game.gdp:.0f} ➔ {o_est_gdp:.0f} ({o_gdp_pct:+.2f}%)")
-        
-        diff = abs(plan['claimed_decay'] - view_party.current_forecast)
-        if diff > 0.3: risk_txt = "🔴 風險極高 (數據嚴重偏離預估)"
-        elif diff > 0.1: risk_txt = "🟡 風險中等 (數據略有出入)"
-        else: risk_txt = "🟢 風險極低 (基準比對)"
-        st.markdown(f"衰退值判讀: {risk_txt}")
-
-def ability_slider(label, key, current_val, wealth, cfg):
-    current_pct = current_val * 10.0
-    t_pct = st.slider(f"{label} (當前: {current_pct:.1f}%)", 0.0, 100.0, float(current_pct), 1.0, key=key)
-    t_val = t
+    blur = max(0.0, 1.0 -
