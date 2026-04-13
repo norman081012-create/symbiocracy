@@ -12,17 +12,22 @@ import engine
 import random
 
 def sync_party_names(game, cfg):
-    game.party_A.name = cfg['PARTY_A_NAME']; game.party_B.name = cfg['PARTY_B_NAME']
+    game.party_A.name = cfg['PARTY_A_NAME']
+    game.party_B.name = cfg['PARTY_B_NAME']
 
 def render_global_settings(cfg, game):
     st.sidebar.title("🎛️ 控制台")
     with st.sidebar.expander("📝 參數調整(即時)", expanded=False):
         for key, default_val in config.DEFAULT_CONFIG.items():
             label = config.CONFIG_TRANSLATIONS.get(key, key)
-            if 'COLOR' in key: cfg[key] = st.color_picker(label, value=cfg[key], key=f"cfg_{key}")
-            elif isinstance(default_val, float): cfg[key] = st.number_input(label, value=float(cfg[key]), step=0.1, format="%.2f", key=f"cfg_{key}")
-            elif isinstance(default_val, int): cfg[key] = st.number_input(label, value=int(cfg[key]), step=1, key=f"cfg_{key}")
-            elif isinstance(default_val, str): cfg[key] = st.text_input(label, value=str(cfg[key]), key=f"cfg_{key}")
+            if 'COLOR' in key: 
+                cfg[key] = st.color_picker(label, value=cfg[key], key=f"cfg_{key}")
+            elif isinstance(default_val, float): 
+                cfg[key] = st.number_input(label, value=float(cfg[key]), step=0.1, format="%.2f", key=f"cfg_{key}")
+            elif isinstance(default_val, int): 
+                cfg[key] = st.number_input(label, value=int(cfg[key]), step=1, key=f"cfg_{key}")
+            elif isinstance(default_val, str): 
+                cfg[key] = st.text_input(label, value=str(cfg[key]), key=f"cfg_{key}")
     sync_party_names(game, cfg)
 
 def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None):
@@ -38,38 +43,35 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown("### 🌐 國家總體現況")
-        san_chg = (disp_san - rep['old_san']) if rep else 0
+        san_chg = (disp_san - rep['old_san']) * 100 if rep else 0
         st.markdown(f"**資訊辨識:** `{config.get_civic_index_text(disp_san)}` *(變動: {san_chg:+.1f})*")
         emo_chg = disp_emo - rep['old_emo'] if rep else 0
         st.markdown(f"**選民情緒:** `{config.get_emotion_text(disp_emo)}` *(變動: {emo_chg:+.1f})*")
         if is_preview:
             st.markdown(f"**預估 GDP:** `{disp_gdp:.0f}` *(變動: {disp_gdp - game.gdp:+.0f})*")
         else:
-            t_gdp = st.session_state.turn_data.get('target_gdp', 0) if game.year > 1 else 0
             st.markdown(f"**當前 GDP:** `{disp_gdp:.1f}` *(變動: {disp_gdp - rep['old_gdp'] if rep else 0:+.0f})*")
 
     with c2:
         st.markdown("### 💰 執行系統資源")
-        if game.year == 1 and not is_preview: st.info("首年重整中，尚未配發獎勵。")
+        if game.year == 1 and not is_preview: 
+            st.info("首年重整中，尚未配發獎勵。")
         else:
             current_h_ratio = (disp_h_fund / disp_budg) * 100 if disp_budg > 0 else 50
             st.markdown(f"**總預算池:** `{disp_budg:.0f}` *(變動: {disp_budg - rep['old_budg'] if rep else 0:+.0f})*")
-            t_h = st.session_state.turn_data.get('target_h_fund', 0) if game.year > 1 else 0
             st.markdown(f"**獎勵基金:** `{disp_h_fund:.0f}` *(佔比: {current_h_ratio:.1f}%)*")
 
     with c3:
+        st.markdown("### 🕵️ 智庫")
         fc = view_party.current_forecast
-        acc = min(100, int((view_party.predict_ability / cfg['MAX_ABILITY']) * 100))
-        st.markdown(f"### 🕵️ 智庫 準確度: {acc}%")
-        st.write(f"經濟預估: {config.get_economic_forecast_text(fc)}(預估衰退值: -{fc:.2f})")
+        acc = min(100, int((view_party.depts['predict'].eff / cfg['MAX_EFFICIENCY']) * 100))
+        st.info(f"經濟預估: {config.get_economic_forecast_text(fc)}\n\n(預估衰退值: -{fc:.2f})\n\n準確度: {acc}%")
         if rep:
             diff = abs(rep['view_party_forecast'] - rep['real_decay'])
-            eval_txt = config.get_thinktank_eval(view_party.predict_ability, diff)
-            st.write(f"\n({cfg['CALENDAR_NAME']} {game.year-1} 年度內部檢討報告: \n")
-            st.write(f"{eval_txt}\n")
-            st.write(f"判讀誤差值: {diff:.2f} / 實真: -{rep['real_decay']:.2f} / 估值: -{rep['view_party_forecast']:.2f})")
-        else:
-            st.write("\n(尚無去年歷史資料以供檢討)")
+            # 將 0-100 的效率轉回 0-10 供評價文字判斷
+            eval_txt = config.get_thinktank_eval(view_party.depts['predict'].eff / 10.0, diff)
+            st.markdown(f"**判讀結果:** {eval_txt}")
+            st.markdown(f"**去年真實VS預估衰退:** 真: -{rep['real_decay']:.2f} / 估: -{rep['view_party_forecast']:.2f}")
 
     with c4:
         if game.phase == 1:
@@ -77,11 +79,6 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
             total_maint = sum([formulas.get_ability_maintenance(dept, cfg) for dept in view_party.depts.values()])
             st.write(f"可用淨資產: {int(view_party.wealth + total_maint)} - 維護成本: {int(total_maint)} = **{int(view_party.wealth)}**")
             
-            if game.year == 1:
-                st.write(f"可用淨資產: {int(view_party.wealth)} ({int(view_party.wealth)} - 0)")
-            else:
-                st.write(f"可用淨資產: {int(view_party.wealth)} ({int(view_party.wealth + total_maint)} - {int(total_maint)})")
-                
             if rep:
                 my_is_h = view_party.name == rep['h_party_name']
                 real_inc = rep['h_inc'] if my_is_h else rep['r_inc']
@@ -89,23 +86,20 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 pol_cost = view_party.last_acts.get('policy', 0)
                 
                 st.write(f"淨利: 真:{real_inc:.0f} (去年估:{est_inc:.0f})")
-                st.write(f"去年施政花費: {pol_cost:.0f} 維護成本: {total_maint:.0f}")
+                st.write(f"去年政治成本: {pol_cost:.0f} 維護成本: {total_maint:.0f}")
                 final_profit = real_inc - pol_cost - total_maint
-                st.write(f"收益總結: {real_inc:.0f} - {pol_cost:.0f} - {total_maint:.0f} = **{final_profit:.0f}**")
+                st.write(f"{cfg['CALENDAR_NAME']} {game.year-1} 年度收益: {real_inc:.0f} - {pol_cost:.0f} - {total_maint:.0f} = **{final_profit:.0f}**")
+            else: 
+                st.write("尚無去年財報資料。")
         else:
+            st.markdown("### 📊 智庫/情報預測")
             if is_preview:
                 my_is_h = view_party.name == game.h_role_party.name
                 my_net = preview_data['h_inc'] if my_is_h else preview_data['r_inc']
                 opp_net = preview_data['r_inc'] if my_is_h else preview_data['h_inc']
                 my_roi = preview_data['h_roi'] if my_is_h else preview_data['r_roi']
-                opp_roi = preview_data['r_roi'] if my_is_h else preview_data['h_roi']
-                
-                st.markdown("### 📊 智庫評估報告")
-                st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
-                st.markdown(f"對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
-                st.markdown(f"支持度預估: {preview_data['my_sup_shift']:+.2f}%")
-                st.markdown(f"📈 預期 GDP: {game.gdp:.0f} ➔ {disp_gdp:.0f} ({((disp_gdp-game.gdp)/max(1.0, game.gdp))*100:+.2f}%)")
-                st.markdown(f"衰退值判讀: 🟢 風險極低 (基準比對)")
+                st.success(f"🟢 **我方預估收益:** {my_net:.0f} (ROI: {my_roi:.1f}%)\n\n支持度變化: {preview_data['my_sup_shift']:+.2f}%")
+                st.error(f"🔴 **對手預估收益:** {opp_net:.0f}\n\n支持度變化: {preview_data['opp_sup_shift']:+.2f}%")
     st.markdown("---")
 
 def render_message_board(game):
@@ -114,7 +108,8 @@ def render_message_board(game):
         st.session_state.news_flash = None
         
     if game.phase == 1:
-        if game.year == 1: st.info("📢 **【年度通報】** 新的一年開始了，國家百廢待舉，請盡快展開預算與目標協商。")
+        if game.year == 1: 
+            st.info("📢 **【年度通報】** 新的一年開始了，國家百廢待舉，請盡快展開預算與目標協商。")
         elif game.last_year_report:
             st.info(f"📢 **【年度通報】** 新的一年開始了，請盡快展開預算與目標協商。")
     elif game.phase == 2:
@@ -137,11 +132,11 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             is_h = (game.h_role_party.name == party.name)
             role_badge = "🛡️ [執行系統]" if is_h else "⚖️ [監管系統]"
             is_winner = (game.ruling_party.name == party.name)
-            crown_str = cfg.get('CROWN_WINNER', '👑 當權') if is_winner else cfg.get('CROWN_LOSER', '🎯 候選')
+            crown = "👑 當權派" if is_winner else "🎯 在野派"
             logo = config.get_party_logo(party.name)
             
             eye = "👁️ " if party.name == view_party.name else ""
-            st.markdown(f"## {eye}{logo} {party.name} {crown_str}")
+            st.markdown(f"## {eye}{logo} {party.name} {crown}")
             st.markdown(f"#### {role_badge}")
 
             if is_election_year or god_mode: 
@@ -164,7 +159,6 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             
             st.markdown(f"### 📊 支持度: {disp_sup}")
             
-            # 選舉年不顯示民調按鈕
             if party.name == view_party.name and not is_election_year:
                 b1, b2, b3 = st.columns(3)
                 if b1.button("小民調 ($5)", key=f"p1_{party.name}"): engine.execute_poll(game, view_party, 5); st.rerun()
@@ -174,74 +168,45 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
 def render_sidebar_intel_audit(game, view_party, cfg):
     opp = game.party_B if view_party.name == game.party_A.name else game.party_A
     st.markdown("---")
-    st.title("🕵️ 情報處 - 對手機構指標")
-    blur = max(0.0, 1.0 - (view_party.investigate_ability / max(0.1, opp.stealth_ability))) if not st.session_state.get('god_mode') else 0.0
+    st.title("🕵️ 情報處")
+    
+    blur = max(0.0, 1.0 - (view_party.depts['investigate'].eff / max(0.1, opp.depts['stealth'].eff))) if not st.session_state.get('god_mode') else 0.0
     acc = int((1.0 - blur)*100)
-    st.progress(1.0 - blur, text=f"準確度: {acc}%")
+    st.progress(1.0 - blur, text=f"情報準確度: {acc}%")
     rng = random.Random(f"intel_{opp.name}_{game.year}")
     
-    st.write(f"智庫: {opp.predict_ability*(1+rng.uniform(-blur, blur))*10:.1f}% | 情報處: {opp.investigate_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
-    st.write(f"黨媒: {opp.media_ability*(1+rng.uniform(-blur, blur))*10:.1f}% | 反情報處: {opp.stealth_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
-    st.write(f"工程處: {opp.build_ability*(1+rng.uniform(-blur, blur))*10:.1f}%")
+    with st.expander("對手各部門效率", expanded=True):
+        st.write(f"建設效率: {opp.depts['build'].eff*(1+rng.uniform(-blur, blur)):.1f}%")
+        st.write(f"調查效率: {opp.depts['investigate'].eff*(1+rng.uniform(-blur, blur)):.1f}%")
+        st.write(f"教育效率: {opp.depts['edu'].eff*(1+rng.uniform(-blur, blur)):.1f}%")
+        st.write(f"媒體效率: {opp.depts['media'].eff*(1+rng.uniform(-blur, blur)):.1f}%")
+        st.write(f"隱密效率: {opp.depts['stealth'].eff*(1+rng.uniform(-blur, blur)):.1f}%")
+    with st.expander("對手去年政治花費"):
+        st.write(f"政策投入總額: {opp.last_acts.get('policy',0)*(1+rng.uniform(-blur, blur)):.0f}")
 
     st.markdown("---")
     st.title("📈 審計處")
     total_maint = sum([formulas.get_ability_maintenance(dept, cfg) for dept in view_party.depts.values()])
-    with st.expander("自身各項能力及維護費", expanded=True):
-        st.write(f"建設:{view_party.depts['build'].eff:.1f} | 調查:{view_party.depts['investigate'].eff:.1f}")
-        st.write(f"教育:{view_party.depts['edu'].eff:.1f} | 媒體:{view_party.depts['media'].eff:.1f}")
-        st.write(f"預測:{view_party.depts['predict'].eff:.1f} | 隱密:{view_party.depts['stealth'].eff:.1f}")
+    with st.expander("自身各部門效率及維護費", expanded=True):
+        st.write(f"建設:{view_party.depts['build'].eff:.1f}% | 調查:{view_party.depts['investigate'].eff:.1f}%")
+        st.write(f"教育:{view_party.depts['edu'].eff:.1f}% | 媒體:{view_party.depts['media'].eff:.1f}%")
+        st.write(f"預測:{view_party.depts['predict'].eff:.1f}% | 隱密:{view_party.depts['stealth'].eff:.1f}%")
         st.write(f"**明年維護費估算:** -${total_maint:.0f}")
+    with st.expander("自身去年花費"):
+        st.write(f"政治花費: ${view_party.last_acts.get('policy',0):.0f}")
 
 def render_proposal_component(title, plan, game, view_party, cfg):
     st.markdown(f"#### {title}")
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.write(f"**公告衰退:** {plan['claimed_decay']:.2f} | **目標 GDP 成長:** {plan['target_gdp_growth']}%")
-        st.write(f"**總額:** {plan['total_funds']} (監管出資: {plan['r_pays']} | 執行出資: {plan['h_pays']})")
-        
-    with c2:
-        o_gdp_pct, o_h_g, o_h_n, o_r_g, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_est_h_fund, o_h_roi, o_r_roi = formulas.calculate_preview(cfg, game, plan['total_funds'], plan['h_ratio'], plan['r_value'], view_party.current_forecast, game.h_role_party.build_ability, plan['r_pays'], plan['h_pays'])
-        my_is_h = (view_party.name == game.h_role_party.name)
-        my_net, my_sup, my_roi = (o_h_n, o_h_sup, o_h_roi) if my_is_h else (o_r_n, o_r_sup, o_r_roi)
-        opp_net, opp_sup, opp_roi = (o_r_n, o_r_sup, o_r_roi) if my_is_h else (o_h_n, o_h_sup, o_h_roi)
-        
-        st.markdown(f"**📊 智庫評估報告 (依自己預測: -{view_party.current_forecast:.2f})**")
-        st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
-        st.markdown(f"對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
-        st.markdown(f"支持度預估: {my_sup:+.2f}%")
-        st.markdown(f"📈 預期 GDP: {game.gdp:.0f} ➔ {o_est_gdp:.0f} ({o_gdp_pct:+.2f}%)")
-        
-        diff = abs(plan['claimed_decay'] - view_party.current_forecast)
-        if diff > 0.3: risk_txt = "🔴 風險極高 (數據嚴重偏離預估)"
-        elif diff > 0.1: risk_txt = "🟡 風險中等 (數據略有出入)"
-        else: risk_txt = "🟢 風險極低 (基準比對)"
-        st.markdown(f"衰退值判讀: {risk_txt}")
-
-def ability_slider(label, key, current_val, wealth, cfg):
-    current_pct = current_val * 10.0
-    t_pct = st.slider(f"{label} (當前: {current_pct:.1f}%)", 0.0, 100.0, float(current_pct), 1.0, key=key)
-    
-    # 【NameError 的修復點】明確指派給 t_val
-    t_val = t_pct / 10.0
-    
-    cost = formulas.calculate_upgrade_cost(current_val, t_val)
-    maint = formulas.get_ability_maintenance(t_val, cfg)
-    
-    if t_val > current_val:
-        st.caption(f"📈 升級花費: ${int(cost)} | 維護費將達 ${int(maint)}")
-    elif t_val < current_val:
-        st.caption(f"📉 免費降級 | 維護費降至 ${int(maint)}")
-    else:
-        st.caption(f"穩定維持 | 維護費 ${int(maint)}")
-    return t_val, cost
+    st.write(f"公告衰退: {plan['claimed_decay']:.2f} | 目標 GDP 成長: {plan['target_gdp_growth']}%")
+    st.write(f"總額: {plan['total_funds']} (監管出資: {plan['r_pays']} | 執行出資: {plan['h_pays']})")
 
 def add_event_vlines(fig, history_df):
     for _, row in history_df.iterrows():
         y = row['Year']
-        if row['Is_Swap']: fig.add_vline(x=y, line_dash="dot", line_color="red", annotation_text="倒閣!", annotation_position="top left")
-        if row['Is_Election']: fig.add_vline(x=y, line_dash="dash", line_color="green", annotation_text="選舉", annotation_position="bottom right")
+        if row['Is_Swap']: 
+            fig.add_vline(x=y, line_dash="dot", line_color="red", annotation_text="倒閣!", annotation_position="top left")
+        if row['Is_Election']: 
+            fig.add_vline(x=y, line_dash="dash", line_color="green", annotation_text="選舉", annotation_position="bottom right")
 
 def render_endgame_charts(history_data, cfg):
     st.balloons()
@@ -251,7 +216,7 @@ def render_endgame_charts(history_data, cfg):
     st.subheader("📊 1. 總體經濟與資訊辨識指數走勢")
     fig1 = make_subplots(specs=[[{"secondary_y": True}]])
     fig1.add_trace(go.Scatter(x=df['Year'], y=df['GDP'], name="總 GDP", line=dict(color='blue', width=3)), secondary_y=False)
-    fig1.add_trace(go.Scatter(x=df['Year'], y=df['Sanity'], name="資訊辨識 (0-100)", line=dict(color='purple', width=3)), secondary_y=True)
+    fig1.add_trace(go.Scatter(x=df['Year'], y=df['Sanity']*100, name="資訊辨識 (0-100)", line=dict(color='purple', width=3)), secondary_y=True)
     fig1.update_yaxes(title_text="GDP (資金)", secondary_y=False)
     fig1.update_yaxes(title_text="辨識指數", secondary_y=True, range=[0, 100])
     add_event_vlines(fig1, df)
@@ -266,7 +231,8 @@ def render_endgame_charts(history_data, cfg):
     fig2.update_yaxes(title_text="支持度 (%)", secondary_y=True, range=[0, 100])
     add_event_vlines(fig2, df)
     st.plotly_chart(fig2, use_container_width=True)
-    def render_debug_panel(game, cfg):
+
+def render_debug_panel(game, cfg):
     with st.expander("⚙️ 遊戲底層引擎與數學監控 (Debug UI)", expanded=False):
         st.markdown("### 內部數值")
         st.code(f"""
@@ -286,4 +252,5 @@ H系統獎勵池 = {game.h_fund:.1f}
         - **Sanity 變化** = (正面教育資金 - 愚化資金) * (教育效率%) * 0.002
         - **Emotion 變化** = -(GDP成長率 * 民生權重 * (1 - Sanity)) + (煽動資金 * 媒體效率% * 0.5)
         - **升級花費** = (目標效率 - 當前效率) * UPGRADE_COST_PER_PCT
+        - **降級機制** = 每年自動衰退設定之%，維護費即刻降低
         """)
