@@ -15,8 +15,18 @@ def sync_party_names(game, cfg):
     game.party_A.name = cfg['PARTY_A_NAME']; game.party_B.name = cfg['PARTY_B_NAME']
 
 def render_global_settings(cfg, game):
-    st.sidebar.title("🎛️ 控制台")
-    with st.sidebar.expander("📝 參數調整(即時)", expanded=False):
+    is_zh = (st.session_state.lang == 'ZH')
+    title_text = "🎛️ 控制台" if is_zh else "🎛️ Control Panel"
+    btn_text = "🌐 Switch to English" if is_zh else "🌐 切換至中文"
+    exp_text = "📝 參數調整(即時)" if is_zh else "📝 Parameter Settings"
+    
+    st.sidebar.title(title_text)
+    
+    if st.sidebar.button(btn_text, use_container_width=True):
+        st.session_state.lang = 'EN' if is_zh else 'ZH'
+        st.rerun()
+
+    with st.sidebar.expander(exp_text, expanded=False):
         for key, default_val in config.DEFAULT_CONFIG.items():
             label = config.CONFIG_TRANSLATIONS.get(key, key)
             if 'COLOR' in key: cfg[key] = st.color_picker(label, value=cfg[key], key=f"cfg_{key}")
@@ -221,7 +231,6 @@ def ability_slider(label, key, current_val, wealth, cfg):
     current_pct = current_val * 10.0
     t_pct = st.slider(f"{label} (當前: {current_pct:.1f}%)", 0.0, 100.0, float(current_pct), 1.0, key=key)
     
-    # 【NameError 的修復點】明確指派給 t_val
     t_val = t_pct / 10.0
     
     cost = formulas.calculate_upgrade_cost(current_val, t_val)
