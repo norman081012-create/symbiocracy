@@ -1,5 +1,6 @@
 # ==========================================
 # main.py
+# 主程式入口：負責路由、全局初始化與整合
 # ==========================================
 import streamlit as st
 import random
@@ -8,7 +9,7 @@ import engine
 import ui_core
 import phase1
 import phase2
-import phase3 
+import phase3
 
 st.set_page_config(page_title="Symbiocracy 共生民主模擬器 v3.0.0", layout="wide")
 st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
@@ -26,6 +27,7 @@ if st.session_state.get('anim') == 'balloons': st.balloons(); st.session_state.a
 elif st.session_state.get('anim') == 'snow': st.snow(); st.session_state.anim = None
 
 if game.year > cfg['END_YEAR']:
+    ui_core.render_endgame_charts(game.history, cfg)
     if st.button("🔄 重新開始全新遊戲", use_container_width=True): st.session_state.clear(); st.rerun()
     st.stop()
 
@@ -34,6 +36,12 @@ if 'turn_initialized' not in st.session_state:
     for p in [game.party_A, game.party_B]:
         error_margin = 10.0 / max(1.0, p.predict_ability)
         p.current_forecast = max(0.0, round(game.current_real_decay + random.uniform(-error_margin, error_margin), 2))
+    
+    if not hasattr(game, 'p1_step'):
+        game.p1_step = 'draft_r'
+        game.p1_proposals = {'R': None, 'H': None}
+        game.p1_selected_plan = None
+        
     st.session_state.turn_initialized = True
 
 view_party = game.proposing_party
