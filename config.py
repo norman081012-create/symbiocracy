@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
     'MAX_ABILITY': 10.0, 'ABILITY_DEFAULT': 3.0, 'MAINTENANCE_RATE': 10.0,
     'TRUST_BREAK_PENALTY_RATIO': 0.05,
     'ELECTION_CYCLE': 4,
-    'SANITY_DEFAULT': 0.60, 
+    'SANITY_DEFAULT': 60.0, # 改為 0-100 分制
     'EMOTION_DEFAULT': 30.0,
     'SUPPORT_CONVERSION_RATE': 0.05, 
     'PERF_IMPACT_BASE': 500.0        
@@ -47,12 +47,14 @@ def get_economic_forecast_text(decay_val):
     elif decay_val <= 0.75: return "📉 衰退警報"
     else: return "⚠️ 經濟風暴"
 
-def get_civic_index_text(index_val):
-    score = index_val * 100
-    if score < 40: return f"群氓狀態 ({score:.1f}分)"
-    elif score < 60: return f"盲從階段 ({score:.1f}分)"
-    elif score < 80: return f"理性中等 ({score:.1f}分)"
-    else: return f"覺醒公民 ({score:.1f}分)"
+def get_civic_index_text(score):
+    if score < 15: return f"易受灌輸 ({score:.1f}分)"
+    elif score < 30: return f"較易受灌輸 ({score:.1f}分)"
+    elif score < 45: return f"略受灌輸 ({score:.1f}分)"
+    elif score < 60: return f"理性中等 ({score:.1f}分)"
+    elif score < 75: return f"略具思辨 ({score:.1f}分)"
+    elif score < 90: return f"思辨成熟 ({score:.1f}分)"
+    else: return f"高度獨立思考 ({score:.1f}分)"
 
 def get_emotion_text(emotion_val):
     if emotion_val < 20: return f"平穩冷靜 ({emotion_val:.1f})"
@@ -82,13 +84,3 @@ def get_thinktank_eval(ability, diff):
         ('low', 'high'): "瞎貓碰死耗子，幸運猜中", ('low', 'med'): "表現尚可，參考價值低", ('low', 'low'): "完全失能，嚴重誤導決策！"
     }
     return matrix.get((abi_lvl, acc_lvl), "運作異常")
-
-def get_target_eval_text(actual, target):
-    if target <= 0: return "無目標"
-    diff_pct = ((actual - target) / target) * 100
-    if diff_pct >= 15: return f"🟢 大幅超標 (+{diff_pct:.1f}%)"
-    elif diff_pct >= 5: return f"🟢 中幅超標 (+{diff_pct:.1f}%)"
-    elif diff_pct >= 0: return f"🟢 微幅超標 (+{diff_pct:.1f}%)"
-    elif diff_pct >= -5: return f"🔴 微幅落後 ({diff_pct:.1f}%)"
-    elif diff_pct >= -15: return f"🔴 中幅落後 ({diff_pct:.1f}%)"
-    else: return f"🔴 嚴重落後 ({diff_pct:.1f}%)"
