@@ -10,10 +10,11 @@ DEFAULT_CONFIG = {
     'CURRENT_GDP': 5000.0, 'HEALTH_MULTIPLIER': 0.2, 'BASE_TOTAL_BUDGET': 0.0,  
     'RULING_BONUS': 50.0, 'DEFAULT_BONUS': 100.0, 'H_FUND_DEFAULT': 600.0, 
     'H_MEDIA_BONUS': 1.2, 'R_INV_BONUS': 1.2, 'CORRUPTION_PENALTY': 2.0,
-    'MAX_EFFICIENCY': 100.0, 'EFF_DEFAULT': 20.0, 'MAINTENANCE_BASE': 10.0, 'UPGRADE_COST_PER_PCT': 1.5,
+    'MAX_EFFICIENCY': 100.0, 'EFF_DEFAULT': 20.0, 'MAINTENANCE_BASE': 10.0, 
+    'UPGRADE_COST_PER_PCT': 1.5, 'DOWNGRADE_RATE_PER_YEAR': 15.0, # 每年掉落 15% 效率
     'TRUST_BREAK_PENALTY_RATIO': 0.05, 'ELECTION_CYCLE': 4,
     'SANITY_DEFAULT': 0.60, 'EMOTION_DEFAULT': 30.0,
-    'LIVELIHOOD_WEIGHT': 50.0, # 民生權重 (影響情緒)
+    'LIVELIHOOD_WEIGHT': 50.0, 
     'SUPPORT_CONVERSION_RATE': 0.05, 'PERF_IMPACT_BASE': 500.0        
 }
 
@@ -22,14 +23,14 @@ CONFIG_TRANSLATIONS = {
     'PARTY_A_NAME': "A黨名稱", 'PARTY_B_NAME': "B黨名稱", 
     'INITIAL_WEALTH': "初始黨產", 'END_YEAR': "遊戲總年數",
     'DECAY_MIN': "最小衰退率", 'DECAY_MAX': "最大衰退率",  
-    'BUILD_DIFF': "建設權重", 'INVESTIGATE_DIFF': "調查權重", 'EDU_DIFF': "教育權重", 'PREDICT_DIFF': "預測權重", 'MEDIA_DIFF': "媒體權重",
-    'CURRENT_GDP': "初始 GDP", 'HEALTH_MULTIPLIER': "GDP轉預算乘數", 'BASE_TOTAL_BUDGET': "基礎預算",  
-    'RULING_BONUS': "當權紅利", 'DEFAULT_BONUS': "基本補助金", 
-    'H_FUND_DEFAULT': "初始執行獎勵基金", 
-    'H_MEDIA_BONUS': "執行系統媒體加成", 'R_INV_BONUS': "監管系統調查加成",
-    'CORRUPTION_PENALTY': "貪污罰金倍率", 'MAX_EFFICIENCY': "效率上限(%)", 'EFF_DEFAULT': "初始效率(%)", 
-    'MAINTENANCE_BASE': "基礎維護費", 'LIVELIHOOD_WEIGHT': "民生影響權重",
-    'TRUST_BREAK_PENALTY_RATIO': "換位扣款比例", 'ELECTION_CYCLE': "大選週期(年)"
+    'BUILD_DIFF': "建設難度", 'INVESTIGATE_DIFF': "調查難度", 'EDU_DIFF': "教育難度", 'PREDICT_DIFF': "預測難度", 'MEDIA_DIFF': "媒體難度",
+    'CURRENT_GDP': "初始 GDP", 'HEALTH_MULTIPLIER': "預算乘數", 'BASE_TOTAL_BUDGET': "基礎預算",  
+    'RULING_BONUS': "當權紅利", 'DEFAULT_BONUS': "基本補助", 
+    'H_FUND_DEFAULT': "初始獎勵池", 
+    'H_MEDIA_BONUS': "執行媒體加成", 'R_INV_BONUS': "監管調查加成",
+    'CORRUPTION_PENALTY': "貪污罰金", 'MAX_EFFICIENCY': "效率上限", 'EFF_DEFAULT': "初始效率", 
+    'MAINTENANCE_BASE': "基礎維護費", 'DOWNGRADE_RATE_PER_YEAR': "每年降級速率(%)",
+    'LIVELIHOOD_WEIGHT': "民生影響權重", 'TRUST_BREAK_PENALTY_RATIO': "換位扣款", 'ELECTION_CYCLE': "大選週期"
 }
 
 def get_economic_forecast_text(decay_val): return "🌟 景氣極佳" if decay_val <= 0.15 else "📉 衰退警報"
