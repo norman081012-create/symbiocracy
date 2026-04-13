@@ -54,7 +54,8 @@ def render(game, view_party, cfg):
             r_pct = (r_pays / max(1, req_funds)) * 100
             h_pct = (h_pays / max(1, req_funds)) * 100
             
-            st.markdown(f"<h4><span style='font-size: 1.2em'>監管出資</span> <span style='font-size: 1.5em'>{r_pays}</span> <span style='font-size: 1.0em'>({r_pct:.1f}%)</span> / <span style='font-size: 1.5em'>總額: {req_funds}</span> / <span style='font-size: 1.2em'>執行出資</span> <span style='font-size: 1.5em'>{h_pays}</span> <span style='font-size: 1.0em'>({h_pct:.1f}%)</span></h4>", unsafe_allow_html=True)
+            # 監管出資 跟 執行出資 字體一樣大
+            st.markdown(f"<h4><span style='font-size: 1.2em'>監管出資: {r_pays} ({r_pct:.1f}%)</span> / 總額: {req_funds} / <span style='font-size: 1.2em'>執行出資: {h_pays} ({h_pct:.1f}%)</span></h4>", unsafe_allow_html=True)
             
             o_gdp_pct, o_h_g, o_h_n, o_r_g, o_r_n, o_h_sup, o_r_sup, o_est_gdp, o_est_h_fund, o_h_roi, o_r_roi = formulas.calculate_preview(cfg, game, req_funds, h_ratio, r_val, view_party.current_forecast, game.h_role_party.build_ability, r_pays, h_pays)
             c_gdp_pct, c_h_g, c_h_n, c_r_g, c_r_n, c_h_sup, c_r_sup, c_est_gdp, c_est_h_fund, c_h_roi, c_r_roi = formulas.calculate_preview(cfg, game, req_funds, h_ratio, r_val, claimed_decay, game.h_role_party.build_ability, r_pays, h_pays)
@@ -96,23 +97,32 @@ def render(game, view_party, cfg):
             c_prev1, c_prev2 = st.columns(2)
             my_is_h = (active_role == 'H')
             
+            # 標準化智庫評估報告格式
             with c_prev1:
                 my_net, my_sup, my_roi = (o_h_n, o_h_sup, o_h_roi) if my_is_h else (o_r_n, o_r_sup, o_r_roi)
                 opp_net, opp_sup, opp_roi = (o_r_n, o_r_sup, o_r_roi) if my_is_h else (o_h_n, o_h_sup, o_h_roi)
-                st.markdown(f"**🛡️ 依據自己智庫估算** *(衰退估算: -{view_party.current_forecast:.2f})*")
-                st.markdown(f"1. 我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
-                st.markdown(f"2. 對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
-                st.markdown(f"3. 支持度預估: {my_sup:+.2f}%")
-                st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {o_est_gdp:.0f}` ({o_gdp_pct:+.2f}%)")
+                st.markdown(f"### 📊 智庫評估報告 (依自己預測: -{view_party.current_forecast:.2f})")
+                st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
+                st.markdown(f"對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
+                st.markdown(f"支持度預估: {my_sup:+.2f}%")
+                st.markdown(f"📈 預期 GDP: {game.gdp:.0f} ➔ {o_est_gdp:.0f} ({o_gdp_pct:+.2f}%)")
+                diff = abs(view_party.current_forecast - view_party.current_forecast)
+                st.markdown(f"衰退值判讀: 🟢 風險極低 (基準比對)")
             
             with c_prev2:
                 my_net, my_sup, my_roi = (c_h_n, c_h_sup, c_h_roi) if my_is_h else (c_r_n, c_r_sup, c_r_roi)
                 opp_net, opp_sup, opp_roi = (c_r_n, c_r_sup, c_r_roi) if my_is_h else (c_h_n, c_h_sup, c_h_roi)
-                st.markdown(f"**📢 依據方案公告估算** *(衰退估算: -{claimed_decay:.2f})*")
-                st.markdown(f"1. 我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
-                st.markdown(f"2. 對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
-                st.markdown(f"3. 支持度預估: {my_sup:+.2f}%")
-                st.info(f"📈 **預期 GDP:** `{game.gdp:.0f} ➔ {c_est_gdp:.0f}` ({c_gdp_pct:+.2f}%)")
+                st.markdown(f"### 📊 智庫評估報告 (依方案公告: -{claimed_decay:.2f})")
+                st.markdown(f"我方預估收益: {my_net:.0f} (ROI: {my_roi:.1f}%)")
+                st.markdown(f"對方預估收益: {opp_net:.0f} (ROI: {opp_roi:.1f}%)")
+                st.markdown(f"支持度預估: {my_sup:+.2f}%")
+                st.markdown(f"📈 預期 GDP: {game.gdp:.0f} ➔ {c_est_gdp:.0f} ({c_gdp_pct:+.2f}%)")
+                
+                diff = abs(claimed_decay - view_party.current_forecast)
+                if diff > 0.3: risk_txt = "🔴 風險極高 (數據嚴重偏離預估)"
+                elif diff > 0.1: risk_txt = "🟡 風險中等 (數據略有出入)"
+                else: risk_txt = "🟢 風險較低 (數據基本吻合)"
+                st.markdown(f"衰退值判讀: {risk_txt}")
 
             if opp_plan:
                 st.markdown("---")
