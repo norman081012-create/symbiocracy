@@ -264,3 +264,24 @@ def render_endgame_charts(history_data, cfg):
     fig2.update_yaxes(title_text="支持度 (%)", secondary_y=True, range=[0, 100])
     add_event_vlines(fig2, df)
     st.plotly_chart(fig2, use_container_width=True)
+    def render_debug_panel(game, cfg):
+    with st.expander("⚙️ 遊戲底層引擎與數學監控 (Debug UI)", expanded=False):
+        st.markdown("### 內部數值")
+        st.code(f"""
+[環境物理]
+真實衰退率 = {game.current_real_decay:.3f}
+GDP = {game.gdp:.1f}
+總預算 = {game.total_budget:.1f}
+H系統獎勵池 = {game.h_fund:.1f}
+
+[社會心理]
+資訊辨識 (Sanity) = {game.sanity:.3f}
+選民情緒 (Emotion) = {game.emotion:.1f}
+民生權重 = {cfg['LIVELIHOOD_WEIGHT']}
+        """)
+        st.markdown("### 運作公式")
+        st.markdown("""
+        - **Sanity 變化** = (正面教育資金 - 愚化資金) * (教育效率%) * 0.002
+        - **Emotion 變化** = -(GDP成長率 * 民生權重 * (1 - Sanity)) + (煽動資金 * 媒體效率% * 0.5)
+        - **升級花費** = (目標效率 - 當前效率) * UPGRADE_COST_PER_PCT
+        """)
