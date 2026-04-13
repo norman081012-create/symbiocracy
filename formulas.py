@@ -50,7 +50,8 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra
     return {
         'actual_shift': act_h_shift, 
         'h_perf': ((act_h - t_h) / max(1, t_h)) * 100.0, 
-        'r_perf': ((act_gdp - curr_gdp) / max(1, curr_gdp)) * 100.0
+        'r_perf': ((act_gdp - curr_gdp) / max(1, curr_gdp)) * 100.0,
+        'h_blame_qty': h_blame_qty, 'r_blame_qty': r_blame_qty
     }
 
 def calculate_preview(cfg, game, req_funds, h_ratio, r_val, fc_decay, hp_build, r_pays, h_pays):
