@@ -88,7 +88,6 @@ def render(game, view_party, cfg):
                     game.proposing_party = game.ruling_party; st.rerun()
 
             st.markdown("---")
-            # 使用新的統一組件直接顯示草案及智庫預覽報告
             ui_core.render_proposal_component('📜 當前草案預覽', plan_dict, game, view_party, cfg)
 
             if opp_plan:
