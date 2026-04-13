@@ -7,11 +7,14 @@ import math
 def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
-def get_ability_maintenance(ability, cfg):
-    return max(0, (ability - 3.0) * cfg['MAINTENANCE_RATE'])
-
-def calculate_upgrade_cost(current, target):
-    return max(0, (2**(target - current) - 1) * 50) if target > current else 0
+def get_ability_preview(current, invest, cfg):
+    maint = max(0, (current - 3.0) * cfg['MAINTENANCE_RATE'])
+    if invest < maint:
+        drop = (maint - invest) * 0.02
+        return max(3.0, current - drop), maint
+    else:
+        gain = calc_log_gain(invest - maint)
+        return min(cfg['MAX_ABILITY'], current + gain), maint
 
 def calculate_required_funds(cfg, t_h_fund, t_gdp, curr_h_fund, curr_gdp, r_val, forecast_decay, build_abi):
     strictness_multiplier = r_val ** 2 
@@ -33,6 +36,10 @@ def calc_support_shift(cfg, hp, rp, act_h, act_gdp, t_h, t_gdp, curr_gdp, ha, ra
 
     h_media_pow = ha['media'] * hp.media_ability * cfg['H_MEDIA_BONUS'] * cfg['MEDIA_DIFF']
     r_media_pow = ra['media'] * rp.media_ability * cfg['MEDIA_DIFF']
+
+    # 司法審查減少對手媒體操控
+    if ha.get('judicial', False): r_media_pow *= (1.0 - cfg['JUDICIAL_REDUCTION'])
+    if ra.get('judicial', False): h_media_pow *= (1.0 - cfg['JUDICIAL_REDUCTION'])
 
     h_blame_qty = h_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, r_media_pow * 0.01)
     r_blame_qty = r_fail_pct * cfg['PERF_IMPACT_BASE'] * max(1.0, h_media_pow * 0.01)
