@@ -191,4 +191,75 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     <div style="font-family: sans-serif; margin: 10px 0;">
         <span style="font-size: 1.2em;">監管出資 </span>
         <span style="font-size: 1.5em; font-weight: bold;">{plan['r_pays']}</span>
-        <span style="font-size: 1.0em;"> ({(plan['r_pays']/max(1, plan['total_funds'])*100):.
+        <span style="font-size: 1.0em;"> ({(plan['r_pays']/max(1, plan['total_funds'])*100):.1f}%)</span>
+        <span style="font-size: 1.2em;"> / </span>
+        <span style="font-size: 1.8em; font-weight: bold; color: #E63946;">總額: {plan['total_funds']}</span>
+        <span style="font-size: 1.2em;"> / </span>
+        <span style="font-size: 1.2em;">執行出資 </span>
+        <span style="font-size: 1.5em; font-weight: bold;">{plan['h_pays']}</span>
+        <span style="font-size: 1.0em;"> ({(plan['h_pays']/max(1, plan['total_funds'])*100):.1f}%)</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    p_gdp_pct, p_h_g, p_h_n, p_r_g, p_r_n, p_h_sup, p_r_sup, p_est_gdp, p_est_h_fund, p_h_roi, p_r_roi = formulas.calculate_preview(
+        cfg, game, plan['total_funds'], plan['h_ratio'], plan['r_value'], 
+        view_party.current_forecast, game.h_role_party.build_ability, plan['r_pays'], plan['h_pays']
+    )
+    
+    my_is_h = (view_party.name == game.h_role_party.name)
+    my_net, my_sup, my_roi = (p_h_n, p_h_sup, p_h_roi) if my_is_h else (p_r_n, p_r_sup, p_r_roi)
+    opp_net, opp_sup, opp_roi = (p_r_n, p_r_sup, p_r_roi) if my_is_h else (p_h_n, p_h_sup, p_h_roi)
+    
+    st.markdown("📊 **👁️ 本黨智庫推演報告:**")
+    st.info(f"""
+    1. 我方預估收益: `{my_net:.0f}` (ROI: {my_roi:.1f}%)
+    2. 對方預估收益: `{opp_net:.0f}` (ROI: {opp_roi:.1f}%)
+    3. 支持度預估: 變動 `{my_sup:+.2f}%` (對手: `{opp_sup:+.2f}%`)
+    4. GDP 預估: `{game.gdp:.0f} ➔ {p_est_gdp:.0f}` ({p_gdp_pct:+.2f}%)
+    """)
+
+def ability_slider(label, key, current_val, wealth, cfg):
+    maint = max(0, (current_val - 3.0) * cfg['MAINTENANCE_RATE'])
+    default_val = min(int(maint), int(wealth))
+    invest = st.slider(f"{label} (當前: {current_val*10:.0f}%)", 0, int(wealth), default_val, key=key)
+    
+    gain = formulas.calc_log_gain(invest - maint)
+    next_val = max(3.0, current_val + gain) if invest >= maint else max(3.0, current_val - ((maint - invest) * 0.02))
+    next_maint = max(0, (next_val - 3.0) * cfg['MAINTENANCE_RATE'])
+    
+    if invest < maint:
+        st.caption(f"📉 投入不足維護 (${int(maint)})，降至: {next_val*10:.1f}% | 明年維護 ${int(next_maint)}")
+    else:
+        st.caption(f"📈 已達維護 (${int(maint)})，升至: {min(100.0, next_val*10):.1f}% | 明年維護 ${int(next_maint)}")
+    return invest
+
+def add_event_vlines(fig, history_df):
+    for _, row in history_df.iterrows():
+        y = row['Year']
+        if row['Is_Swap']: fig.add_vline(x=y, line_dash="dot", line_color="red", annotation_text="倒閣!", annotation_position="top left")
+        if row['Is_Election']: fig.add_vline(x=y, line_dash="dash", line_color="green", annotation_text="選舉", annotation_position="bottom right")
+
+def render_endgame_charts(history_data, cfg):
+    st.balloons()
+    st.title("🏁 遊戲結束！共生內閣軌跡總結算")
+    df = pd.DataFrame(history_data)
+
+    st.subheader("📊 1. 總體經濟與公民識讀指數走勢")
+    fig1 = make_subplots(specs=[[{"secondary_y": True}]])
+    fig1.add_trace(go.Scatter(x=df['Year'], y=df['GDP'], name="總 GDP", line=dict(color='blue', width=3)), secondary_y=False)
+    fig1.add_trace(go.Scatter(x=df['Year'], y=df['Sanity']*100, name="公民識讀 (0-100)", line=dict(color='purple', width=3)), secondary_y=True)
+    fig1.update_yaxes(title_text="GDP (資金)", secondary_y=False)
+    fig1.update_yaxes(title_text="識讀指數", secondary_y=True, range=[0, 100])
+    add_event_vlines(fig1, df)
+    st.plotly_chart(fig1, use_container_width=True)
+
+    st.subheader(f"📊 2. 雙方民意支持度與黨產角力")
+    fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+    fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Wealth'], name=f"{cfg['PARTY_A_NAME']} 存款", line=dict(color='cyan', dash='dash')), secondary_y=False)
+    fig2.add_trace(go.Scatter(x=df['Year'], y=df['B_Wealth'], name=f"{cfg['PARTY_B_NAME']} 存款", line=dict(color='orange', dash='dash')), secondary_y=False)
+    fig2.add_trace(go.Scatter(x=df['Year'], y=df['A_Support'], name=f"{cfg['PARTY_A_NAME']} 民意支持度", line=dict(color='green', width=4)), secondary_y=True)
+    fig2.update_yaxes(title_text="財富總額", secondary_y=False)
+    fig2.update_yaxes(title_text="支持度 (%)", secondary_y=True, range=[0, 100])
+    add_event_vlines(fig2, df)
+    st.plotly_chart(fig2, use_container_width=True)
