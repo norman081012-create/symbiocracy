@@ -13,6 +13,9 @@ import phase2
 st.set_page_config(page_title="Symbiocracy 共生民主模擬器 v3.0.0", layout="wide")
 st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
 
+if 'lang' not in st.session_state: 
+    st.session_state.lang = 'EN'
+
 if 'cfg' not in st.session_state: st.session_state.cfg = config.DEFAULT_CONFIG.copy()
 cfg = st.session_state.cfg
 
