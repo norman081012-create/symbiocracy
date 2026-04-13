@@ -1,4 +1,6 @@
+# ==========================================
 # engine.py
+# ==========================================
 import random
 import streamlit as st
 
@@ -9,8 +11,7 @@ class Party:
         self.edu_ability = cfg['ABILITY_DEFAULT']; self.media_ability = cfg['ABILITY_DEFAULT']
         self.predict_ability = cfg['ABILITY_DEFAULT']; self.stealth_ability = cfg['ABILITY_DEFAULT']
         
-        # 用於記錄累積投入的升級資金
-        self.invest_pools = {'build': 0, 'inv': 0, 'edu': 0, 'media': 0, 'pre': 0, 'stl': 0}
+        self.invest_pools = {'build': 0.0, 'inv': 0.0, 'edu': 0.0, 'media': 0.0, 'pre': 0.0, 'stl': 0.0}
         self.current_forecast = 0.0
         self.poll_history = {'小型': [], '中型': [], '大型': []}; self.latest_poll = None; self.poll_count = 0
         self.last_acts = {}
@@ -20,8 +21,6 @@ class GameEngine:
         self.year = 1
         self.party_A = Party(cfg['PARTY_A_NAME'], cfg); self.party_B = Party(cfg['PARTY_B_NAME'], cfg)
         self.gdp = cfg['CURRENT_GDP']
-        
-        # V3 經濟系統
         self.budget_t = self.gdp * cfg['TAX_RATE']
         self.pending_payouts = {'H': 0.0, 'R': 0.0, 'R_residual': 0.0}
         
