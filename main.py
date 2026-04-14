@@ -1,17 +1,21 @@
 # ==========================================
 # main.py
-# 主程式入口：負責路由、全局初始化與整合
+# Main Entry Point: Routing, global init & integration
 # ==========================================
+import ui_formulas
 import streamlit as st
 import random
 import config
 import engine
 import ui_core
+import ui_proposal  
 import phase1
 import phase2
+import phase3
+import phase4
 import i18n
 
-st.set_page_config(page_title="Symbiocracy 共生民主模擬器 v3.0.0", layout="wide")
+st.set_page_config(page_title="Symbiocracy Simulator v3.0.0", layout="wide")
 st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
 
 if 'lang' not in st.session_state: st.session_state.lang = 'EN'
@@ -36,17 +40,22 @@ elif st.session_state.get('anim') == 'snow':
     st.snow()
     st.session_state.anim = None
 
-if game.year > cfg['END_YEAR']:
-    ui_core.render_endgame_charts(game.history, cfg)
-    if st.button(t("🔄 重新開始全新遊戲", "🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
+if game.phase == 4:
+    phase4.render(game, cfg)
     st.stop()
 
 if 'turn_initialized' not in st.session_state:
-    game.current_real_decay = max(0.0, round(random.uniform(cfg['DECAY_MIN'], cfg['DECAY_MAX']), 2))
+    game.current_real_decay = max(0.0, round(random.uniform(cfg['DECAY_MIN'], cfg['DECAY_MAX']), 3))
+    
+    real_infra_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
+    
     for p in [game.party_A, game.party_B]:
-        error_margin = cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)
-        p.current_forecast = max(0.0, round(game.current_real_decay + random.uniform(-error_margin, error_margin), 2))
-        p.poll_history = {'小型': [], '中型': [], '大型': []}
+        error_range = (cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)) * (game.gdp * 0.01)
+        observed_loss = max(0.0, real_infra_loss + random.uniform(-error_range, error_range))
+        
+        p.current_forecast = max(0.0, round(((observed_loss / max(1.0, game.gdp)) - cfg['BASE_DECAY_RATE']) / cfg['DECAY_WEIGHT_MULT'], 3))
+        
+        p.poll_history = {'Small': [], 'Medium': [], 'Large': []}
         p.latest_poll = None
         p.poll_count = 0 
     
@@ -59,6 +68,9 @@ if 'turn_initialized' not in st.session_state:
         if k.startswith('ui_decay_') or k.endswith('_acts'): del st.session_state[k]
     
     st.session_state.turn_initialized = True
+    
+    if game.year == 1:
+        st.session_state.news_flash = f"🎉 **[Founding Election: Neck and Neck]** Game Starts! {game.ruling_party.name} wins initial ruling power and will allocate national resources!"
 
 view_party = game.proposing_party
 opponent_party = game.party_B if view_party.name == game.party_A.name else game.party_A
@@ -67,22 +79,29 @@ is_election_year = (game.year % cfg['ELECTION_CYCLE'] == 1)
 with st.sidebar:
     ui_core.render_global_settings(cfg, game)
     ui_core.render_sidebar_intel_audit(game, view_party, cfg)
-    god_mode = st.toggle(t("👁️ 上帝視角", "👁️ God Mode"), False)
-    if st.button(t("🔄 重新開始遊戲", "🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
+    god_mode = st.toggle(t("👁️ God Mode"), False)
+    if st.button(t("🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
 
-st.title(t("🏛️ Symbiocracy 共生民主模擬器 v3.0.0", "🏛️ Symbiocracy Simulator v3.0.0"))
+st.title(t("🏛️ Symbiocracy Simulator v3.0.0"))
 
 elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-st.subheader(t(f"📅 {cfg['CALENDAR_NAME']} {game.year} 年 ({elec_status})", f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})"))
+st.subheader(t(f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})"))
 
-if god_mode: st.error(t(f"👁️ **上帝視角：** 真實衰退率為 **{game.current_real_decay:.2f}**", f"👁️ **God Mode:** Real Decay is **{game.current_real_decay:.2f}**"))
+if god_mode:
+    real_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
+    st.error(t(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Infra loss: {real_loss:.1f})"))
 
-if game.phase == 1:
-    ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
-ui_core.render_message_board(game)
-ui_core.render_party_cards(game, view_party, god_mode, is_election_year, cfg)
+if game.phase == 1 or game.phase == 2:
+    if game.phase == 1: ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
+    ui_core.render_party_cards(game, view_party, god_mode, is_election_year, cfg)
+    ui_core.render_message_board(game)
 
 if game.phase == 1:
     phase1.render(game, view_party, cfg)
 elif game.phase == 2:
     phase2.render(game, view_party, opponent_party, cfg)
+elif game.phase == 3:
+    phase3.render(game, cfg)
+
+if game.phase != 4:
+    ui_formulas.render_formula_panel(game, view_party, cfg)
