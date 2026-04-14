@@ -37,13 +37,13 @@ def render(game, cfg):
         
         rp_inv_pct = rp.investigate_ability / 10.0
         hp_stl_pct = hp.stealth_ability / 10.0
-        actual_catch_mult = max(0.1, (rp_inv_pct * cfg['R_INV_BONUS']) - hp_stl_pct + 1.0)
+        actual_catch_mult = max(0.1, (rp_inv_pct * cfg.get('R_INV_BONUS', 1.2)) - hp_stl_pct + 1.0)
         
         rolls_corr = corr_pct_val * actual_catch_mult
-        catch_prob_corr = 1.0 - (1.0 - cfg['CATCH_RATE_PER_PERCENT'])**rolls_corr
+        catch_prob_corr = 1.0 - (1.0 - cfg.get('CATCH_RATE_PER_PERCENT', 0.05))**rolls_corr
         
         rolls_crony = crony_pct_val * actual_catch_mult
-        catch_prob_crony = 1.0 - (1.0 - cfg['CRONY_CATCH_RATE_PER_PERCENT'])**rolls_crony
+        catch_prob_crony = 1.0 - (1.0 - cfg.get('CRONY_CATCH_RATE_PER_PERCENT', 0.05))**rolls_crony
         
         if corr_amt > 0 and random.random() < catch_prob_corr:
             returned_to_r += corr_amt
@@ -57,12 +57,20 @@ def render(game, cfg):
             crony_caught = True
             crony_base = 0
             crony_income = 0
+            
+        h_tot_action = float(ha.get('tot_action') or 0)
+        r_tot_action = float(ra.get('tot_action') or 0)
+        h_tot_maint = float(ha.get('tot_maint') or 0)
+        r_tot_maint = float(ra.get('tot_maint') or 0)
+            
         actual_h_wealth_available = hp.wealth - h_tot_action - h_tot_maint
         res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), corr_amt=corr_amt, r_pays=r_pays, h_wealth=max(0.0, actual_h_wealth_available))
-        budg = cfg['BASE_TOTAL_BUDGET'] + (res_exec['est_gdp'] * cfg['HEALTH_MULTIPLIER'])
+        budg = cfg.get('BASE_TOTAL_BUDGET', 1000.0) + (res_exec['est_gdp'] * cfg.get('HEALTH_MULTIPLIER', 0.1))
         
-        hp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == hp.name else 0))
-        rp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == rp.name else 0))
+        base_inc_ratio = cfg.get('BASE_INCOME_RATIO', 0.1)
+        rul_bonus_ratio = cfg.get('RULING_BONUS_RATIO', 0.05)
+        hp_base = game.total_budget * (base_inc_ratio + (rul_bonus_ratio if game.ruling_party.name == hp.name else 0))
+        rp_base = game.total_budget * (base_inc_ratio + (rul_bonus_ratio if game.ruling_party.name == rp.name else 0))
         
         hp_project_net = res_exec['h_project_profit']
         rp_project_net = res_exec['payout_r'] - r_pays
@@ -96,11 +104,6 @@ def render(game, cfg):
         f_san_move = (f_target_san - game.sanity) * 0.2
         new_sanity = max(0.0, min(100.0, game.sanity - (new_emotion * 0.02) + f_san_move))
         
-        h_tot_action = float(ha.get('tot_action') or 0)
-        r_tot_action = float(ra.get('tot_action') or 0)
-        h_tot_maint = float(ha.get('tot_maint') or 0)
-        r_tot_maint = float(ra.get('tot_maint') or 0)
-        
         game.last_year_report = {
             'old_gdp': game.gdp, 'old_san': game.sanity, 'old_emo': game.emotion, 'old_budg': game.total_budget, 'old_h_fund': game.h_fund,
             'h_party_name': hp.name,
@@ -116,7 +119,8 @@ def render(game, cfg):
             'corr_caught': corr_caught, 'crony_caught': crony_caught
         }
         
-        if game.year % cfg['ELECTION_CYCLE'] == 1:
+        election_cycle = cfg.get('ELECTION_CYCLE', 4)
+        if game.year % election_cycle == 1:
             winner = hp if hp.support > rp.support else rp
             gap = abs(hp.support - rp.support)
             if gap > 20: msg = f"🎉 **[Election Result: Landslide!]** {winner.name} Party wins overwhelmingly by {gap:.1f}%!"
@@ -135,7 +139,7 @@ def render(game, cfg):
         rp.wealth += rp_inc - r_tot_action - r_tot_maint
 
         hp.last_acts = ha.copy(); rp.last_acts = ra.copy()
-        game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
+        game.record_history(is_election=(game.year % election_cycle == 1))
     
     rep = game.last_year_report
     c1, c2 = st.columns(2)
@@ -167,7 +171,7 @@ def render(game, cfg):
     st.markdown("---")
     if st.button(t("⏩ Confirm Report & Enter Next Year"), type="primary", use_container_width=True):
         game.year += 1
-        if game.year > cfg['END_YEAR']: game.phase = 4
+        if game.year > cfg.get('END_YEAR', 10): game.phase = 4
         else:
             game.phase = 1; game.p1_step = 'draft_r'
             game.p1_proposals = {'R': None, 'H': None}; game.p1_selected_plan = None
