@@ -1,6 +1,5 @@
 # ==========================================
 # main.py
-# Main Entry Point: Routing, global init & integration
 # ==========================================
 import ui_formulas
 import streamlit as st
@@ -8,7 +7,7 @@ import random
 import config
 import engine
 import ui_core
-import ui_proposal  
+import ui_proposal 
 import phase1
 import phase2
 import phase3
@@ -45,19 +44,15 @@ if game.phase == 4:
     st.stop()
 
 if 'turn_initialized' not in st.session_state:
-    game.current_real_decay = max(0.0, round(random.uniform(cfg.get('DECAY_MIN', 0.0), cfg.get('DECAY_MAX', 1.0)), 3))
+    game.current_real_decay = max(0.0, round(random.uniform(cfg['DECAY_MIN'], cfg['DECAY_MAX']), 3))
     
-    # Safe fallback values for config keys
-    decay_weight = cfg.get('DECAY_WEIGHT_MULT', 0.05)
-    base_decay = cfg.get('BASE_DECAY_RATE', 0.0)
-    
-    real_infra_loss = game.gdp * (game.current_real_decay * decay_weight + base_decay)
+    real_infra_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
     
     for p in [game.party_A, game.party_B]:
-        error_range = (cfg.get('PREDICT_DIFF', 1.0) / max(0.1, p.predict_ability)) * (game.gdp * 0.01)
+        error_range = (cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)) * (game.gdp * 0.01)
         observed_loss = max(0.0, real_infra_loss + random.uniform(-error_range, error_range))
         
-        p.current_forecast = max(0.0, round(((observed_loss / max(1.0, game.gdp)) - base_decay) / decay_weight, 3))
+        p.current_forecast = max(0.0, round(((observed_loss / max(1.0, game.gdp)) - cfg['BASE_DECAY_RATE']) / cfg['DECAY_WEIGHT_MULT'], 3))
         
         p.poll_history = {'Small': [], 'Medium': [], 'Large': []}
         p.latest_poll = None
@@ -78,25 +73,22 @@ if 'turn_initialized' not in st.session_state:
 
 view_party = game.proposing_party
 opponent_party = game.party_B if view_party.name == game.party_A.name else game.party_A
-election_cycle = cfg.get('ELECTION_CYCLE', 4)
-is_election_year = (game.year % election_cycle == 1)
+is_election_year = (game.year % cfg['ELECTION_CYCLE'] == 1)
 
 with st.sidebar:
     ui_core.render_global_settings(cfg, game)
     ui_core.render_sidebar_intel_audit(game, view_party, cfg)
-    god_mode = st.toggle(t("👁️ God Mode"), False)
-    if st.button(t("🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
+    god_mode = st.toggle("👁️ God Mode", False)
+    if st.button("🔄 Restart Game", use_container_width=True): st.session_state.clear(); st.rerun()
 
-st.title(t("🏛️ Symbiocracy Simulator v3.0.0"))
+st.title("🏛️ Symbiocracy Simulator v3.0.0")
 
-elec_status = config.get_election_icon(game.year, election_cycle)
-st.subheader(t(f"📅 {cfg.get('CALENDAR_NAME', 'Year')} {game.year} ({elec_status})"))
+elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
+st.subheader(f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})")
 
 if god_mode:
-    decay_weight = cfg.get('DECAY_WEIGHT_MULT', 0.05)
-    base_decay = cfg.get('BASE_DECAY_RATE', 0.0)
-    real_loss = game.gdp * (game.current_real_decay * decay_weight + base_decay)
-    st.error(t(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Infra loss: {real_loss:.1f})"))
+    real_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
+    st.error(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Infra loss: {real_loss:.1f})")
 
 if game.phase == 1 or game.phase == 2:
     if game.phase == 1: ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
