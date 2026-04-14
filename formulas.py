@@ -38,7 +38,11 @@ def calc_unit_cost(cfg, gdp, build_abi, decay):
     return base_cost * (1 + inflation)
 
 def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, corr_amt=0.0, crony_base=0.0, override_unit_cost=None, r_pays=0.0, h_wealth=0.0):
-    l_gdp = gdp * (forecast_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
+    # Using safe .get()
+    decay_weight = cfg.get('DECAY_WEIGHT_MULT', 0.05)
+    base_decay = cfg.get('BASE_DECAY_RATE', 0.0)
+    
+    l_gdp = gdp * (forecast_decay * decay_weight + base_decay)
     
     if override_unit_cost is not None:
         unit_cost = override_unit_cost
@@ -58,7 +62,7 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
         h_idx = c_net / max(1.0, float(bid_cost))
 
     payout_h = min(budget_t, proj_fund * h_idx)
-    total_bonus_deduction = budget_t * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
+    total_bonus_deduction = budget_t * ((cfg.get('BASE_INCOME_RATIO', 0.1) * 2) + cfg.get('RULING_BONUS_RATIO', 0.05))
     payout_r = max(0.0, budget_t - total_bonus_deduction - proj_fund)
     
     est_gdp = max(0.0, gdp - l_gdp + (c_net * cfg.get('GDP_CONVERSION_RATE', 0.2)))
@@ -72,7 +76,11 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
     }
 
 def calc_performance_amounts(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net):
-    expected_drop_pct = claimed_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE']
+    # Using safe .get()
+    decay_weight = cfg.get('DECAY_WEIGHT_MULT', 0.05)
+    base_decay = cfg.get('BASE_DECAY_RATE', 0.0)
+    
+    expected_drop_pct = claimed_decay * decay_weight + base_decay
     expected_drop_amt = curr_gdp * expected_drop_pct
     actual_drop_amt = curr_gdp - new_gdp
     
