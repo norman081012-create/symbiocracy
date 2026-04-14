@@ -1,6 +1,5 @@
 # ==========================================
 # phase4.py
-# Responsible for Game Over and Final Summary Charts
 # ==========================================
 import streamlit as st
 import pandas as pd
@@ -12,7 +11,7 @@ t = i18n.t
 
 def render(game, cfg):
     st.balloons()
-    st.title(t("🏁 Game Over! Symbiocracy Trajectory Final Report"))
+    st.title("🏁 Game Over! Symbiocracy Trajectory Final Report")
     
     df = pd.DataFrame(game.history)
     
@@ -62,6 +61,6 @@ def render(game, cfg):
             st.plotly_chart(fig3, use_container_width=True)
     
     st.markdown("---")
-    if st.button(t("🔄 Start New Game"), use_container_width=True, type="primary"): 
+    if st.button("🔄 Start New Game", use_container_width=True, type="primary"): 
         st.session_state.clear()
         st.rerun()
