@@ -159,4 +159,43 @@ def render(game, view_party, cfg):
     elif game.p1_step == 'voting_confirm':
         if view_party.name != game.proposing_party.name: st.warning(t("⏳ Waiting for opponent confirmation..."))
         else:
-            ui_proposal.render_proposal_component(t('📜 Draft to Confirm'), game.p1_selected_plan, game, view_party, cfg
+            ui_proposal.render_proposal_component(t('📜 Draft to Confirm'), game.p1_selected_plan, game, view_party, cfg)
+            st.markdown("---")
+            c1, c2, c3, c4 = st.columns(4)
+            if c1.button(t("✅ Agree to Bill"), use_container_width=True, type="primary"):
+                st.session_state.turn_data.update(game.p1_selected_plan)
+                st.session_state.news_flash = t(f"🗞️ **[BREAKING] Bill Passed!** After {game.proposal_count} rounds of negotiation, the bill is signed.")
+                st.session_state.anim = 'balloons'
+                game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
+            
+            if c2.button(t("❌ Reject & Renegotiate"), use_container_width=True):
+                game.proposal_count += 1; game.p1_step = 'draft_r'; game.proposing_party = game.r_role_party; st.rerun()
+            
+            if c3.button(t(f"🔄 Agree & Swap\n(Cost: Both pay {penalty_amt:.1f})"), use_container_width=True):
+                st.session_state.turn_data.update(game.p1_selected_plan)
+                engine.trigger_swap(game, penalty_amt, t("Power Shift!"))
+                game.proposing_party = game.ruling_party; st.rerun()
+            
+            if game.proposing_party.name == game.h_role_party.name:
+                if c4.button(t("💥 Force Final (Ultimatum)"), use_container_width=True):
+                    st.session_state.news_flash = t(f"🗞️ **[BREAKING] H-System Ultimatum!** {view_party.name} forces R-System into a final proposal!")
+                    game.p1_step = 'ultimatum_draft_r'; game.proposing_party = game.r_role_party; st.rerun()
+
+    elif game.p1_step == 'ultimatum_resolve_h':
+        st.markdown(t("### 🚨 Final Decision (H-System Only)"))
+        if view_party.name != game.h_role_party.name: 
+            st.warning(t(f"⏳ Waiting for H-System {game.h_role_party.name} decision..."))
+        else:
+            ui_proposal.render_proposal_component(t('📜 R-System Final Ultimatum Draft'), game.p1_selected_plan, game, view_party, cfg)
+            st.markdown("---")
+            c1, c2 = st.columns(2)
+            if c1.button(t("✅ Accept Ultimatum"), use_container_width=True, type="primary"):
+                st.session_state.turn_data.update(game.p1_selected_plan)
+                st.session_state.news_flash = t(f"🗞️ **[BREAKING] Ultimatum Accepted!** H-System compromises and swallows the bottom line.")
+                st.session_state.anim = 'balloons'
+                game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
+                
+            if c2.button(t(f"🔄 Flip Table & Swap\n(Warning: Both pay {penalty_amt:.1f})"), use_container_width=True):
+                st.session_state.turn_data.update(game.p1_selected_plan)
+                engine.trigger_swap(game, penalty_amt, t("Cabinet Fall!"))
+                game.proposing_party = game.r_role_party; st.rerun()
