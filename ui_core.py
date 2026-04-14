@@ -12,7 +12,8 @@ import i18n
 t = i18n.t
 
 def sync_party_names(game, cfg):
-    game.party_A.name = cfg['PARTY_A_NAME']; game.party_B.name = cfg['PARTY_B_NAME']
+    game.party_A.name = cfg.get('PARTY_A_NAME', 'Party A')
+    game.party_B.name = cfg.get('PARTY_B_NAME', 'Party B')
 
 def render_global_settings(cfg, game):
     st.sidebar.title(t("🎛️ Control Panel"))
@@ -26,10 +27,10 @@ def render_global_settings(cfg, game):
         trans = config.get_config_translations()
         for key, default_val in config.DEFAULT_CONFIG.items():
             label = trans.get(key, key)
-            if 'COLOR' in key: cfg[key] = st.color_picker(label, value=cfg[key], key=f"cfg_{key}")
-            elif isinstance(default_val, float): cfg[key] = st.number_input(label, value=float(cfg[key]), step=0.1, format="%.2f", key=f"cfg_{key}")
-            elif isinstance(default_val, int): cfg[key] = st.number_input(label, value=int(cfg[key]), step=1, key=f"cfg_{key}")
-            elif isinstance(default_val, str): cfg[key] = st.text_input(label, value=str(cfg[key]), key=f"cfg_{key}")
+            if 'COLOR' in key: cfg[key] = st.color_picker(label, value=cfg.get(key, '#000000'), key=f"cfg_{key}")
+            elif isinstance(default_val, float): cfg[key] = st.number_input(label, value=float(cfg.get(key, 0.0)), step=0.1, format="%.2f", key=f"cfg_{key}")
+            elif isinstance(default_val, int): cfg[key] = st.number_input(label, value=int(cfg.get(key, 0)), step=1, key=f"cfg_{key}")
+            elif isinstance(default_val, str): cfg[key] = st.text_input(label, value=str(cfg.get(key, "")), key=f"cfg_{key}")
     sync_party_names(game, cfg)
 
 def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None):
@@ -72,11 +73,11 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
 
     with c3:
         fc = view_party.current_forecast
-        acc = min(100, max(0, int((1.0 - (cfg.get('OBS_ERR_BASE', 0.4) / (view_party.predict_ability/3.0))) * 100))) 
+        acc = min(100, max(0, int((1.0 - (cfg.get('OBS_ERR_BASE', 0.4) / max(0.1, view_party.predict_ability/3.0))) * 100))) 
         st.markdown(f"### 🕵️ {t('Think Tank Accuracy')}: ~{acc}%")
         
         conv_rate = cfg.get('GDP_CONVERSION_RATE', 0.2)
-        gdp_loss = game.gdp * (fc * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
+        gdp_loss = game.gdp * (fc * cfg.get('DECAY_WEIGHT_MULT', 0.05) + cfg.get('BASE_DECAY_RATE', 0.0))
         req_infra_to_balance = gdp_loss / conv_rate
         
         st.write(f"Est. Decay Value: `{fc:.3f}`")
@@ -88,7 +89,7 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
             if past_forecast is not None:
                 diff = abs(past_forecast - rep['real_decay'])
                 eval_txt = config.get_thinktank_eval(view_party.predict_ability, diff)
-                st.write(f"({cfg['CALENDAR_NAME']} {game.year-1} Internal Review: **{eval_txt}**)")
+                st.write(f"({cfg.get('CALENDAR_NAME', 'Year')} {game.year-1} Internal Review: **{eval_txt}**)")
         else:
             st.write("(No historical data from last year for review)")
 
@@ -145,8 +146,8 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
     
     st.markdown(f"""
     <style>
-    div[data-testid="column"]:nth-child(1) {{ background-color: {cfg['PARTY_A_COLOR']}1A; padding: 15px; border-radius: 10px; border-left: 5px solid {cfg['PARTY_A_COLOR']}; }}
-    div[data-testid="column"]:nth-child(2) {{ background-color: {cfg['PARTY_B_COLOR']}1A; padding: 15px; border-radius: 10px; border-left: 5px solid {cfg['PARTY_B_COLOR']}; }}
+    div[data-testid="column"]:nth-child(1) {{ background-color: {cfg.get('PARTY_A_COLOR', '#FF0000')}1A; padding: 15px; border-radius: 10px; border-left: 5px solid {cfg.get('PARTY_A_COLOR', '#FF0000')}; }}
+    div[data-testid="column"]:nth-child(2) {{ background-color: {cfg.get('PARTY_B_COLOR', '#0000FF')}1A; padding: 15px; border-radius: 10px; border-left: 5px solid {cfg.get('PARTY_B_COLOR', '#0000FF')}; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -248,7 +249,7 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.write(f"{t('Party Media')}: {obs_abis['media']*10:.1f}% | {t('Counter-Intel')}: {obs_abis['stealth']*10:.1f}%")
     
     my_inv_pct = view_party.investigate_ability / 10.0
-    r_bonus = cfg['R_INV_BONUS'] if view_party.name == game.r_role_party.name else 1.0
+    r_bonus = cfg.get('R_INV_BONUS', 1.2) if view_party.name == game.r_role_party.name else 1.0
     obs_stl_pct = obs_abis['stealth'] / 10.0
     
     catch_mult = max(0.1, (my_inv_pct * r_bonus) - obs_stl_pct + 1.0)
@@ -257,8 +258,9 @@ def render_sidebar_intel_audit(game, view_party, cfg):
         rolls = c_pct * catch_mult
         return (1.0 - (1.0 - base_rate)**rolls) * 100.0
         
-    catch_10 = get_catch_prob(10.0, cfg['CATCH_RATE_PER_PERCENT'])
-    catch_30 = get_catch_prob(30.0, cfg['CATCH_RATE_PER_PERCENT'])
+    catch_rate = cfg.get('CATCH_RATE_PER_PERCENT', 0.05)
+    catch_10 = get_catch_prob(10.0, catch_rate)
+    catch_30 = get_catch_prob(30.0, catch_rate)
     
     st.write(f"**{t('Anti-Corruption Estimate')}**: Detection Roll Multiplier `{catch_mult:.2f}x`")
     st.caption(f"*(If opponent corrupts 10% $\\rightarrow$ Catch rate ~ `{catch_10:.1f}%` | Corrupts 30% $\\rightarrow$ `{catch_30:.1f}%`)*")
