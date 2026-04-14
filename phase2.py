@@ -1,6 +1,5 @@
 # ==========================================
 # phase2.py
-# Responsible for Phase 2 (Policy Execution and Actions) UI and Logic
 # ==========================================
 import streamlit as st
 import config
@@ -11,9 +10,9 @@ t = i18n.t
 
 def render(game, view_party, opponent_party, cfg):
     is_h = (view_party.name == game.h_role_party.name)
-    h_label = t('🛡️ H-System')
-    r_label = t('⚖️ R-System')
-    st.subheader(f"{t('🛠️ Phase 2: Execution & Action - Turn:')} {view_party.name} ({h_label if is_h else r_label})")
+    h_label = '🛡️ H-System'
+    r_label = '⚖️ R-System'
+    st.subheader(f"🛠️ Phase 2: Execution - Turn: {view_party.name} ({h_label if is_h else r_label})")
     
     d = st.session_state.get('turn_data', {})
     req_pay = float(d.get('h_pays') or 0.0) if is_h else float(d.get('r_pays') or 0.0)
@@ -21,9 +20,9 @@ def render(game, view_party, opponent_party, cfg):
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(t("#### 📣 Policy & Media"))
-        if is_h: st.caption(t("💡 **H-System Perk**: Media Control x1.2 Bonus"))
-        else: st.caption(t("💡 **R-System Perk**: Investigate Ability x1.2 Bonus"))
+        st.markdown("#### 📣 Policy & Media")
+        if is_h: st.caption("💡 **H-System Perk**: Media Control x1.2 Bonus")
+        else: st.caption("💡 **R-System Perk**: Investigate Ability x1.2 Bonus")
         
         h_corr_pct = 0; h_crony_pct = 0
         judicial_amt = 0.0; edu_policy_amt = 0.0
@@ -36,7 +35,7 @@ def render(game, view_party, opponent_party, cfg):
         if is_h:
             last_corr = int(view_party.last_acts.get('corr', 0))
             last_crony = int(view_party.last_acts.get('crony', 0))
-            h_corr_pct = st.slider(t("💸 Secret Corruption (%)"), 0, 100, last_corr)
+            h_corr_pct = st.slider("💸 Secret Corruption (%)", 0, 100, last_corr)
             
             max_crony = max(0, 100 - h_corr_pct)
             safe_crony = min(last_crony, max_crony)
@@ -45,19 +44,19 @@ def render(game, view_party, opponent_party, cfg):
                 h_crony_pct = 0
                 st.info("Secret corruption reached max limit, cannot engage in cronyism.")
             else:
-                h_crony_pct = st.slider(t("🏢 Cronyism (%)"), 0, max_crony, safe_crony)
+                h_crony_pct = st.slider("🏢 Cronyism (%)", 0, max_crony, safe_crony)
         else:
-            judicial_amt = st.slider(t("⚖️ Media Censorship (Invest Funds) (Suppresses opp media, penalizes own polls based on opp support)"), 0.0, cw, last_judicial)
-            edu_policy_amt = st.slider(t("🎓 Education Policy (Invest Funds) (Left: Rote [boosts low media impact] / Right: Critical [reduces media impact])"), -cw, cw, 0.0)
+            judicial_amt = st.slider("⚖️ Media Censorship (Invest Funds)", 0.0, cw, last_judicial)
+            edu_policy_amt = st.slider("🎓 Education Policy (Left: Canned / Right: Critical)", -cw, cw, 0.0)
             
-        media_ctrl = st.slider(t("📺 Media Control (Invest Funds) (Alters policy impact, e.g., credit claiming or blame shifting)"), 0.0, cw, last_media)
-        camp_amt = st.slider(t("🎉 Campaign (Invest Funds) (More effective with low critical thinking / high rote)"), 0.0, cw, last_camp)
-        incite_emo = st.slider(t("🔥 Incite Emotion (Invest Funds) (High emotion lowers critical thinking / lowers productivity, short duration)"), 0.0, cw, last_incite)
+        media_ctrl = st.slider("📺 Media Control (Invest Funds)", 0.0, cw, last_media)
+        camp_amt = st.slider("🎉 Campaign (Invest Funds)", 0.0, cw, last_camp)
+        incite_emo = st.slider("🔥 Incite Emotion (Invest Funds)", 0.0, cw, last_incite)
         
     with c2:
-        st.markdown(t("#### 🔒 Internal Dept Investment"))
+        st.markdown("#### 🔒 Internal Dept Investment")
         
-        if st.button(t("🔄 Revert to Current Maint Cost (Cancel Upgrades)"), use_container_width=True):
+        if st.button("🔄 Revert to Current Maint Cost (Cancel Upgrades)", use_container_width=True):
             st.session_state['up_pre'] = view_party.predict_ability * 10.0
             st.session_state['up_inv'] = view_party.investigate_ability * 10.0
             st.session_state['up_med'] = view_party.media_ability * 10.0
@@ -65,11 +64,11 @@ def render(game, view_party, opponent_party, cfg):
             st.session_state['up_bld'] = view_party.build_ability * 10.0
             st.rerun()
 
-        t_pre, c_pre = ui_core.ability_slider(t("Think Tank (Predicts decay accurately, reduces policy error)"), "up_pre", view_party.predict_ability, cw, cfg, view_party.build_ability, is_build=False)
-        t_inv, c_inv = ui_core.ability_slider(t("Intelligence (Catches opp corruption/cronyism, improves observation accuracy)"), "up_inv", view_party.investigate_ability, cw, cfg, view_party.build_ability, is_build=False)
-        t_med, c_med = ui_core.ability_slider(t("Party Media (Amplifies media control, inciting, and campaign effects)"), "up_med", view_party.media_ability, cw, cfg, view_party.build_ability, is_build=False)
-        t_stl, c_stl = ui_core.ability_slider(t("Counter-Intel (Covers own corruption/cronyism, disrupts opp observation)"), "up_stl", view_party.stealth_ability, cw, cfg, view_party.build_ability, is_build=False)
-        t_bld, c_bld = ui_core.ability_slider(t("Engineering (Boosts construction output, lowers all dept upgrade costs)"), "up_bld", view_party.build_ability, cw, cfg, view_party.build_ability, is_build=True)
+        t_pre, c_pre = ui_core.ability_slider("Think Tank (Predicts decay accurately, reduces policy error)", "up_pre", view_party.predict_ability, cw, cfg, view_party.build_ability, is_build=False)
+        t_inv, c_inv = ui_core.ability_slider("Intelligence (Catches opp corruption/cronyism, improves observation)", "up_inv", view_party.investigate_ability, cw, cfg, view_party.build_ability, is_build=False)
+        t_med, c_med = ui_core.ability_slider("Party Media (Amplifies media control, inciting, and campaign effects)", "up_med", view_party.media_ability, cw, cfg, view_party.build_ability, is_build=False)
+        t_stl, c_stl = ui_core.ability_slider("Counter-Intel (Covers own corruption/cronyism, disrupts opp observation)", "up_stl", view_party.stealth_ability, cw, cfg, view_party.build_ability, is_build=False)
+        t_bld, c_bld = ui_core.ability_slider("Engineering (Boosts construction output, lowers all dept upgrade costs)", "up_bld", view_party.build_ability, cw, cfg, view_party.build_ability, is_build=True)
 
     tot_action = float(media_ctrl) + float(camp_amt) + float(incite_emo) + abs(float(edu_policy_amt)) + float(judicial_amt)
     tot_maint = float(c_inv) + float(c_pre) + float(c_med) + float(c_stl) + float(c_bld)
@@ -78,7 +77,7 @@ def render(game, view_party, opponent_party, cfg):
     st.write(f"**Legal Project Fund:** `{req_pay:.1f}` / **Policy & Media:** `{tot_action:.1f}` / **Internal Dept Investment:** `{tot_maint:.1f}` / **Remaining Net Worth:** `{cw - tot:.1f}`")
     
     if tot > cw:
-        st.error(f"{t('🚨 Insufficient Funds! Action budget exceeded by')} {tot - cw:.1f}. Please reduce investments.")
+        st.error(f"🚨 Insufficient Funds! Action budget exceeded by {tot - cw:.1f}. Please reduce investments.")
     
     ra_dummy = {'media': media_ctrl, 'camp': camp_amt, 'incite': incite_emo, 'edu_amt': edu_policy_amt, 'judicial': judicial_amt}
     ha_dummy = {'media': media_ctrl, 'camp': camp_amt, 'incite': incite_emo, 'corr': h_corr_pct, 'crony': h_crony_pct}
@@ -125,7 +124,7 @@ def render(game, view_party, opponent_party, cfg):
     
     ui_core.render_dashboard(game, view_party, cfg, is_preview=True, preview_data=preview_data)
     
-    if tot <= cw and st.button(t("Confirm Action / Execute"), use_container_width=True, type="primary"):
+    if tot <= cw and st.button("Confirm Action / Execute", use_container_width=True, type="primary"):
         my_acts = {
             'media': media_ctrl, 'camp': camp_amt, 'incite': incite_emo, 
             'edu_amt': edu_policy_amt, 'judicial': judicial_amt,
