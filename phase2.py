@@ -1,5 +1,6 @@
 # ==========================================
 # phase2.py
+# 負責 第二階段 (政策執行與行動選擇) 的 UI 與邏輯
 # ==========================================
 import streamlit as st
 import config
@@ -65,11 +66,15 @@ def render(game, view_party, opponent_party, cfg):
             last_crony = min(float(view_party.last_acts.get('crony_amt', 0.0)), max_crony)
             h_crony_amt = st.slider(t("🏢 Cronyism ($)"), 0.0, max_crony, last_crony, 1.0)
             
+            # 🚀 修正：圖利的 UI 預覽也只針對「利潤」計算風險
             crony_catch_ratio = min(1.0, cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05) * est_catch_mult)
-            est_crony_caught_base = h_crony_amt * crony_catch_ratio
-            est_crony_profit = (h_crony_amt - est_crony_caught_base) * cfg.get('CRONY_PROFIT_RATE', 0.2)
-            est_crony_fine = est_crony_caught_base * (cfg.get('CRONY_PROFIT_RATE', 0.2) + 0.5) 
-            est_net_crony = est_crony_profit - est_crony_fine
+            crony_profit_rate = cfg.get('CRONY_PROFIT_RATE', 0.2)
+            
+            total_crony_profit = h_crony_amt * crony_profit_rate
+            est_crony_caught_profit = total_crony_profit * crony_catch_ratio
+            # 預設圖利被抓的額外罰款為利潤的 1.5 倍 (可以由監管方動態調整，這裡用固定值預覽)
+            est_crony_fine = est_crony_caught_profit * 1.5 
+            est_net_crony = total_crony_profit - est_crony_caught_profit - est_crony_fine
             
             risk_color_c = "red" if crony_catch_ratio > 0.5 else "orange" if crony_catch_ratio > 0.2 else "green"
             st.caption(f"*(⚠️ Est. Crony Seizure Rate: <span style='color:{risk_color_c}'>`{crony_catch_ratio*100:.1f}%`</span> | Est. Net Profit: `${est_net_crony:.1f}`)*", unsafe_allow_html=True)
