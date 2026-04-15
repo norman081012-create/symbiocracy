@@ -59,6 +59,7 @@ def render(game, cfg):
         
         inflation = max(0.0, (game.gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0))
         
+        # 1. 貪污結算 (扣除工程款，全額沒收)
         adj_corr_amt = corr_amt / (1.0 + inflation)
         rolls_corr = adj_corr_amt * actual_catch_mult
         catch_rate_per_dollar = cfg.get('CATCH_RATE_PER_DOLLAR', 0.10)
@@ -73,6 +74,7 @@ def render(game, cfg):
             corr_caught = True
             corr_amt = 0 
 
+        # 2. 圖利結算 (不扣工程款，僅沒收利潤，罰金以利潤為基礎)
         crony_profit_rate = cfg.get('CRONY_PROFIT_RATE', 0.20)
         crony_income = crony_base * crony_profit_rate
         
@@ -82,9 +84,10 @@ def render(game, cfg):
         catch_prob_crony = 1.0 - (1.0 - crony_catch_rate_dollar)**rolls_crony
         
         if crony_base > 0 and random.random() < catch_prob_crony:
-            original_crony_base = crony_base
-            returned_to_r += original_crony_base
-            penalty = original_crony_base * fine_mult
+            # 🚀 修正：只沒收圖利的「不當得利 (Profit)」，而不是整個工程款
+            returned_to_r += crony_income
+            # 🚀 修正：罰款也是基於利潤來計算
+            penalty = crony_income * fine_mult
             hp_wealth_penalty += penalty
             confiscated_to_budget += penalty
             crony_caught = True
@@ -98,7 +101,14 @@ def render(game, cfg):
         budg = cfg['BASE_TOTAL_BUDGET'] + (res_exec['est_gdp'] * cfg['HEALTH_MULTIPLIER'])
         
         hp_project_net = res_exec['h_project_profit']
-        rp_project_net = res_exec['payout_r'] - r_pays
+        
+        # 🚀 修正：R黨的結算收益必須包含未發放的預算結餘
+        total_bonus_deduction = game.total_budget * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
+        base_r_surplus = max(0.0, game.total_budget - total_bonus_deduction - proj_fund)
+        unspent_proj = proj_fund * (1.0 - res_exec['h_idx'])
+        
+        # rp_project_net 是 R 黨在該專案的最終獲益 (包含原本省下的預算結餘 + 執行方未達標退回的專案款 - R黨自己掏錢墊付的款項)
+        rp_project_net = base_r_surplus + unspent_proj - r_pays
         
         hp_inc = hp_base + hp_project_net + corr_amt + crony_income
         rp_inc = rp_base + rp_project_net + returned_to_r
@@ -198,8 +208,6 @@ def render(game, cfg):
         f_san_move = (f_target_san - game.sanity) * 0.2
         new_sanity = max(0.0, min(100.0, game.sanity - (new_emotion * 0.02) + f_san_move))
         
-        total_bonus_deduction = game.total_budget * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
-        
         game.last_year_report = {
             'old_gdp': game.gdp, 'old_san': game.sanity, 'old_emo': game.emotion, 'old_budg': game.total_budget, 'old_h_fund': game.h_fund,
             'new_san': new_sanity, 'new_emo': new_emotion,
@@ -221,7 +229,8 @@ def render(game, cfg):
             'hp_penalty': hp_wealth_penalty,
             'corr_caught': corr_caught, 'crony_caught': crony_caught,
             'fine_mult': fine_mult,
-            'proj_fund': proj_fund, 'h_idx': res_exec['h_idx'], 'total_bonus_deduction': total_bonus_deduction
+            'proj_fund': proj_fund, 'h_idx': res_exec['h_idx'], 
+            'total_bonus_deduction': total_bonus_deduction, 'base_r_surplus': base_r_surplus, 'unspent_proj': unspent_proj
         }
         
         game.gdp = res_exec['est_gdp']
@@ -273,10 +282,8 @@ def render(game, cfg):
         with st.expander(f"📊 {rep['r_party_name']} ({t('R-System')}) Surplus & Profit Breakdown"):
             st.write(f"- Base Income (inc. Ruling Bonus): `${rep['r_base']:.1f}`")
             st.write(f"- 📤 Paid R-Subsidy: `-${rep['r_pays']:.1f}`")
-            unspent_proj = rep['proj_fund'] * (1.0 - rep['h_idx'])
-            st.write(f"- 📥 Unspent Project Funds Recovered: `${unspent_proj:.1f}`")
-            base_r_surplus = rep['old_budg'] - rep['total_bonus_deduction'] - rep['proj_fund']
-            st.write(f"- 📥 Regulatory Budget Surplus: `${max(0.0, base_r_surplus):.1f}`")
+            st.write(f"- 📥 Unspent Project Funds Recovered: `${rep['unspent_proj']:.1f}`")
+            st.write(f"- 📥 Regulatory Budget Surplus: `${rep['base_r_surplus']:.1f}`")
             if rep['r_extra'] > 0:
                 st.write(f"- 🏆 Confiscated Illegal Funds from Opponent: `${rep['r_extra']:.1f}`")
             st.write(f"- PR, Operations & Shift Costs: `-${rep['r_pol_cost']:.1f}`")
@@ -286,7 +293,7 @@ def render(game, cfg):
             st.write(f"**💰 Final Net Cash Flow: `${net_cash_r:.1f}`**")
 
         if rep.get('corr_caught'): st.error(t("🚨 Corruption Scandal! Illegal funds seized by R-System. Extra fines applied to Treasury."))
-        if rep.get('crony_caught'): st.error(t("🚨 Cronyism Controversy! Entire contract value reclaimed by R-System. Extra fines applied to Treasury."))
+        if rep.get('crony_caught'): st.error(t("🚨 Cronyism Controversy! Illegal profit seized by R-System. Extra fines applied to Treasury."))
 
     with c2:
         st.markdown(f"### 🧠 {t('Society & Opinion')}")
