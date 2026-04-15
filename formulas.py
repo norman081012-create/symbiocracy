@@ -1,5 +1,6 @@
 # ==========================================
 # formulas.py
+# 負責核心無狀態的純數學模型計算
 # ==========================================
 import math
 import random
@@ -97,42 +98,46 @@ def apply_sanity_filter(raw_support, sanity, emotion, is_preview=False):
 
     return correct_support * sign, wrong_support * sign, correct_prob
 
-def apply_media_spin(blind_support, my_media_power, opp_media_power, is_preview=False):
-    # 🚀 Add Base Noise to ensure smoother media investment curve
-    base_noise = 50.0 
-    total_power = my_media_power + opp_media_power + (base_noise * 2)
-    spin_win_prob = (my_media_power + base_noise) / total_power
+# 🚀 媒體戰重構：真實的搶功與甩鍋
+def apply_media_spin(blind_support, rightful_media, opp_media, is_preview=False):
+    # blind_support 是一群眼盲的選民。
+    # 預設上，他們會把功勞或錯失歸給「錯的人 (Opponent)」。
+    # Rightful Owner 必須花媒體資源把它搶回來；Opponent 則花資源防守或推鍋。
+    base_inertia = 5.0 
+    total_power = rightful_media + opp_media + base_inertia
+    
+    if blind_support >= 0:
+        # 正面政績：Rightful 想要搶回盲目選票
+        move_prob = rightful_media / total_power
+    else:
+        # 負面政績：Opponent 想要把黑鍋推回給 Rightful
+        move_prob = opp_media / total_power
 
     if is_preview:
-        if blind_support >= 0:
-            return blind_support * spin_win_prob, blind_support * (1.0 - spin_win_prob)
-        else:
-            return blind_support * (1.0 - spin_win_prob), blind_support * spin_win_prob
+        goes_to_rightful = blind_support * move_prob
+        stays_with_opp = blind_support * (1.0 - move_prob)
+        return goes_to_rightful, stays_with_opp
 
-    my_spun_support = 0.0
-    opp_spun_support = 0.0
+    goes_to_rightful = 0.0
+    stays_with_opp = 0.0
     sign = 1.0 if blind_support >= 0 else -1.0
     abs_total = abs(blind_support)
     int_parts = int(abs_total)
     remainder = abs_total - int_parts
 
     for _ in range(int_parts):
-        if random.random() < spin_win_prob:
-            if sign > 0: my_spun_support += 1.0
-            else: opp_spun_support -= 1.0 
+        if random.random() < move_prob:
+            goes_to_rightful += 1.0
         else:
-            if sign > 0: opp_spun_support += 1.0
-            else: my_spun_support -= 1.0 
+            stays_with_opp += 1.0
             
     if remainder > 0:
-        if random.random() < spin_win_prob:
-            if sign > 0: my_spun_support += remainder
-            else: opp_spun_support -= remainder
+        if random.random() < move_prob:
+            goes_to_rightful += remainder
         else:
-            if sign > 0: opp_spun_support += remainder
-            else: my_spun_support -= remainder
+            stays_with_opp += remainder
 
-    return my_spun_support, opp_spun_support
+    return goes_to_rightful * sign, stays_with_opp * sign
 
 def calc_incite_success(base_incite_rolls, current_emotion, is_preview=False):
     if is_preview:
@@ -205,22 +210,22 @@ def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, 
     else:
         ruling_media_pwr = r_media_pwr; opp_media_pwr = h_media_pwr
         
-    ruling_spun_plan, opp_spun_plan = apply_media_spin(plan_wrong, ruling_media_pwr, opp_media_pwr, is_preview=True)
-    h_spun_exec, r_spun_exec = apply_media_spin(exec_wrong, h_media_pwr, r_media_pwr, is_preview=True)
+    ruling_reclaimed, opp_kept_plan = apply_media_spin(plan_wrong, ruling_media_pwr, opp_media_pwr, is_preview=True)
+    h_reclaimed_exec, r_kept_exec = apply_media_spin(exec_wrong, h_media_pwr, r_media_pwr, is_preview=True)
 
     if ruling_party_name == hp.name:
-        h_plan_sup = plan_correct + ruling_spun_plan
-        r_plan_sup = opp_spun_plan
+        h_plan_sup = plan_correct + ruling_reclaimed
+        r_plan_sup = opp_kept_plan
     else:
-        r_plan_sup = plan_correct + ruling_spun_plan
-        h_plan_sup = opp_spun_plan
+        r_plan_sup = plan_correct + ruling_reclaimed
+        h_plan_sup = opp_kept_plan
         
-    h_exec_sup = exec_correct + h_spun_exec
-    r_exec_sup = r_spun_exec
+    h_exec_sup = exec_correct + h_reclaimed_exec
+    r_exec_sup = r_kept_exec
 
     return {
-        hp.name: {'perf_gdp': h_plan_sup, 'perf_proj': h_exec_sup, 'spun_gdp': ruling_spun_plan if ruling_party_name == hp.name else opp_spun_plan, 'spun_proj': h_spun_exec},
-        rp.name: {'perf_gdp': r_plan_sup, 'perf_proj': r_exec_sup, 'spun_gdp': ruling_spun_plan if ruling_party_name == rp.name else opp_spun_plan, 'spun_proj': r_spun_exec},
+        hp.name: {'perf_gdp': h_plan_sup, 'perf_proj': h_exec_sup, 'spun_gdp': ruling_reclaimed if ruling_party_name == hp.name else opp_kept_plan, 'spun_proj': h_reclaimed_exec},
+        rp.name: {'perf_gdp': r_plan_sup, 'perf_proj': r_exec_sup, 'spun_gdp': ruling_reclaimed if ruling_party_name == rp.name else opp_kept_plan, 'spun_proj': r_kept_exec},
         'correct_prob': correct_prob,
         'p_plan': p_plan, 'p_exec': p_exec,
         'delta_A': d_a, 'delta_E': d_e, 'delta_C': d_c
