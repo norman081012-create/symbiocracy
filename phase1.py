@@ -1,33 +1,34 @@
 # ==========================================
 # phase1.py
-# Responsible for Phase 1 (Proposals and Negotiations) UI and Logic
+# Handles Phase 1 (Proposal and Negotiation) UI & Logic
 # ==========================================
 import streamlit as st
 import formulas
 import engine
 import ui_core
-import ui_proposal  # Added reference
+import ui_proposal 
 import i18n
 t = i18n.t
 
 def render(game, view_party, cfg):
     penalty_amt = int(game.total_budget * cfg['TRUST_BREAK_PENALTY_RATIO'])
-    st.subheader(t(f"🤝 Phase 1: R-System Proposal (Round: {game.proposal_count})"))
+    st.subheader(t(f"🤝 Phase 1: R-System Proposal (Round: {game.proposal_count})", f"🤝 Phase 1: R-System Proposal (Round: {game.proposal_count})"))
     
     if game.p1_step in ['draft_r', 'draft_h', 'ultimatum_draft_r']:
         active_role = 'R' if game.p1_step in ['draft_r', 'ultimatum_draft_r'] else 'H'
         
         if game.p1_step == 'ultimatum_draft_r':
-            st.error(t("🚨 **Ultimatum Active:** R-System must draft final resolution!"))
+            st.error(t("🚨 **Ultimatum Active:** R-System must draft final resolution!", "🚨 **Ultimatum Active:** R-System must draft final resolution!"))
             
         if view_party.name != (game.r_role_party.name if active_role == 'R' else game.h_role_party.name):
-            st.warning(t(f"⏳ Waiting for opponent's draft..."))
+            st.warning(t(f"⏳ Waiting for opponent's draft...", f"⏳ Waiting for opponent's draft..."))
         else:
+            role_text_zh = 'R-System' if active_role == 'R' else 'H-System'
             role_text_en = 'R-System' if active_role == 'R' else 'H-System'
             
             c_title, c_btn = st.columns([0.8, 0.2])
             with c_title:
-                st.markdown(t(f"#### 📝 {view_party.name} ({role_text_en}) Draft Room"))
+                st.markdown(t(f"#### 📝 {view_party.name} ({role_text_zh}) Draft Room", f"#### 📝 {view_party.name} ({role_text_en}) Draft Room"))
             
             opp_role = 'H' if active_role == 'R' else 'R'
             opp_plan = game.p1_proposals.get(opp_role)
@@ -46,7 +47,7 @@ def render(game, view_party, cfg):
             if widget_cost_key not in st.session_state: st.session_state[widget_cost_key] = tt_cost
 
             with c_btn:
-                if st.button(t("🔄 Auto-Fill"), use_container_width=True):
+                if st.button(t("🔄 Auto-Fill", "🔄 Auto-Fill"), use_container_width=True):
                     st.session_state[widget_decay_key] = tt_decay
                     st.session_state[widget_cost_key] = tt_cost
                     st.rerun()
@@ -54,21 +55,21 @@ def render(game, view_party, cfg):
             c_ann1, c_ann2 = st.columns(2)
             with c_ann1:
                 opp_claimed_decay = opp_plan.get('claimed_decay') if opp_plan else None
-                opp_txt1 = t(f"Opp. Claimed: {opp_claimed_decay:.3f}") if opp_claimed_decay is not None else t("Awaiting Opp.")
+                opp_txt1 = t(f"Opp. Claimed: {opp_claimed_decay:.3f}", f"Opp. Claimed: {opp_claimed_decay:.3f}") if opp_claimed_decay is not None else t("Awaiting Opp.", "Awaiting Opp.")
                 
                 current_val = st.session_state.get(widget_decay_key, tt_decay)
                 conv_rate = cfg.get('GDP_CONVERSION_RATE', 0.2)
                 gdp_loss = game.gdp * (current_val * cfg.get('DECAY_WEIGHT_MULT', 0.05) + cfg.get('BASE_DECAY_RATE', 0.0))
                 req_infra_to_balance = gdp_loss / conv_rate
                 
-                st.markdown(t(f"**Claimed Decay (Current Claim: {current_val:.3f}) (Equivalent to {req_infra_to_balance:.1f} construction amount)** | {opp_txt1}"))
+                st.markdown(t(f"**Claimed Decay (Current: {current_val:.3f}) (Equivalent to {req_infra_to_balance:.1f} infra loss)** | {opp_txt1}", f"**Claimed Decay (Current: {current_val:.3f}) (Equivalent to {req_infra_to_balance:.1f} infra loss)** | {opp_txt1}"))
                 claimed_decay = st.number_input("Claimed Decay", step=0.001, min_value=0.0, key=widget_decay_key, label_visibility="collapsed")
                 st.session_state[input_decay_key] = claimed_decay
                 
             with c_ann2:
                 opp_claimed_cost = opp_plan.get('claimed_cost') if opp_plan else None
-                opp_txt2 = t(f"Opp. Claimed: {opp_claimed_cost:.2f}") if opp_claimed_cost is not None else t("Awaiting Opp.")
-                st.markdown(t(f"**Claimed Unit Cost (Current Claim: {st.session_state.get(widget_cost_key, tt_cost):.2f})** | {opp_txt2}"))
+                opp_txt2 = t(f"Opp. Claimed: {opp_claimed_cost:.2f}", f"Opp. Claimed: {opp_claimed_cost:.2f}") if opp_claimed_cost is not None else t("Awaiting Opp.", "Awaiting Opp.")
+                st.markdown(t(f"**Claimed Unit Cost (Current: {st.session_state.get(widget_cost_key, tt_cost):.2f})** | {opp_txt2}", f"**Claimed Unit Cost (Current: {st.session_state.get(widget_cost_key, tt_cost):.2f})** | {opp_txt2}"))
                 claimed_cost = st.number_input("Claimed Unit Cost", step=0.01, key=widget_cost_key, label_visibility="collapsed")
                 st.session_state[input_cost_key] = claimed_cost
             
@@ -78,9 +79,9 @@ def render(game, view_party, cfg):
             def_bid = float(opp_plan.get('bid_cost', 0.0)) if opp_plan else 0.0
             def_rpays = float(opp_plan.get('r_pays', 0.0)) if opp_plan else 0.0
             
-            proj_fund = st.slider(t("Total Plan Reward (Max=Budget)"), 0.0, max_budget, def_proj, 10.0)
-            bid_cost = st.slider(t("Plan Total Benefit (Construction Volume)"), 0.0, max_budget * 1.5, def_bid, 10.0)
-            r_pays = st.slider(t("💰 R-Pays"), 0.0, max_budget, def_rpays, 10.0)
+            proj_fund = st.slider(t("Total Plan Reward (Max=Budget)", "Total Plan Reward (Max=Budget)"), 0.0, max_budget, def_proj, 10.0)
+            bid_cost = st.slider(t("Plan Total Benefit (Construction Volume)", "Plan Total Benefit (Construction Volume)"), 0.0, max_budget * 1.5, def_bid, 10.0)
+            r_pays = st.slider(t("💰 R-Pays", "💰 R-Pays"), 0.0, max_budget, def_rpays, 10.0)
             
             req_cost = bid_cost * claimed_cost
             h_pays = req_cost - r_pays
@@ -88,11 +89,11 @@ def render(game, view_party, cfg):
             is_invalid = False
             warning_msg = ""
             if proj_fund <= 0:
-                is_invalid = True; warning_msg = t("⚠️ Error: Reward must be > 0!")
+                is_invalid = True; warning_msg = t("⚠️ Error: Reward must be > 0!", "⚠️ Error: Reward must be > 0!")
             elif bid_cost <= 0:
-                is_invalid = True; warning_msg = t("⚠️ Error: Benefit must be > 0!")
+                is_invalid = True; warning_msg = t("⚠️ Error: Benefit must be > 0!", "⚠️ Error: Benefit must be > 0!")
             elif r_pays > req_cost:
-                is_invalid = True; warning_msg = t("⚠️ Error: R-Pays cannot exceed Total Req. Cost!")
+                is_invalid = True; warning_msg = t("⚠️ Error: R-Pays cannot exceed Total Req. Cost!", "⚠️ Error: R-Pays cannot exceed Total Req. Cost!")
 
             r_pct = (r_pays / max(1.0, req_cost)) * 100 if req_cost > 0 else 0
             h_pct = (h_pays / max(1.0, req_cost)) * 100 if req_cost > 0 else 0
@@ -100,7 +101,7 @@ def render(game, view_party, cfg):
             if is_invalid:
                 st.error(warning_msg)
             else:
-                st.markdown(t(f"<h4><span style='font-size: 1.2em; color: {cfg['PARTY_B_COLOR']}'>R-Pays: {r_pays:.1f} ({r_pct:.1f}%)</span> / Req. Cost: {req_cost:.1f} / <span style='font-size: 1.2em; color: {cfg['PARTY_A_COLOR']}'>H-Pays: {h_pays:.1f} ({h_pct:.1f}%)</span></h4>"), unsafe_allow_html=True)
+                st.markdown(t(f"<h4><span style='font-size: 1.2em; color: {cfg['PARTY_B_COLOR']}'>R-Pays: {r_pays:.1f} ({r_pct:.1f}%)</span> / Req. Cost: {req_cost:.1f} / <span style='font-size: 1.2em; color: {cfg['PARTY_A_COLOR']}'>H-Pays: {h_pays:.1f} ({h_pct:.1f}%)</span></h4>", f"<h4><span style='font-size: 1.2em'>R-Pays: {r_pays:.1f} ({r_pct:.1f}%)</span> / Req. Cost: {req_cost:.1f} / <span style='font-size: 1.2em'>H-Pays: {h_pays:.1f} ({h_pct:.1f}%)</span></h4>"), unsafe_allow_html=True)
             
             plan_dict = {
                 'proj_fund': proj_fund, 'bid_cost': bid_cost, 
@@ -111,7 +112,7 @@ def render(game, view_party, cfg):
 
             st.markdown("<br>", unsafe_allow_html=True)
             c_btn1, c_btn2, c_btn3 = st.columns(3)
-            if c_btn1.button(t("📤 Submit Draft"), use_container_width=True, type="primary", disabled=is_invalid):
+            if c_btn1.button(t("📤 Submit Draft", "📤 Submit Draft"), use_container_width=True, type="primary", disabled=is_invalid):
                 if game.p1_step == 'ultimatum_draft_r':
                     game.p1_selected_plan = plan_dict; game.p1_step = 'ultimatum_resolve_h'; game.proposing_party = game.h_role_party
                 else:
@@ -121,81 +122,81 @@ def render(game, view_party, cfg):
                 st.rerun()
                 
             if active_role == 'R' and game.p1_step == 'draft_r':
-                if c_btn2.button(t("💥 Issue Ultimatum"), use_container_width=True, disabled=is_invalid):
+                if c_btn2.button(t("💥 Issue Ultimatum", "💥 Issue Ultimatum"), use_container_width=True, disabled=is_invalid):
                     game.p1_selected_plan = plan_dict
                     game.p1_step = 'ultimatum_resolve_h'
                     game.proposing_party = game.h_role_party
-                    st.session_state.news_flash = t(f"🗞️ **[BREAKING] R-System Ultimatum!** {view_party.name} forces H-System to accept or trigger swap!")
+                    st.session_state.news_flash = t(f"🗞️ **[BREAKING] R-System Ultimatum!** {view_party.name} forces H-System to accept or trigger swap!", f"🗞️ **[BREAKING] R-System Ultimatum!** {view_party.name} forces H-System to accept or trigger swap!")
                     st.rerun()
                 
                 swap_cost = 0 if view_party.name == game.ruling_party.name else penalty_amt
-                if c_btn3.button(t(f"🔄 Force Pass & Swap (Cost: {swap_cost:.1f})"), use_container_width=True, disabled=is_invalid):
+                if c_btn3.button(t(f"🔄 Force Pass & Swap\n(Cost: {swap_cost:.1f} each to charity)", f"🔄 Force Pass & Swap (Cost: {swap_cost:.1f})"), use_container_width=True, disabled=is_invalid):
                     st.session_state.turn_data.update(plan_dict)
-                    engine.trigger_swap(game, swap_cost, t("R-System Forced Takeover!"))
+                    engine.trigger_swap(game, swap_cost, t("R-System Forced Takeover!", "R-System Forced Takeover!"))
                     game.proposing_party = game.ruling_party; st.rerun()
 
             if not is_invalid:
                 st.markdown("---")
-                ui_proposal.render_proposal_component(t('📜 Current Draft Preview'), plan_dict, game, view_party, cfg)
+                ui_proposal.render_proposal_component(t('📜 Current Draft Preview', '📜 Current Draft Preview'), plan_dict, game, view_party, cfg)
 
             if opp_plan:
                 st.markdown("---")
-                ui_proposal.render_proposal_component(t('📜 Opponent Draft Ref.'), opp_plan, game, view_party, cfg)
+                ui_proposal.render_proposal_component(t('📜 Opponent Draft Ref.', '📜 Opponent Draft Ref.'), opp_plan, game, view_party, cfg)
 
     elif game.p1_step == 'voting_pick':
-        st.markdown(t(f"### 🗳️ Ruling Party Decision ({game.ruling_party.name})"))
+        st.markdown(t(f"### 🗳️ Ruling Party Decision ({game.ruling_party.name})", f"### 🗳️ Ruling Party Decision ({game.ruling_party.name})"))
         if view_party.name != game.ruling_party.name:
-            st.warning(t("⏳ Waiting for ruling party..."))
+            st.warning(t("⏳ Waiting for ruling party...", "⏳ Waiting for ruling party..."))
         else:
             for idx, key in enumerate(['R', 'H']):
                 plan = game.p1_proposals.get(key)
-                if plan is None: st.info(t("Waiting for opponent draft...")); continue
+                if plan is None: st.info(t("Waiting for opponent draft...", "Waiting for opponent draft...")); continue
                 st.markdown("---")
-                ui_proposal.render_proposal_component(t('⚖️ R-System Draft') if key=='R' else t('🛡️ H-System Draft'), plan, game, view_party, cfg)
-                if st.button(t(f"✅ Select this draft"), key=f"pick_{key}"):
+                ui_proposal.render_proposal_component(t('⚖️ R-System Draft', '⚖️ R-System Draft') if key=='R' else t('🛡️ H-System Draft', '🛡️ H-System Draft'), plan, game, view_party, cfg)
+                if st.button(t(f"✅ Select this draft", f"✅ Select this draft"), key=f"pick_{key}"):
                     game.p1_selected_plan = plan; game.p1_step = 'voting_confirm'
                     game.proposing_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A; st.rerun()
 
     elif game.p1_step == 'voting_confirm':
-        if view_party.name != game.proposing_party.name: st.warning(t("⏳ Waiting for opponent confirmation..."))
+        if view_party.name != game.proposing_party.name: st.warning(t("⏳ Waiting for opponent confirmation...", "⏳ Waiting for opponent confirmation..."))
         else:
-            ui_proposal.render_proposal_component(t('📜 Draft to Confirm'), game.p1_selected_plan, game, view_party, cfg)
+            ui_proposal.render_proposal_component(t('📜 Draft to Confirm', '📜 Draft to Confirm'), game.p1_selected_plan, game, view_party, cfg)
             st.markdown("---")
             c1, c2, c3, c4 = st.columns(4)
-            if c1.button(t("✅ Agree to Bill"), use_container_width=True, type="primary"):
+            if c1.button(t("✅ Agree to Bill", "✅ Agree to Bill"), use_container_width=True, type="primary"):
                 st.session_state.turn_data.update(game.p1_selected_plan)
-                st.session_state.news_flash = t(f"🗞️ **[BREAKING] Bill Passed!** After {game.proposal_count} rounds, bill is signed.")
+                st.session_state.news_flash = t(f"🗞️ **[BREAKING] Bill Passed!** After {game.proposal_count} rounds, bill is signed.", f"🗞️ **[BREAKING] Bill Passed!** After {game.proposal_count} rounds, bill is signed.")
                 st.session_state.anim = 'balloons'
                 game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
             
-            if c2.button(t("❌ Reject & Renegotiate"), use_container_width=True):
+            if c2.button(t("❌ Reject & Renegotiate", "❌ Reject & Renegotiate"), use_container_width=True):
                 game.proposal_count += 1; game.p1_step = 'draft_r'; game.proposing_party = game.r_role_party; st.rerun()
             
-            if c3.button(t(f"🔄 Agree & Swap\n(Cost: {penalty_amt:.1f})"), use_container_width=True):
+            if c3.button(t(f"🔄 Agree & Swap\n(Cost: {penalty_amt:.1f} each)", f"🔄 Agree & Swap\n(Cost: {penalty_amt:.1f})"), use_container_width=True):
                 st.session_state.turn_data.update(game.p1_selected_plan)
-                engine.trigger_swap(game, penalty_amt, t("Power Shift!"))
+                engine.trigger_swap(game, penalty_amt, t("Power Shift!", "Power Shift!"))
                 game.proposing_party = game.ruling_party; st.rerun()
             
             if game.proposing_party.name == game.h_role_party.name:
-                if c4.button(t("💥 Force Final (Ultimatum)"), use_container_width=True):
-                    st.session_state.news_flash = t(f"🗞️ **[BREAKING] H-System Ultimatum!** R-System has one last chance.")
+                if c4.button(t("💥 Force Final (Ultimatum)", "💥 Force Final (Ultimatum)"), use_container_width=True):
+                    st.session_state.news_flash = t(f"🗞️ **[BREAKING] H-System Ultimatum!** {view_party.name} gives R-System one last chance.", f"🗞️ **[BREAKING] H-System Ultimatum!** R-System has one last chance.")
                     game.p1_step = 'ultimatum_draft_r'; game.proposing_party = game.r_role_party; st.rerun()
 
     elif game.p1_step == 'ultimatum_resolve_h':
-        st.markdown(t("### 🚨 Final Decision (H-System Only)"))
+        st.markdown(t("### 🚨 Final Decision (H-System Only)", "### 🚨 Final Decision (H-System Only)"))
         if view_party.name != game.h_role_party.name: 
-            st.warning(t(f"⏳ Waiting for H-System {game.h_role_party.name}..."))
+            st.warning(t(f"⏳ Waiting for H-System {game.h_role_party.name}...", f"⏳ Waiting for H-System {game.h_role_party.name}..."))
         else:
-            ui_proposal.render_proposal_component(t('📜 R-System Final Ultimatum Draft'), game.p1_selected_plan, game, view_party, cfg)
+            ui_proposal.render_proposal_component(t('📜 R-System Final Ultimatum Draft', '📜 R-System Final Ultimatum Draft'), game.p1_selected_plan, game, view_party, cfg)
             st.markdown("---")
             c1, c2 = st.columns(2)
-            if c1.button(t("✅ Accept Ultimatum"), use_container_width=True, type="primary"):
+            if c1.button(t("✅ Accept Ultimatum", "✅ Accept Ultimatum"), use_container_width=True, type="primary"):
                 st.session_state.turn_data.update(game.p1_selected_plan)
-                st.session_state.news_flash = t(f"🗞️ **[BREAKING] Ultimatum Accepted!** H-System compromises.")
+                st.session_state.news_flash = t(f"🗞️ **[BREAKING] Ultimatum Accepted!** H-System compromises.", f"🗞️ **[BREAKING] Ultimatum Accepted!** H-System compromises.")
                 st.session_state.anim = 'balloons'
                 game.phase = 2; game.proposing_party = game.ruling_party; st.rerun()
                 
-            if c2.button(t(f"🔄 Flip Table & Swap\n(Warning: Cost {penalty_amt:.1f})"), use_container_width=True):
+            if c2.button(t(f"🔄 Flip Table & Swap\n(Warning: Cost {penalty_amt:.1f} each)", f"🔄 Flip Table & Swap\n(Warning: Cost {penalty_amt:.1f})"), use_container_width=True):
                 st.session_state.turn_data.update(game.p1_selected_plan)
-                engine.trigger_swap(game, penalty_amt, t("Cabinet Fall!"))
+                engine.trigger_swap(game, penalty_amt, t("Cabinet Fall!", "Cabinet Fall!"))
                 game.proposing_party = game.r_role_party; st.rerun()
