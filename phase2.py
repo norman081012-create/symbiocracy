@@ -1,6 +1,5 @@
 # ==========================================
 # phase2.py
-# 負責 第二階段 (政策執行與行動選擇) 的 UI 與邏輯
 # ==========================================
 import streamlit as st
 import config
@@ -31,9 +30,7 @@ def render(game, view_party, opponent_party, cfg):
     old_edu = float(view_party.edu_stance)
     
     judicial_lvl = old_jud
-    judicial_cost = 0.0
     new_edu = old_edu
-    edu_shift_cost = 0.0
 
     last_media = min(float(view_party.last_acts.get('media', 0.0)), cw)
     last_camp = min(float(view_party.last_acts.get('camp', 0.0)), cw)
@@ -66,13 +63,11 @@ def render(game, view_party, opponent_party, cfg):
             last_crony = min(float(view_party.last_acts.get('crony_amt', 0.0)), max_crony)
             h_crony_amt = st.slider(t("🏢 Cronyism ($)"), 0.0, max_crony, last_crony, 1.0)
             
-            # 🚀 修正：圖利的 UI 預覽也只針對「利潤」計算風險
             crony_catch_ratio = min(1.0, cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05) * est_catch_mult)
             crony_profit_rate = cfg.get('CRONY_PROFIT_RATE', 0.2)
             
             total_crony_profit = h_crony_amt * crony_profit_rate
             est_crony_caught_profit = total_crony_profit * crony_catch_ratio
-            # 預設圖利被抓的額外罰款為利潤的 1.5 倍 (可以由監管方動態調整，這裡用固定值預覽)
             est_crony_fine = est_crony_caught_profit * 1.5 
             est_net_crony = total_crony_profit - est_crony_caught_profit - est_crony_fine
             
@@ -81,14 +76,23 @@ def render(game, view_party, opponent_party, cfg):
 
         else:
             st.markdown("##### 🎓 Ideology & Media Censorship")
-            judicial_lvl, judicial_cost = ui_core.ability_slider(t("⚖️ Media Censorship (0~100) - Suppress opp. media, polarize opp. voters"), f"up_jud_{view_party.name}_{game.year}", old_jud, cw, cfg, is_jud=True)
-            new_edu, edu_shift_cost = ui_core.ability_slider(t("🎓 Education Policy (Left: Rote | Right: Critical)"), f"up_edu_{view_party.name}_{game.year}", old_edu, cw, cfg, is_edu=True)
+            # 🚀 便宜的二次方維護費邏輯 (Max = 20)
+            judicial_lvl = st.slider(t("⚖️ Media Censorship (0~100)"), 0.0, 100.0, float(old_jud), 1.0)
+            judicial_cost = (judicial_lvl / 10.0) ** 2 * 2.0 
+            
+            # 🚀 每年限制更動 10 級
+            min_edu = max(-100.0, old_edu - 10.0)
+            max_edu = min(100.0, old_edu + 10.0)
+            new_edu = st.slider(t("🎓 Education Policy (Left: Rote | Right: Critical)"), float(min_edu), float(max_edu), float(old_edu), 1.0)
+            edu_maint_cost = (abs(new_edu) / 10.0) ** 2 * 2.0
+            
+            st.caption(f"💰 Maint. Costs: Judicial `${judicial_cost:.1f}` | Education `${edu_maint_cost:.1f}`")
             
         st.markdown("##### 📺 Campaigns & Public Relations")
         st.caption(f"*(Benefits from **{cfg.get('PR_EFFICIENCY_MULT', 3.0)}x** PR conversion efficiency)*")
-        media_amt = st.slider(t("📺 Media Control ($) - Spin attribution & scapegoat"), 0.0, cw, last_media)
-        camp_amt = st.slider(t("🎉 Campaign ($) - Direct public support conversion"), 0.0, cw, last_camp)
-        incite_amt = st.slider(t("🔥 Incite Emotion ($) - Pierce resistance, lower sanity"), 0.0, cw, last_incite)
+        media_amt = st.slider(t("📺 Media Control ($)"), 0.0, cw, last_media)
+        camp_amt = st.slider(t("🎉 Campaign ($)"), 0.0, cw, last_camp)
+        incite_amt = st.slider(t("🔥 Incite Emotion ($)"), 0.0, cw, last_incite)
         
     with c2:
         c_dept1, c_dept2 = st.columns([0.65, 0.35])
@@ -100,9 +104,6 @@ def render(game, view_party, opponent_party, cfg):
             st.session_state[f'up_med_{view_party.name}_{game.year}'] = view_party.media_ability * 10.0
             st.session_state[f'up_stl_{view_party.name}_{game.year}'] = view_party.stealth_ability * 10.0
             st.session_state[f'up_bld_{view_party.name}_{game.year}'] = view_party.build_ability * 10.0
-            if not is_h:
-                st.session_state[f'up_jud_{view_party.name}_{game.year}'] = old_jud
-                st.session_state[f'up_edu_{view_party.name}_{game.year}'] = old_edu
             st.rerun()
 
         t_pre, c_pre = ui_core.ability_slider(t("Think Tank"), f"up_pre_{view_party.name}_{game.year}", view_party.predict_ability, cw, cfg, view_party.build_ability, is_build=False)
@@ -111,16 +112,17 @@ def render(game, view_party, opponent_party, cfg):
         t_stl, c_stl = ui_core.ability_slider(t("Counter-Intel"), f"up_stl_{view_party.name}_{game.year}", view_party.stealth_ability, cw, cfg, view_party.build_ability, is_build=False)
         t_bld, c_bld = ui_core.ability_slider(t("Engineering"), f"up_bld_{view_party.name}_{game.year}", view_party.build_ability, cw, cfg, view_party.build_ability, is_build=True)
 
-    tot_action = media_amt + camp_amt + incite_amt + max(0.0, judicial_cost) + max(0.0, edu_shift_cost)
-    refund_action = abs(min(0.0, judicial_cost)) + abs(min(0.0, edu_shift_cost)) + abs(min(0.0, c_inv)) + abs(min(0.0, c_pre)) + abs(min(0.0, c_med)) + abs(min(0.0, c_stl)) + abs(min(0.0, c_bld))
+    tot_action = media_amt + camp_amt + incite_amt
+    refund_action = abs(min(0.0, c_inv)) + abs(min(0.0, c_pre)) + abs(min(0.0, c_med)) + abs(min(0.0, c_stl)) + abs(min(0.0, c_bld))
     
-    edu_maint_cost = abs(new_edu) * 0.5 if not is_h else 0.0
-    judicial_maint = judicial_lvl * 1.0 if not is_h else 0.0
-    tot_maint = float(max(0.0, c_inv)) + float(max(0.0, c_pre)) + float(max(0.0, c_med)) + float(max(0.0, c_stl)) + float(max(0.0, c_bld)) + edu_maint_cost + judicial_maint
+    edu_maint_cost = (abs(new_edu) / 10.0) ** 2 * 2.0 if not is_h else 0.0
+    judicial_cost = (judicial_lvl / 10.0) ** 2 * 2.0 if not is_h else 0.0
+    
+    tot_maint = float(max(0.0, c_inv)) + float(max(0.0, c_pre)) + float(max(0.0, c_med)) + float(max(0.0, c_stl)) + float(max(0.0, c_bld)) + edu_maint_cost + judicial_cost
     
     tot_spending_now = tot_action + tot_maint - refund_action
     
-    st.write(f"**PR & Shifts:** `{tot_action:.1f}` / **Dept. Maint:** `{tot_maint:.1f}` / **Downgrade Refunds:** `+{refund_action:.1f}` / **Avail. Cash:** `{cw - tot_spending_now:.1f}`")
+    st.write(f"**PR Costs:** `{tot_action:.1f}` / **Dept. Maint:** `{tot_maint:.1f}` / **Downgrade Refunds:** `+{refund_action:.1f}` / **Avail. Cash:** `{cw - tot_spending_now:.1f}`")
     st.info(f"📌 **Legal Promises (`{req_pay:.1f}`) will be deducted from Next Year's Base Income, not current cash.**")
     
     if tot_spending_now > cw:
