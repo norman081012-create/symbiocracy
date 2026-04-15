@@ -1,6 +1,5 @@
 # ==========================================
 # formulas.py
-# Handles Core Stateless Pure Math Model Calculation
 # ==========================================
 import math
 import random
@@ -11,19 +10,17 @@ def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
 def get_ability_maintenance(current_val, cfg, is_build=False, build_ability=0.0):
-    amount = (2**current_val - 1) * 50.0
+    amount = (2**current_val - 1) * 20.0
     max_decay = cfg.get('DECAY_AMOUNT_BUILD', 500.0) if is_build else cfg.get('DECAY_AMOUNT_DEFAULT', 1500.0)
     decay_amt = min(amount, max_decay)
-    # Higher engineering ability provides higher discount on maintenance
     discount_factor = 1.0 / (1.0 + build_ability / 5.0)
     return decay_amt * discount_factor * 0.1
 
 def calc_unit_cost(cfg, gdp, build_abi, decay):
-    # 🚀 Fix: Engineering department 30% actually exerts 60% building efficiency
     effective_build = build_abi * 2.0
     b_norm = max(0.01, effective_build / 10.0)
     inflation = max(0.0, (gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0))
-    base_cost = (0.5 / b_norm) * (2 ** (2 * decay - 1))
+    base_cost = (0.85 / b_norm) * (2 ** (2 * decay - 1))
     return base_cost * (1 + inflation)
 
 def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, corr_amt=0.0, crony_base=0.0, override_unit_cost=None, r_pays=0.0, h_wealth=0.0):
@@ -60,12 +57,13 @@ def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net)
     delta_E = -expected_loss_pct
 
     gap = delta_A - delta_E
-    weight = cfg.get('CLAIMED_DECAY_WEIGHT', 0.2)
-    p_plan = delta_A + gap * weight
+    p_plan = (delta_A * 0.05) + (gap * 0.15)
 
     completion_rate = c_net / max(1.0, float(bid_cost))
     delta_C = (completion_rate - 0.5) * 2.0 
-    p_exec = abs(p_plan) * delta_C
+    
+    target_gdp_growth = (bid_cost * cfg.get('GDP_CONVERSION_RATE', 0.2)) / max(1.0, curr_gdp) * 100.0
+    p_exec = target_gdp_growth * delta_C * 0.1
 
     support_mult = cfg.get('AMMO_MULTIPLIER', 50.0) 
     return p_plan * support_mult, p_exec * support_mult, delta_A, delta_E, delta_C
@@ -99,11 +97,76 @@ def apply_sanity_filter(raw_support, sanity, emotion, is_preview=False):
 
     return correct_support * sign, wrong_support * sign, correct_prob
 
-def get_rigidity(i):
-    x = (i - 100.5) / 99.5
-    return 0.95 * (x**2) + 0.05
+def apply_media_spin(blind_support, my_media_power, opp_media_power, is_preview=False):
+    # 🚀 Add Base Noise to ensure smoother media investment curve
+    base_noise = 50.0 
+    total_power = my_media_power + opp_media_power + (base_noise * 2)
+    spin_win_prob = (my_media_power + base_noise) / total_power
 
-def run_conquest(boundary_B, net_support_A):
+    if is_preview:
+        if blind_support >= 0:
+            return blind_support * spin_win_prob, blind_support * (1.0 - spin_win_prob)
+        else:
+            return blind_support * (1.0 - spin_win_prob), blind_support * spin_win_prob
+
+    my_spun_support = 0.0
+    opp_spun_support = 0.0
+    sign = 1.0 if blind_support >= 0 else -1.0
+    abs_total = abs(blind_support)
+    int_parts = int(abs_total)
+    remainder = abs_total - int_parts
+
+    for _ in range(int_parts):
+        if random.random() < spin_win_prob:
+            if sign > 0: my_spun_support += 1.0
+            else: opp_spun_support -= 1.0 
+        else:
+            if sign > 0: opp_spun_support += 1.0
+            else: my_spun_support -= 1.0 
+            
+    if remainder > 0:
+        if random.random() < spin_win_prob:
+            if sign > 0: my_spun_support += remainder
+            else: opp_spun_support -= remainder
+        else:
+            if sign > 0: opp_spun_support += remainder
+            else: my_spun_support -= remainder
+
+    return my_spun_support, opp_spun_support
+
+def calc_incite_success(base_incite_rolls, current_emotion, is_preview=False):
+    if is_preview:
+        success_rate = (100.0 - current_emotion) / 100.0
+        return base_incite_rolls * success_rate
+
+    successful_incites = 0.0
+    temp_emotion = current_emotion
+    int_rolls = int(base_incite_rolls)
+    
+    for _ in range(int_rolls):
+        if temp_emotion >= 100.0: break
+        success_prob = (100.0 - temp_emotion) / 100.0
+        if random.random() < success_prob:
+            successful_incites += 1.0
+            temp_emotion += 1.0 
+            
+    return successful_incites
+
+def get_rigidity(i, sanity=50.0, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
+    x = (i - 100.5) / 99.5
+    base_rigidity = 0.95 * (x**2) + 0.05
+    cramming_bonus = ((50.0 - min(50.0, sanity)) / 50.0) * 0.15
+    
+    final_rigidity = base_rigidity + cramming_bonus
+    
+    if buff_amt > 0 and buff_party and party_a_name:
+        belongs_to_A = (i <= h_boundary)
+        if (buff_party == party_a_name and belongs_to_A) or (buff_party != party_a_name and not belongs_to_A):
+            final_rigidity += buff_amt
+            
+    return min(1.0, final_rigidity)
+
+def run_conquest(boundary_B, net_support_A, sanity=50.0, buff_amt=0.0, buff_party=None, party_a_name=None):
     B = int(boundary_B)
     support_used = 0.0
     conquered = 0
@@ -114,7 +177,7 @@ def run_conquest(boundary_B, net_support_A):
             sup -= 1.0
             support_used += 1.0
             target = B + 1
-            rigidity = get_rigidity(target)
+            rigidity = get_rigidity(target, sanity, buff_amt, buff_party, boundary_B, party_a_name)
             if random.random() < (1.0 - rigidity):
                 B += 1
                 conquered += 1
@@ -124,27 +187,40 @@ def run_conquest(boundary_B, net_support_A):
             sup -= 1.0
             support_used += 1.0
             target = B
-            rigidity = get_rigidity(target)
+            rigidity = get_rigidity(target, sanity, buff_amt, buff_party, boundary_B, party_a_name)
             if random.random() < (1.0 - rigidity):
                 B -= 1
                 conquered += 1
 
     return B, support_used, conquered
 
-def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net):
+def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net, h_media_pwr=0.0, r_media_pwr=0.0):
     p_plan, p_exec, d_a, d_e, d_c = generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net)
 
     plan_correct, plan_wrong, correct_prob = apply_sanity_filter(p_plan, sanity, emotion, is_preview=True)
     exec_correct, exec_wrong, _ = apply_sanity_filter(p_exec, sanity, emotion, is_preview=True)
+    
+    if ruling_party_name == hp.name:
+        ruling_media_pwr = h_media_pwr; opp_media_pwr = r_media_pwr
+    else:
+        ruling_media_pwr = r_media_pwr; opp_media_pwr = h_media_pwr
+        
+    ruling_spun_plan, opp_spun_plan = apply_media_spin(plan_wrong, ruling_media_pwr, opp_media_pwr, is_preview=True)
+    h_spun_exec, r_spun_exec = apply_media_spin(exec_wrong, h_media_pwr, r_media_pwr, is_preview=True)
 
     if ruling_party_name == hp.name:
-        h_plan_sup = plan_correct; r_plan_sup = plan_wrong
+        h_plan_sup = plan_correct + ruling_spun_plan
+        r_plan_sup = opp_spun_plan
     else:
-        r_plan_sup = plan_correct; h_plan_sup = plan_wrong
+        r_plan_sup = plan_correct + ruling_spun_plan
+        h_plan_sup = opp_spun_plan
+        
+    h_exec_sup = exec_correct + h_spun_exec
+    r_exec_sup = r_spun_exec
 
     return {
-        hp.name: {'perf_gdp': h_plan_sup, 'perf_proj': exec_correct},
-        rp.name: {'perf_gdp': r_plan_sup, 'perf_proj': exec_wrong},
+        hp.name: {'perf_gdp': h_plan_sup, 'perf_proj': h_exec_sup, 'spun_gdp': ruling_spun_plan if ruling_party_name == hp.name else opp_spun_plan, 'spun_proj': h_spun_exec},
+        rp.name: {'perf_gdp': r_plan_sup, 'perf_proj': r_exec_sup, 'spun_gdp': ruling_spun_plan if ruling_party_name == rp.name else opp_spun_plan, 'spun_proj': r_spun_exec},
         'correct_prob': correct_prob,
         'p_plan': p_plan, 'p_exec': p_exec,
         'delta_A': d_a, 'delta_E': d_e, 'delta_C': d_c
