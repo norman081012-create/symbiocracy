@@ -1,6 +1,6 @@
 # ==========================================
 # formulas.py
-# Responsible for core stateless pure mathematical model calculations
+# Handles Core Stateless Pure Math Model Calculation
 # ==========================================
 import math
 import random
@@ -14,21 +14,14 @@ def get_ability_maintenance(current_val, cfg, is_build=False, build_ability=0.0)
     amount = (2**current_val - 1) * 50.0
     max_decay = cfg.get('DECAY_AMOUNT_BUILD', 500.0) if is_build else cfg.get('DECAY_AMOUNT_DEFAULT', 1500.0)
     decay_amt = min(amount, max_decay)
-    discount_factor = 1.0 - (build_ability * 0.02)
-    return decay_amt * max(0.1, discount_factor) * 0.1
-
-def calculate_upgrade_cost(current_val, target_val, cfg, is_build=False, build_ability=0.0):
-    a_c = (2**current_val - 1) * 50.0
-    a_t = (2**target_val - 1) * 50.0
-    max_decay = cfg.get('DECAY_AMOUNT_BUILD', 500.0) if is_build else cfg.get('DECAY_AMOUNT_DEFAULT', 1500.0)
-    a_base = max(0.0, a_c - max_decay)
-    if a_t <= a_base: return 0.0
-    req_amt = a_t - a_base
-    discount_factor = 1.0 - (build_ability * 0.02)
-    return req_amt * max(0.1, discount_factor) * 0.1
+    # Higher engineering ability provides higher discount on maintenance
+    discount_factor = 1.0 / (1.0 + build_ability / 5.0)
+    return decay_amt * discount_factor * 0.1
 
 def calc_unit_cost(cfg, gdp, build_abi, decay):
-    b_norm = max(0.01, build_abi / 10.0)
+    # 🚀 Fix: Engineering department 30% actually exerts 60% building efficiency
+    effective_build = build_abi * 2.0
+    b_norm = max(0.01, effective_build / 10.0)
     inflation = max(0.0, (gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0))
     base_cost = (0.5 / b_norm) * (2 ** (2 * decay - 1))
     return base_cost * (1 + inflation)
@@ -61,99 +54,98 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
         'h_project_profit': h_project_profit, 'req_cost': req_cost
     }
 
-def distribute_points_by_dice(total_points, correct_prob):
-    """
-    Point-by-point rolling mechanism: splits total points into 1 by 1 and rolls based on accuracy probability.
-    Returns: (Points earned by correct attribution, Points earned by wrong attribution)
-    """
-    correct_pts = 0.0
-    wrong_pts = 0.0
-    sign = 1.0 if total_points >= 0 else -1.0
-    abs_total = abs(total_points)
-    int_parts = int(abs_total)
-    remainder = abs_total - int_parts
-    
-    # Roll for each integer point
-    for _ in range(int_parts):
-        if random.random() < correct_prob:
-            correct_pts += 1.0
-        else:
-            wrong_pts += 1.0
-            
-    # Final roll for decimal remainder
-    if remainder > 0:
-        if random.random() < correct_prob:
-            correct_pts += remainder
-        else:
-            wrong_pts += remainder
-            
-    return correct_pts * sign, wrong_pts * sign
+def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net):
+    delta_A = ((new_gdp - curr_gdp) / max(1.0, curr_gdp)) * 100.0
+    expected_loss_pct = (claimed_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE']) * 100.0
+    delta_E = -expected_loss_pct
 
-def calc_performance_amounts(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net, is_preview=True):
-    expected_drop_pct = claimed_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE']
-    expected_drop_amt = curr_gdp * expected_drop_pct
-    actual_drop_amt = curr_gdp - new_gdp
-    perf_const = 0.01 
-    
-    if expected_drop_amt > 0.001:
-        gdp_perf_base = - (actual_drop_amt / expected_drop_amt) * curr_gdp * perf_const
-    else:
-        gdp_perf_base = - actual_drop_amt * perf_const
-        
-    # Voter sanity filter (Correct attribution rate)
+    gap = delta_A - delta_E
+    weight = cfg.get('CLAIMED_DECAY_WEIGHT', 0.2)
+    p_plan = delta_A + gap * weight
+
+    completion_rate = c_net / max(1.0, float(bid_cost))
+    delta_C = (completion_rate - 0.5) * 2.0 
+    p_exec = abs(p_plan) * delta_C
+
+    support_mult = cfg.get('AMMO_MULTIPLIER', 50.0) 
+    return p_plan * support_mult, p_exec * support_mult, delta_A, delta_E, delta_C
+
+def apply_sanity_filter(raw_support, sanity, emotion, is_preview=False):
     crit_think = sanity / 100.0
     emo_val = emotion / 100.0
-    correct_prob = max(0.05, min(0.95, crit_think * (1.0 - emo_val * 0.5))) 
-    
-    shifts = {
-        hp.name: {'perf': 0.0, 'perf_gdp': 0.0, 'perf_proj': 0.0, 'camp': 0.0, 'backlash': 0.0}, 
-        rp.name: {'perf': 0.0, 'perf_gdp': 0.0, 'perf_proj': 0.0, 'camp': 0.0, 'backlash': 0.0}
-    }
-    
-    # 1. Macro-Environment GDP Performance Attribution
-    if is_preview:
-        ruling_gdp_perf = gdp_perf_base * correct_prob
-        exec_wrong_gdp_perf = gdp_perf_base * (1.0 - correct_prob)
-    else:
-        ruling_gdp_perf, exec_wrong_gdp_perf = distribute_points_by_dice(gdp_perf_base, correct_prob)
-        
-    shifts[ruling_party_name]['perf_gdp'] += ruling_gdp_perf
-    shifts[ruling_party_name]['perf'] += ruling_gdp_perf
-    
-    shifts[hp.name]['perf_gdp'] += exec_wrong_gdp_perf
-    shifts[hp.name]['perf'] += exec_wrong_gdp_perf
-    
-    # 2. Project Performance (Labor Bonus) Attribution
-    completion_rate = min(1.0, c_net / max(1.0, bid_cost))
-    project_perf_base = (c_net / max(1.0, curr_gdp)) * 250.0 * completion_rate
-    
-    if is_preview:
-        h_proj_perf = project_perf_base * correct_prob
-        r_wrong_proj_perf = project_perf_base * (1.0 - correct_prob)
-    else:
-        # Correctly attributed to executor, incorrectly judged means free-ride by oversight
-        h_proj_perf, r_wrong_proj_perf = distribute_points_by_dice(project_perf_base, correct_prob)
-        
-    shifts[hp.name]['perf_proj'] += h_proj_perf
-    shifts[hp.name]['perf'] += h_proj_perf
-    
-    shifts[rp.name]['perf_proj'] += r_wrong_proj_perf
-    shifts[rp.name]['perf'] += r_wrong_proj_perf
-    
-    shifts['project_perf'] = project_perf_base
-    shifts['correct_prob'] = correct_prob
-    shifts['h_proj_preview'] = h_proj_perf
-    shifts['r_proj_preview'] = r_wrong_proj_perf
-    
-    return shifts
+    correct_prob = max(0.05, min(0.95, crit_think * (1.0 - emo_val * 0.5)))
 
-def get_formula_explanation(game, view_party, plan, cfg):
-    tt_drop = view_party.current_forecast
-    build_abi = game.h_role_party.build_ability
-    res = calc_economy(cfg, game.gdp, game.total_budget, plan['proj_fund'], plan['bid_cost'], build_abi, tt_drop, r_pays=plan.get('r_pays', 0.0), h_wealth=game.h_role_party.wealth)
-    
-    lines = []
-    lines.append(f"**Our estimation calculation is complete.**")
-    lines.append(f"**Expected GDP Shift:** `{res['est_gdp']:.1f}`")
-    lines.append(f"> Est Construction Net (C_net): {res['c_net']:.1f} / Bid Commitment (Bid_cost): {plan['bid_cost']:.1f}")
-    return lines
+    if is_preview:
+        return raw_support * correct_prob, raw_support * (1.0 - correct_prob), correct_prob
+
+    correct_support = 0.0
+    wrong_support = 0.0
+    sign = 1.0 if raw_support >= 0 else -1.0
+    abs_total = abs(raw_support)
+    int_parts = int(abs_total)
+    remainder = abs_total - int_parts
+
+    for _ in range(int_parts):
+        if random.random() < correct_prob:
+            correct_support += 1.0
+        else:
+            wrong_support += 1.0
+            
+    if remainder > 0:
+        if random.random() < correct_prob:
+            correct_support += remainder
+        else:
+            wrong_support += remainder
+
+    return correct_support * sign, wrong_support * sign, correct_prob
+
+def get_rigidity(i):
+    x = (i - 100.5) / 99.5
+    return 0.95 * (x**2) + 0.05
+
+def run_conquest(boundary_B, net_support_A):
+    B = int(boundary_B)
+    support_used = 0.0
+    conquered = 0
+
+    if net_support_A > 0: 
+        sup = net_support_A
+        while sup >= 1.0 and B < 200:
+            sup -= 1.0
+            support_used += 1.0
+            target = B + 1
+            rigidity = get_rigidity(target)
+            if random.random() < (1.0 - rigidity):
+                B += 1
+                conquered += 1
+    elif net_support_A < 0: 
+        sup = abs(net_support_A)
+        while sup >= 1.0 and B > 0:
+            sup -= 1.0
+            support_used += 1.0
+            target = B
+            rigidity = get_rigidity(target)
+            if random.random() < (1.0 - rigidity):
+                B -= 1
+                conquered += 1
+
+    return B, support_used, conquered
+
+def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net):
+    p_plan, p_exec, d_a, d_e, d_c = generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net)
+
+    plan_correct, plan_wrong, correct_prob = apply_sanity_filter(p_plan, sanity, emotion, is_preview=True)
+    exec_correct, exec_wrong, _ = apply_sanity_filter(p_exec, sanity, emotion, is_preview=True)
+
+    if ruling_party_name == hp.name:
+        h_plan_sup = plan_correct; r_plan_sup = plan_wrong
+    else:
+        r_plan_sup = plan_correct; h_plan_sup = plan_wrong
+
+    return {
+        hp.name: {'perf_gdp': h_plan_sup, 'perf_proj': exec_correct},
+        rp.name: {'perf_gdp': r_plan_sup, 'perf_proj': exec_wrong},
+        'correct_prob': correct_prob,
+        'p_plan': p_plan, 'p_exec': p_exec,
+        'delta_A': d_a, 'delta_E': d_e, 'delta_C': d_c
+    }
