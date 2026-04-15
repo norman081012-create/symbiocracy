@@ -1,5 +1,6 @@
 # ==========================================
 # engine.py
+# Responsible for game engine, party class, and global event trigger logic
 # ==========================================
 import random
 import streamlit as st
@@ -131,6 +132,6 @@ def trigger_swap(game, penalty_amt, msg_prefix="Political Turmoil!"):
     game.swap_triggered_this_year = True
     game.emotion = min(100.0, game.emotion + 30.0) 
     
-    st.session_state.news_flash = f"🗞️ **[BREAKING] {msg_prefix}** Both parties forced to pay {penalty_amt:.1f} to charity, triggering a cabinet swap!"
+    st.session_state.news_flash = f"🗞️ **[BREAKING] {msg_prefix}** Both parties forced to pay {penalty_amt:.1f} to charity, triggering a swap!"
     st.session_state.anim = 'snow'
     game.phase = 2
