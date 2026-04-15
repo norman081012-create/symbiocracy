@@ -1,7 +1,9 @@
 # ==========================================
 # formulas.py
+# Responsible for core stateless pure mathematical model calculations
 # ==========================================
 import math
+import random
 import i18n
 t = i18n.t
 
@@ -12,7 +14,6 @@ def get_ability_maintenance(current_val, cfg, is_build=False, build_ability=0.0)
     amount = (2**current_val - 1) * 50.0
     max_decay = cfg.get('DECAY_AMOUNT_BUILD', 500.0) if is_build else cfg.get('DECAY_AMOUNT_DEFAULT', 1500.0)
     decay_amt = min(amount, max_decay)
-    
     discount_factor = 1.0 - (build_ability * 0.02)
     return decay_amt * max(0.1, discount_factor) * 0.1
 
@@ -20,12 +21,8 @@ def calculate_upgrade_cost(current_val, target_val, cfg, is_build=False, build_a
     a_c = (2**current_val - 1) * 50.0
     a_t = (2**target_val - 1) * 50.0
     max_decay = cfg.get('DECAY_AMOUNT_BUILD', 500.0) if is_build else cfg.get('DECAY_AMOUNT_DEFAULT', 1500.0)
-    
     a_base = max(0.0, a_c - max_decay)
-    
-    if a_t <= a_base:
-        return 0.0
-        
+    if a_t <= a_base: return 0.0
     req_amt = a_t - a_base
     discount_factor = 1.0 - (build_ability * 0.02)
     return req_amt * max(0.1, discount_factor) * 0.1
@@ -38,12 +35,7 @@ def calc_unit_cost(cfg, gdp, build_abi, decay):
 
 def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, corr_amt=0.0, crony_base=0.0, override_unit_cost=None, r_pays=0.0, h_wealth=0.0):
     l_gdp = gdp * (forecast_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
-    
-    if override_unit_cost is not None:
-        unit_cost = override_unit_cost
-    else:
-        unit_cost = calc_unit_cost(cfg, gdp, build_abi, forecast_decay)
-        
+    unit_cost = override_unit_cost if override_unit_cost is not None else calc_unit_cost(cfg, gdp, build_abi, forecast_decay)
     req_cost = bid_cost * unit_cost
     available_fund = max(0.0, proj_fund + r_pays - corr_amt + h_wealth)
     
@@ -59,7 +51,6 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
     payout_h = min(budget_t, proj_fund * h_idx)
     total_bonus_deduction = budget_t * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
     payout_r = max(0.0, budget_t - total_bonus_deduction - proj_fund)
-    
     est_gdp = max(0.0, gdp - l_gdp + (c_net * cfg.get('GDP_CONVERSION_RATE', 0.2)))
     h_project_profit = payout_h + r_pays - act_fund
     
@@ -70,11 +61,38 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
         'h_project_profit': h_project_profit, 'req_cost': req_cost
     }
 
-def calc_performance_amounts(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net):
+def distribute_points_by_dice(total_points, correct_prob):
+    """
+    Point-by-point rolling mechanism: splits total points into 1 by 1 and rolls based on accuracy probability.
+    Returns: (Points earned by correct attribution, Points earned by wrong attribution)
+    """
+    correct_pts = 0.0
+    wrong_pts = 0.0
+    sign = 1.0 if total_points >= 0 else -1.0
+    abs_total = abs(total_points)
+    int_parts = int(abs_total)
+    remainder = abs_total - int_parts
+    
+    # Roll for each integer point
+    for _ in range(int_parts):
+        if random.random() < correct_prob:
+            correct_pts += 1.0
+        else:
+            wrong_pts += 1.0
+            
+    # Final roll for decimal remainder
+    if remainder > 0:
+        if random.random() < correct_prob:
+            correct_pts += remainder
+        else:
+            wrong_pts += remainder
+            
+    return correct_pts * sign, wrong_pts * sign
+
+def calc_performance_amounts(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net, is_preview=True):
     expected_drop_pct = claimed_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE']
     expected_drop_amt = curr_gdp * expected_drop_pct
     actual_drop_amt = curr_gdp - new_gdp
-    
     perf_const = 0.01 
     
     if expected_drop_amt > 0.001:
@@ -82,23 +100,50 @@ def calc_performance_amounts(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, 
     else:
         gdp_perf_base = - actual_drop_amt * perf_const
         
+    # Voter sanity filter (Correct attribution rate)
     crit_think = sanity / 100.0
     emo_val = emotion / 100.0
-    s_filter = max(0.0, min(1.0, crit_think * (1.0 - emo_val * 0.5))) 
+    correct_prob = max(0.05, min(0.95, crit_think * (1.0 - emo_val * 0.5))) 
     
-    shifts = {hp.name: {'perf': 0.0, 'camp': 0.0, 'backlash': 0.0}, 
-              rp.name: {'perf': 0.0, 'camp': 0.0, 'backlash': 0.0}}
-              
-    ruling_gdp_perf = gdp_perf_base * s_filter
-    exec_gdp_perf = gdp_perf_base * (1.0 - s_filter)
+    shifts = {
+        hp.name: {'perf': 0.0, 'perf_gdp': 0.0, 'perf_proj': 0.0, 'camp': 0.0, 'backlash': 0.0}, 
+        rp.name: {'perf': 0.0, 'perf_gdp': 0.0, 'perf_proj': 0.0, 'camp': 0.0, 'backlash': 0.0}
+    }
     
+    # 1. Macro-Environment GDP Performance Attribution
+    if is_preview:
+        ruling_gdp_perf = gdp_perf_base * correct_prob
+        exec_wrong_gdp_perf = gdp_perf_base * (1.0 - correct_prob)
+    else:
+        ruling_gdp_perf, exec_wrong_gdp_perf = distribute_points_by_dice(gdp_perf_base, correct_prob)
+        
+    shifts[ruling_party_name]['perf_gdp'] += ruling_gdp_perf
     shifts[ruling_party_name]['perf'] += ruling_gdp_perf
-    shifts[hp.name]['perf'] += exec_gdp_perf
     
-    project_perf_base = (c_net / max(1.0, bid_cost)) * curr_gdp * perf_const
-    shifts[hp.name]['perf'] += project_perf_base
+    shifts[hp.name]['perf_gdp'] += exec_wrong_gdp_perf
+    shifts[hp.name]['perf'] += exec_wrong_gdp_perf
+    
+    # 2. Project Performance (Labor Bonus) Attribution
+    completion_rate = min(1.0, c_net / max(1.0, bid_cost))
+    project_perf_base = (c_net / max(1.0, curr_gdp)) * 250.0 * completion_rate
+    
+    if is_preview:
+        h_proj_perf = project_perf_base * correct_prob
+        r_wrong_proj_perf = project_perf_base * (1.0 - correct_prob)
+    else:
+        # Correctly attributed to executor, incorrectly judged means free-ride by oversight
+        h_proj_perf, r_wrong_proj_perf = distribute_points_by_dice(project_perf_base, correct_prob)
+        
+    shifts[hp.name]['perf_proj'] += h_proj_perf
+    shifts[hp.name]['perf'] += h_proj_perf
+    
+    shifts[rp.name]['perf_proj'] += r_wrong_proj_perf
+    shifts[rp.name]['perf'] += r_wrong_proj_perf
     
     shifts['project_perf'] = project_perf_base
+    shifts['correct_prob'] = correct_prob
+    shifts['h_proj_preview'] = h_proj_perf
+    shifts['r_proj_preview'] = r_wrong_proj_perf
     
     return shifts
 
@@ -108,7 +153,7 @@ def get_formula_explanation(game, view_party, plan, cfg):
     res = calc_economy(cfg, game.gdp, game.total_budget, plan['proj_fund'], plan['bid_cost'], build_abi, tt_drop, r_pays=plan.get('r_pays', 0.0), h_wealth=game.h_role_party.wealth)
     
     lines = []
-    lines.append(f"**Our estimated calculation is complete.**")
-    lines.append(f"**Expected GDP Change:** `{res['est_gdp']:.1f}`")
-    lines.append(f"> Est. Net Construction (C_net): {res['c_net']:.1f} / Bid Promise (Bid_cost): {plan['bid_cost']:.1f}")
+    lines.append(f"**Our estimation calculation is complete.**")
+    lines.append(f"**Expected GDP Shift:** `{res['est_gdp']:.1f}`")
+    lines.append(f"> Est Construction Net (C_net): {res['c_net']:.1f} / Bid Commitment (Bid_cost): {plan['bid_cost']:.1f}")
     return lines
