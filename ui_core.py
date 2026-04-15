@@ -1,6 +1,6 @@
 # ==========================================
 # ui_core.py
-# Responsible for shared UI rendering, charts, standardized components
+# Handles Shared UI Rendering, Charts, Standardized Components
 # ==========================================
 import streamlit as st
 import random
@@ -57,12 +57,12 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
         gdp_diff = disp_gdp - gdp_base
         gdp_pct = (gdp_diff / max(1.0, gdp_base)) * 100.0
         g_color = "green" if gdp_diff > 0 else "red" if gdp_diff < 0 else "gray"
-        label_gdp = t("Est. GDP") if is_preview else t("Current GDP")
+        label_gdp = t("Expected GDP") if is_preview else t("Current GDP")
         st.markdown(f"**{label_gdp}:** `{disp_gdp:.1f}` <span style='color:{g_color}'>*({gdp_diff:+.1f}, {gdp_pct:+.2f}%)*</span>", unsafe_allow_html=True)
 
     with c2:
         st.markdown(t("### 💰 Executive Resources"))
-        if game.year == 1 and not is_preview: st.info("Reorganizing in the first year, rewards not yet distributed.")
+        if game.year == 1 and not is_preview: st.info("Reorganizing for the first year, rewards not yet distributed.")
         else:
             current_h_ratio = (disp_h_fund / disp_budg) * 100 if disp_budg > 0 else 50
             budg_chg = disp_budg - rep['old_budg'] if rep else 0
@@ -72,15 +72,17 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
 
     with c3:
         fc = view_party.current_forecast
-        acc = min(100, max(0, int((1.0 - (cfg.get('OBS_ERR_BASE', 0.4) / (view_party.predict_ability/3.0))) * 100))) 
-        st.markdown(f"### 🕵️ {t('Think Tank')} {t('Accuracy')}: ~{acc}%")
+        p_acc_weight = cfg.get('PREDICT_ACCURACY_WEIGHT', 0.8)
+        acc = int(((view_party.predict_ability / 10.0) * p_acc_weight) * 100)
+        st.markdown(f"### 🕵️ {t('Think Tank')} {t('Intelligence Forecast')} (Accuracy: {acc}%)")
         
         conv_rate = cfg.get('GDP_CONVERSION_RATE', 0.2)
         gdp_loss = game.gdp * (fc * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
         req_infra_to_balance = gdp_loss / conv_rate
         
         st.write(f"Est. Decay: `{fc:.3f}`")
-        st.write(f"Construction required to balance decay: `{req_infra_to_balance:.1f}`")
+        eval_scenario = config.get_economic_forecast_text(fc * 100)
+        st.info(eval_scenario)
         
         if rep:
             my_is_h = view_party.name == rep['h_party_name']
@@ -90,7 +92,7 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 eval_txt = config.get_thinktank_eval(view_party.predict_ability, diff)
                 st.write(f"({cfg['CALENDAR_NAME']} {game.year-1} Internal Review: **{eval_txt}**)")
         else:
-            st.write("(No historical data from last year for review yet)")
+            st.write("(No historical data from last year for review)")
 
     with c4:
         if game.phase == 1:
@@ -122,9 +124,10 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 st.markdown(f"{t('Our Est Profit')}: **{my_net:.1f}**")
                 st.markdown(f"{t('Opp Est Profit')}: **{opp_net:.1f}**")
                 
-                st.markdown(f"{t('Expected Base Perf (No Media)')}: Us **{preview_data['my_perf']:+.1f}** / Opp **{preview_data['opp_perf']:+.1f}**")
-                if 'project_perf' in preview_data:
-                    st.caption(f"*(Includes execution performance under current H-System corruption settings: `{preview_data['project_perf']:+.1f}`)*")
+                my_perf = preview_data['my_perf_gdp'] + preview_data['my_perf_proj']
+                opp_perf = preview_data['opp_perf_gdp'] + preview_data['opp_perf_proj']
+                st.markdown(f"{t('Est Support Points')}: Us **{my_perf:+.1f}** / Opp **{opp_perf:+.1f}**")
+                
     st.markdown("---")
 
 def render_message_board(game):
@@ -133,10 +136,10 @@ def render_message_board(game):
         st.session_state.news_flash = None
         
     if game.phase == 1:
-        if game.year == 1: st.info("📢 **[Annual Notice]** A new year has begun, the nation awaits rebuilding. Please begin budget and goal negotiations.")
-        elif game.last_year_report: st.info("📢 **[Annual Notice]** A new year has begun. Please begin budget and goal negotiations.")
+        if game.year == 1: st.info("📢 **[Annual Notice]** A new year begins. The country needs rebuilding. Please start budget and target negotiations ASAP.")
+        elif game.last_year_report: st.info("📢 **[Annual Notice]** A new year begins. Please start budget and target negotiations ASAP.")
     elif game.phase == 2:
-        st.info("📢 **[Annual Notice]** The bill has passed. Please allocate party funds for internal upgrades, campaigning, and media warfare.")
+        st.info("📢 **[Annual Notice]** The bill has passed. Please allocate party funds for internal upgrades, campaign rallies, and media operations.")
 
 def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
     st.header(t("👤 Party Overview"))
@@ -150,12 +153,7 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
     </style>
     """, unsafe_allow_html=True)
 
-    a_pts = sum([x['val'] * (1.0 - (x['age']/7.0)) for x in game.support_queues[game.party_A.name]['perf']]) + \
-            sum([x['val'] * (1.0 - (x['age']/3.0)) for x in game.support_queues[game.party_A.name]['camp']]) + 5000.0
-    b_pts = sum([x['val'] * (1.0 - (x['age']/7.0)) for x in game.support_queues[game.party_B.name]['perf']]) + \
-            sum([x['val'] * (1.0 - (x['age']/3.0)) for x in game.support_queues[game.party_B.name]['camp']]) + 5000.0
-
-    for col, party, pts in zip([c1, c2], [view_party, opp], [a_pts if view_party.name == game.party_A.name else b_pts, b_pts if view_party.name == game.party_A.name else a_pts]):
+    for col, party in zip([c1, c2], [view_party, opp]):
         with col:
             is_h = (game.h_role_party.name == party.name)
             role_badge = t("🛡️ [H-System]") if is_h else t("⚖️ [R-System]")
@@ -172,14 +170,14 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
             else:
                 rng = random.Random(f"wealth_{party.name}_{game.year}")
                 opp_stl = party.stealth_ability / 10.0
-                my_inv = view_party.investigate_ability / 10.0
-                err_margin = max(0.0, 1.0 + opp_stl - my_inv) * cfg.get('OBS_ERR_BASE', 0.7)
+                my_inv_raw = view_party.investigate_ability / 10.0
+                err_margin = max(0.0, 1.0 + opp_stl - my_inv_raw) * cfg.get('OBS_ERR_BASE', 0.7)
                 blur = err_margin if not god_mode else 0.0
                 est_wealth = party.wealth * (1 + rng.uniform(-blur, blur))
                 st.markdown(f"### 💰 **{t('Party Wealth')}:** `${est_wealth:.1f}` *({t('Est.')})*")
 
             if is_election_year or god_mode: 
-                disp_sup = f"{party.support:.1f}% 🏆(Elected!)" if is_winner else f"{party.support:.1f}% 💀(Lost)"
+                disp_sup = f"{party.support:.1f}% 🏆(Elected!)" if is_winner else f"{party.support:.1f}% 💀(Defeated)"
             else:
                 if party.latest_poll is not None:
                     best_type = None
@@ -188,10 +186,10 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
                     if best_type:
                         avg = sum(party.poll_history[best_type]) / len(party.poll_history[best_type])
                         count = len(party.poll_history[best_type])
-                        disp_sup = f"{party.latest_poll:.1f}%(Latest Poll) ({count} times {best_type} avg: {avg:.1f}%)"
+                        disp_sup = f"{party.latest_poll:.1f}%(Latest Poll) ({count}x{best_type} Avg: {avg:.1f}%)"
                     else: disp_sup = f"{party.latest_poll:.1f}%(Latest Poll)"
                 else:
-                    disp_sup = "??? (Need to poll)"
+                    disp_sup = "??? (Needs Poll)"
             
             st.markdown(f"### 📊 Support: **{disp_sup}**")
             
@@ -199,7 +197,7 @@ def render_party_cards(game, view_party, god_mode, is_election_year, cfg):
                 b1, b2, b3 = st.columns(3)
                 if b1.button(t("Small Poll ($5)"), key=f"p1_{party.name}"): engine.execute_poll(game, view_party, 5); st.rerun()
                 if b2.button(t("Med Poll ($10)"), key=f"p2_{party.name}"): engine.execute_poll(game, view_party, 10); st.rerun()
-                if b3.button(t("Big Poll ($20)"), key=f"p3_{party.name}"): engine.execute_poll(game, view_party, 20); st.rerun()
+                if b3.button(t("Big Poll ($20)", "Big Poll ($20)"), key=f"p3_{party.name}"): engine.execute_poll(game, view_party, 20); st.rerun()
 
 def get_observed_abilities(viewer, target, game, cfg):
     if viewer.name == target.name or st.session_state.get('god_mode'):
@@ -212,7 +210,9 @@ def get_observed_abilities(viewer, target, game, cfg):
         }
     
     opp_stl = target.stealth_ability / 10.0
-    my_inv = viewer.investigate_ability / 10.0
+    i_acc_weight = cfg.get('INVESTIGATE_ACCURACY_WEIGHT', 0.8)
+    my_inv = (viewer.investigate_ability / 10.0) * i_acc_weight
+    
     err_margin = max(0.0, 1.0 + opp_stl - my_inv) * cfg.get('OBS_ERR_BASE', 0.7)
     
     rng = random.Random(f"intel_{target.name}_{game.year}")
@@ -236,7 +236,9 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.title(t("🕵️ Intelligence - Opponent Stats"))
     
     opp_stl = opp.stealth_ability / 10.0
-    my_inv = view_party.investigate_ability / 10.0
+    i_acc_weight = cfg.get('INVESTIGATE_ACCURACY_WEIGHT', 0.8)
+    my_inv = (view_party.investigate_ability / 10.0) * i_acc_weight
+    
     err_margin = max(0.0, 1.0 + opp_stl - my_inv) * cfg.get('OBS_ERR_BASE', 0.7)
     acc = max(0, min(100, int((1.0 - err_margin) * 100)))
     
@@ -247,11 +249,12 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.write(f"{t('Think Tank')}: {obs_abis['predict']*10:.1f}% | {t('Intelligence')}: {obs_abis['investigate']*10:.1f}%")
     st.write(f"{t('Media Dept')}: {obs_abis['media']*10:.1f}% | {t('Counter-Intel')}: {obs_abis['stealth']*10:.1f}%")
     
-    my_inv_pct = view_party.investigate_ability / 10.0
+    # 🚀 Catching corruption ignores observation weight, uses real ability
+    my_inv_raw_pct = view_party.investigate_ability / 10.0
     r_bonus = cfg['R_INV_BONUS'] if view_party.name == game.r_role_party.name else 1.0
     obs_stl_pct = obs_abis['stealth'] / 10.0
     
-    catch_mult = max(0.1, (my_inv_pct * r_bonus) - obs_stl_pct + 1.0)
+    catch_mult = max(0.1, (my_inv_raw_pct * r_bonus) - obs_stl_pct + 1.0)
     
     def get_catch_prob(c_pct, base_rate):
         rolls = c_pct * catch_mult
@@ -260,8 +263,8 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     catch_10 = get_catch_prob(10.0, cfg['CATCH_RATE_PER_PERCENT'])
     catch_30 = get_catch_prob(30.0, cfg['CATCH_RATE_PER_PERCENT'])
     
-    st.write(f"**{t('Anti-Corruption Estimate')}**: Detection Dice Multiplier `{catch_mult:.2f}x`")
-    st.caption(f"*(If opp. corrupts 10% $\\rightarrow$ catch rate approx `{catch_10:.1f}%` | 30% $\\rightarrow$ `{catch_30:.1f}%`)*")
+    st.write(f"**{t('Anti-Corruption Estimate')}**: Detection Roll Multiplier `{catch_mult:.2f}x`")
+    st.caption(f"*(If Opponent corrupts 10% $\\rightarrow$ Catch Rate ~ `{catch_10:.1f}%` | 30% $\\rightarrow$ `{catch_30:.1f}%`)*")
     st.markdown("<br>", unsafe_allow_html=True)
     
     st.write(f"{t('Engineering')}: {obs_abis['build']*10:.1f}%")
@@ -272,10 +275,10 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     inflation_rate = max(0.0, (game.gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0)) * 100.0
     
     st.write(f"**{t('Construction Valuation')}**: {eval_txt}")
-    st.write(f"*(Est. unit cost: `{est_unit_cost:.2f}` / Includes current inflation `{inflation_rate:.1f}%`)*")
+    st.write(f"*(Est. Unit Cost: `{est_unit_cost:.2f}` / Including Current Inflation `{inflation_rate:.1f}%`)*")
 
     st.markdown("---")
-    st.title(t("🧾 Audit - Internal Dept. Reports"))
+    st.title(t("🧾 Audit - Internal Dept. Investments"))
     st.write(f"**Current Inflation Index:** `{inflation_rate:.1f}%`")
     total_maint = (
         formulas.get_ability_maintenance(view_party.predict_ability, cfg, False, view_party.build_ability) +
@@ -287,29 +290,31 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.write(f"{t('Think Tank')}: {view_party.predict_ability*10:.1f}% | {t('Intelligence')}: {view_party.investigate_ability*10:.1f}%")
     st.write(f"{t('Media Dept')}: {view_party.media_ability*10:.1f}% | {t('Counter-Intel')}: {view_party.stealth_ability*10:.1f}%")
     st.write(f"{t('Engineering')}: {view_party.build_ability*10:.1f}%")
-    st.write(f"**(Based on current dept investments, next yr maint. est.: -${total_maint:.1f})**")
+    st.write(f"**(Based on current dept investments, est. maintenance next year: -${total_maint:.1f})**")
 
 def ability_slider(label, key, current_val, wealth, cfg, build_ability=0.0, is_build=False):
-    a_c = (2**current_val - 1) * 50.0
-    max_decay = cfg.get('DECAY_AMOUNT_BUILD', 500.0) if is_build else cfg.get('DECAY_AMOUNT_DEFAULT', 1500.0)
-    
-    a_base = max(0.0, a_c - max_decay)
-    min_val = math.log2(a_base / 50.0 + 1)
-    
     current_pct = current_val * 10.0
-    min_pct = min_val * 10.0
     
-    t_pct = st.slider(f"{label}", float(min_pct), 100.0, float(current_pct), 0.1, key=key)
-    t_val = t_pct / 10.0
+    # 🚀 Higher Engineering unlocks faster upgrade limits and massive cost reduction
+    max_upgrade = cfg.get('MAX_UPGRADE_SPEED', 20.0) * (1.0 + build_ability / 5.0)
     
-    cost = formulas.calculate_upgrade_cost(current_val, t_val, cfg, is_build, build_ability)
-    maint = formulas.get_ability_maintenance(current_val, cfg, is_build, build_ability)
+    min_pct = max(0.0, current_pct - 20.0)
+    max_pct = min(100.0, current_pct + max_upgrade)
     
-    if t_val > current_val: 
-        st.caption(f"📈 <span style='color:orange'>**{t('Total Expansion Cost')}**: ${cost:.1f}</span> | Ability: {current_pct:.1f}% ➔ {t_pct:.1f}%", unsafe_allow_html=True)
-    elif t_val < current_val: 
-        st.caption(f"📉 <span style='color:blue'>**{t('Allow Decay (Save Funds)')}**</span> | Ability: {current_pct:.1f}% ➔ {t_pct:.1f}% | Cost: ${cost:.1f} *(Saved ${maint - cost:.1f})*", unsafe_allow_html=True)
+    t_pct = st.slider(f"{label}", float(min_pct), float(max_pct), float(current_pct), 0.1, key=key)
+    
+    cost_mult = cfg.get('UPGRADE_COST_MULT', 0.15)
+    discount = 1.0 + build_ability / 5.0
+    
+    if t_pct > current_pct: 
+        cost = ((t_pct**2 - current_pct**2) * cost_mult) / discount
+        st.caption(f"📈 <span style='color:orange'>**{t('Upgrade Investment', 'Upgrade Investment')}**: ${cost:.1f} (Discounted by Engineering)</span>", unsafe_allow_html=True)
+    elif t_pct < current_pct: 
+        refund = ((current_pct**2 - t_pct**2) * cost_mult * 0.5) 
+        cost = -refund
+        st.caption(f"📉 <span style='color:blue'>**{t('Downgrade Refund', 'Downgrade Refund')}**: +${abs(cost):.1f}</span>", unsafe_allow_html=True)
     else: 
-        st.caption(f"🛡️ {t('Stable')} | Ability: {current_pct:.1f}% | {t('Maint')} ${cost:.1f}")
+        cost = 0.0
+        st.caption(f"🛡️ {t('Stable', 'Stable')}")
         
-    return t_val, cost
+    return t_pct / 10.0, cost
