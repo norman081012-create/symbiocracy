@@ -1,5 +1,6 @@
 # ==========================================
 # phase3.py
+# Responsible for Phase 3 (Annual Settlement Report and Visualization)
 # ==========================================
 import streamlit as st
 import random
@@ -8,7 +9,7 @@ import i18n
 t = i18n.t
 
 def render(game, cfg):
-    st.header("⚖️ Phase 3: Annual Report")
+    st.header(t("⚖️ Phase 3: Annual Report"))
     
     if not game.last_year_report:
         rp, hp = game.r_role_party, game.h_role_party
@@ -26,6 +27,11 @@ def render(game, cfg):
         claimed_decay = float(d.get('claimed_decay') or 0.0)
         r_pays = float(d.get('r_pays') or 0.0)
         h_pays = float(d.get('h_pays') or 0.0)
+        
+        h_tot_action = float(ha.get('tot_action') or 0)
+        r_tot_action = float(ra.get('tot_action') or 0)
+        h_tot_maint = float(ha.get('tot_maint') or 0)
+        r_tot_maint = float(ra.get('tot_maint') or 0)
         
         corr_pct_val = float(ha.get('corr') or 0)
         crony_pct_val = float(ha.get('crony') or 0)
@@ -57,11 +63,6 @@ def render(game, cfg):
             crony_base = 0
             crony_income = 0
             
-        h_tot_action = float(ha.get('tot_action') or 0)
-        r_tot_action = float(ra.get('tot_action') or 0)
-        h_tot_maint = float(ha.get('tot_maint') or 0)
-        r_tot_maint = float(ra.get('tot_maint') or 0)
-            
         actual_h_wealth_available = hp.wealth - h_tot_action - h_tot_maint
         res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), corr_amt=corr_amt, r_pays=r_pays, h_wealth=max(0.0, actual_h_wealth_available))
         budg = cfg['BASE_TOTAL_BUDGET'] + (res_exec['est_gdp'] * cfg['HEALTH_MULTIPLIER'])
@@ -75,10 +76,12 @@ def render(game, cfg):
         hp_inc = hp_base + hp_project_net + corr_amt + crony_income
         rp_inc = rp_base + rp_project_net + returned_to_r
         
+        # [Crucial] Pass is_preview=False, triggering the actual point-by-point rolling mechanism!
         shifts = formulas.calc_performance_amounts(
             cfg, hp, rp, game.ruling_party.name, 
             res_exec['est_gdp'], game.gdp, 
-            claimed_decay, game.sanity, game.emotion, bid_cost, res_exec['c_net']
+            claimed_decay, game.sanity, game.emotion, bid_cost, res_exec['c_net'],
+            is_preview=False
         )
         
         h_media = hp.media_ability / 10.0
@@ -103,69 +106,99 @@ def render(game, cfg):
         
         game.last_year_report = {
             'old_gdp': game.gdp, 'old_san': game.sanity, 'old_emo': game.emotion, 'old_budg': game.total_budget, 'old_h_fund': game.h_fund,
-            'h_party_name': hp.name,
+            'new_san': new_sanity, 'new_emo': new_emotion,
+            'h_party_name': hp.name, 'r_party_name': rp.name,
             'shifts': shifts, 
             'h_inc': hp_inc, 'r_inc': rp_inc, 
             'h_base': hp_base, 'r_base': rp_base, 
-            'h_payout': res_exec['payout_h'], 'r_payout': res_exec['payout_r'],
-            'h_act_fund': res_exec['act_fund'],
-            'r_pays': r_pays, 'h_pays': h_pays,
+            'h_project_net': hp_project_net, 'r_project_net': rp_project_net,
             'h_extra': corr_amt + crony_income, 'r_extra': returned_to_r,
             'h_pol_cost': h_tot_action, 'r_pol_cost': r_tot_action,
             'h_maint': h_tot_maint, 'r_maint': r_tot_maint,
             'corr_caught': corr_caught, 'crony_caught': crony_caught
         }
         
-        if game.year % cfg['ELECTION_CYCLE'] == 1:
-            winner = hp if hp.support > rp.support else rp
-            gap = abs(hp.support - rp.support)
-            if gap > 20: msg = f"🎉 **[Election Result: Landslide!]** {winner.name} Party wins overwhelmingly by {gap:.1f}%!"
-            elif gap > 5: msg = f"🎉 **[Election Result: Solid Victory]** {winner.name} Party steadily wins the ruling power!"
-            else: msg = f"🎉 **[Election Result: Narrow Escape]** Election was tight! {winner.name} Party narrowly wins!"
-            
-            st.session_state.news_flash = msg
-            st.session_state.anim = 'balloons'
-            game.ruling_party = winner
-
         game.gdp = res_exec['est_gdp']
+        game.sanity = new_sanity
+        game.emotion = new_emotion
         game.h_fund = res_exec['payout_h']
         game.total_budget = budg + confiscated_to_budget
         
         hp.wealth += hp_inc - h_tot_action - h_tot_maint
         rp.wealth += rp_inc - r_tot_action - r_tot_maint
 
+        if game.year % cfg['ELECTION_CYCLE'] == 1:
+            winner = hp if hp.support > rp.support else rp
+            game.ruling_party = winner
+
         hp.last_acts = ha.copy(); rp.last_acts = ra.copy()
         game.record_history(is_election=(game.year % cfg['ELECTION_CYCLE'] == 1))
     
     rep = game.last_year_report
+    
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("#### 💰 Economy & Finance")
-        st.write(f"GDP Change: `{rep['old_gdp']:.1f} ➔ {game.gdp:.1f}`")
-        if rep.get('corr_caught'): st.error("🚨 Corruption Scandal! H-System corruption caught, illicit funds seized.")
-        if rep.get('crony_caught'): st.error("🚨 Cronyism Controversy! H-System cronyism reported, funds forcibly seized.")
+        st.markdown(f"### 💰 {t('Economy & Finance Settlement')}")
+        st.write(f"**GDP:** `{rep['old_gdp']:.1f}` ➔ `{game.gdp:.1f}`")
+        
+        with st.expander(f"📊 {rep['h_party_name']} ({t('H-System')}) {t('Profit Summary')}"):
+            st.write(f"- {t('Base Funding (inc. Ruling Bonus)')}: `${rep['h_base']:.1f}`")
+            st.write(f"- {t('Project Execution Profit')}: `${rep['h_project_net']:.1f}`")
+            if rep['h_extra'] > 0:
+                st.write(f"- {t('Secret Income (Corruption/Cronyism)')}: `${rep['h_extra']:.1f}`")
+            st.write(f"- {t('Admin & Dept Cost')}: `-${rep['h_pol_cost'] + rep['h_maint']:.1f}`")
+            st.write(f"**{t('Final Net Profit')}: `${rep['h_inc'] - (rep['h_pol_cost'] + rep['h_maint']):.1f}`**")
+
+        with st.expander(f"📊 {rep['r_party_name']} ({t('R-System')}) {t('Profit Summary')}"):
+            st.write(f"- {t('Base Funding (inc. Ruling Bonus)')}: `${rep['r_base']:.1f}`")
+            st.write(f"- {t('Project Oversight Remainder')}: `${rep['r_project_net']:.1f}`")
+            if rep['r_extra'] > 0:
+                st.write(f"- {t('Seized Income/Bounty')}: `${rep['r_extra']:.1f}`")
+            st.write(f"- {t('Admin & Dept Cost')}: `-${rep['r_pol_cost'] + rep['r_maint']:.1f}`")
+            st.write(f"**{t('Final Net Profit')}: `${rep['r_inc'] - (rep['r_pol_cost'] + rep['r_maint']):.1f}`**")
+
+        if rep.get('corr_caught'): st.error(t("🚨 H-System corruption detected! Illegal funds seized and returned to treasury."))
+        if rep.get('crony_caught'): st.error(t("🚨 H-System cronyism detected! Associated funds completely frozen."))
 
     with c2:
-        st.markdown("#### 📈 Support Shifts (Points)")
-        h_shift = rep['shifts'][game.h_role_party.name]
-        r_shift = rep['shifts'][game.r_role_party.name]
+        st.markdown(f"### 🧠 {t('Social Indicators & National Changes')}")
+        s_move = game.sanity - rep['old_san']
+        e_move = game.emotion - rep['old_emo']
         
-        st.write(f"**H-System New Support**:")
-        h_perf_color = "green" if h_shift['perf'] > 0 else "red"
-        h_camp_color = "green" if h_shift['camp'] > 0 else "red"
-        st.markdown(f"- Perf: <span style='color:{h_perf_color}'>**{h_shift['perf']:+.1f} pts**</span> (Duration: 7-yr linear decay)", unsafe_allow_html=True)
-        st.markdown(f"- Momentum: <span style='color:{h_camp_color}'>**{h_shift['camp']:+.1f} pts**</span> (Duration: 3-yr linear decay)", unsafe_allow_html=True)
+        st.write(f"**{t('Civic Literacy (Critical)')}:** `{rep['old_san']:.1f}` ➔ `{game.sanity:.1f}` ({s_move:+.1f})")
+        st.write(f"**{t('Voter Emotion (Volatility)')}:** `{rep['old_emo']:.1f}` ➔ `{game.emotion:.1f}` ({e_move:+.1f})")
         
-        st.write(f"**R-System New Support**:")
-        r_perf_color = "green" if r_shift['perf'] > 0 else "red"
-        r_camp_color = "green" if r_shift['camp'] > 0 else "red"
-        st.markdown(f"- Perf: <span style='color:{r_perf_color}'>**{r_shift['perf']:+.1f} pts**</span> (Duration: 7-yr linear decay)", unsafe_allow_html=True)
-        st.markdown(f"- Momentum: <span style='color:{r_camp_color}'>**{r_shift['camp']:+.1f} pts**</span> (Duration: 3-yr linear decay)", unsafe_allow_html=True)
-        if r_shift['backlash'] != 0:
-            st.write(f"- Censor Backlash: `{r_shift['backlash']:+.1f} pts` (Instant deduction)")
+        st.markdown("---")
+        st.markdown(f"### 📈 {t('Support Attribution Analysis')}")
+        
+        # Display this year's voter literacy level
+        correct_prob = rep['shifts'].get('correct_prob', 0.5)
+        st.caption(f"*(📡 This year's voter correct attribution rate: `{correct_prob*100:.1f}%`)*")
+        
+        for p_name in [rep['h_party_name'], rep['r_party_name']]:
+            is_h = (p_name == rep['h_party_name'])
+            role_label = t("Execution") if is_h else t("Oversight")
+            shift = rep['shifts'][p_name]
+            is_ruling = (p_name == game.ruling_party.name)
+            
+            with st.expander(f"🔎 {p_name} ({role_label}) {t('Support Sources')}"):
+                if is_h:
+                    if shift.get('perf_proj', 0.0) != 0:
+                        st.write(f"- 🏗️ **{t('Project Performance')}**: `{shift.get('perf_proj', 0.0):+.1f}` (Earned fairly by correct attribution)")
+                    if shift.get('perf_gdp', 0.0) != 0:
+                        reason = "Ruling Advantage" if is_ruling else "Voters mistakenly attributed credit to you"
+                        st.write(f"- 🌐 **{t('Macro-Environment Performance')}**: `{shift.get('perf_gdp', 0.0):+.1f}` (From GDP Shift - {reason})")
+                else:
+                    if shift.get('perf_proj', 0.0) != 0:
+                        st.write(f"- 🎁 **{t('Project Performance')}**: `{shift.get('perf_proj', 0.0):+.1f}` (Voter error, free-riding on H-System's hard work)")
+                    if shift.get('perf_gdp', 0.0) != 0:
+                        reason = "Ruling Advantage" if is_ruling else "Voters mistakenly attributed credit to you"
+                        st.write(f"- 🌐 **{t('Macro-Environment Performance')}**: `{shift.get('perf_gdp', 0.0):+.1f}` (From GDP Shift - {reason})")
+                        
+                st.write(f"- 📢 **{t('Media & Campaigns')}**: `{shift['camp']:+.1f}`")
 
     st.markdown("---")
-    if st.button("⏩ Confirm Report & Enter Next Year", type="primary", use_container_width=True):
+    if st.button(t("⏩ Confirm & Next Year"), type="primary", use_container_width=True):
         game.year += 1
         if game.year > cfg['END_YEAR']: game.phase = 4
         else:
