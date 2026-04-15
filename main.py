@@ -1,5 +1,6 @@
 # ==========================================
 # main.py
+# Main Entry Point: Responsible for routing, global initialization, and integration
 # ==========================================
 import ui_formulas
 import streamlit as st
@@ -7,7 +8,7 @@ import random
 import config
 import engine
 import ui_core
-import ui_proposal 
+import ui_proposal  # Added reference
 import phase1
 import phase2
 import phase3
@@ -17,7 +18,7 @@ import i18n
 st.set_page_config(page_title="Symbiocracy Simulator v3.0.0", layout="wide")
 st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
 
-if 'lang' not in st.session_state: st.session_state.lang = 'EN'
+if 'lang' not in st.session_state: st.session_state.lang = 'ZH'
 t = i18n.t
 
 if 'cfg' not in st.session_state: st.session_state.cfg = config.DEFAULT_CONFIG.copy()
@@ -69,7 +70,7 @@ if 'turn_initialized' not in st.session_state:
     st.session_state.turn_initialized = True
     
     if game.year == 1:
-        st.session_state.news_flash = f"🎉 **[Founding Election: Neck and Neck]** Game Starts! {game.ruling_party.name} wins initial ruling power and will allocate national resources!"
+        st.session_state.news_flash = f"🎉 **[Founding Election: Even Match]** Game starts! Party {game.ruling_party.name} gets the initial ruling power and prioritizes allocating national resources!"
 
 view_party = game.proposing_party
 opponent_party = game.party_B if view_party.name == game.party_A.name else game.party_A
@@ -78,17 +79,17 @@ is_election_year = (game.year % cfg['ELECTION_CYCLE'] == 1)
 with st.sidebar:
     ui_core.render_global_settings(cfg, game)
     ui_core.render_sidebar_intel_audit(game, view_party, cfg)
-    god_mode = st.toggle("👁️ God Mode", False)
-    if st.button("🔄 Restart Game", use_container_width=True): st.session_state.clear(); st.rerun()
+    god_mode = st.toggle(t("👁️ God Mode"), False)
+    if st.button(t("🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
 
-st.title("🏛️ Symbiocracy Simulator v3.0.0")
+st.title(t("🏛️ Symbiocracy Simulator v3.0.0"))
 
 elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-st.subheader(f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})")
+st.subheader(t(f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})"))
 
 if god_mode:
     real_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
-    st.error(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Infra loss: {real_loss:.1f})")
+    st.error(t(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Construction loss: {real_loss:.1f})"))
 
 if game.phase == 1 or game.phase == 2:
     if game.phase == 1: ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
