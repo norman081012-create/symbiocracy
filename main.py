@@ -1,6 +1,6 @@
 # ==========================================
 # main.py
-# Main Entry Point: Responsible for routing, global initialization, and integration
+# Main Entry Point: Handles routing, global init & integration
 # ==========================================
 import ui_formulas
 import streamlit as st
@@ -8,7 +8,7 @@ import random
 import config
 import engine
 import ui_core
-import ui_proposal  # Added reference
+import ui_proposal 
 import phase1
 import phase2
 import phase3
@@ -18,7 +18,7 @@ import i18n
 st.set_page_config(page_title="Symbiocracy Simulator v3.0.0", layout="wide")
 st.components.v1.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", height=0)
 
-if 'lang' not in st.session_state: st.session_state.lang = 'ZH'
+if 'lang' not in st.session_state: st.session_state.lang = 'EN'
 t = i18n.t
 
 if 'cfg' not in st.session_state: st.session_state.cfg = config.DEFAULT_CONFIG.copy()
@@ -46,11 +46,13 @@ if game.phase == 4:
 
 if 'turn_initialized' not in st.session_state:
     game.current_real_decay = max(0.0, round(random.uniform(cfg['DECAY_MIN'], cfg['DECAY_MAX']), 3))
-    
     real_infra_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
     
     for p in [game.party_A, game.party_B]:
-        error_range = (cfg['PREDICT_DIFF'] / max(0.1, p.predict_ability)) * (game.gdp * 0.01)
+        # 🚀 Fix: Apply Think Tank weight
+        p_acc_weight = cfg.get('PREDICT_ACCURACY_WEIGHT', 0.8)
+        error_margin_pct = 1.0 - ((p.predict_ability / 10.0) * p_acc_weight)
+        error_range = real_infra_loss * error_margin_pct
         observed_loss = max(0.0, real_infra_loss + random.uniform(-error_range, error_range))
         
         p.current_forecast = max(0.0, round(((observed_loss / max(1.0, game.gdp)) - cfg['BASE_DECAY_RATE']) / cfg['DECAY_WEIGHT_MULT'], 3))
@@ -70,7 +72,7 @@ if 'turn_initialized' not in st.session_state:
     st.session_state.turn_initialized = True
     
     if game.year == 1:
-        st.session_state.news_flash = f"🎉 **[Founding Election: Even Match]** Game starts! Party {game.ruling_party.name} gets the initial ruling power and prioritizes allocating national resources!"
+        st.session_state.news_flash = f"🎉 **[Founding Election: Neck and Neck]** Game Starts! The {game.ruling_party.name} party secures the first term and will prioritize national resource allocation!"
 
 view_party = game.proposing_party
 opponent_party = game.party_B if view_party.name == game.party_A.name else game.party_A
@@ -79,17 +81,18 @@ is_election_year = (game.year % cfg['ELECTION_CYCLE'] == 1)
 with st.sidebar:
     ui_core.render_global_settings(cfg, game)
     ui_core.render_sidebar_intel_audit(game, view_party, cfg)
-    god_mode = st.toggle(t("👁️ God Mode"), False)
-    if st.button(t("🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
+    god_mode = st.toggle(t("👁️ God Mode", "👁️ God Mode"), False)
+    st.session_state.god_mode = god_mode 
+    if st.button(t("🔄 Restart Game", "🔄 Restart Game"), use_container_width=True): st.session_state.clear(); st.rerun()
 
-st.title(t("🏛️ Symbiocracy Simulator v3.0.0"))
+st.title(t("🏛️ Symbiocracy Simulator v3.0.0", "🏛️ Symbiocracy Simulator v3.0.0"))
 
 elec_status = config.get_election_icon(game.year, cfg['ELECTION_CYCLE'])
-st.subheader(t(f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})"))
+st.subheader(t(f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})", f"📅 {cfg['CALENDAR_NAME']} Year {game.year} ({elec_status})"))
 
 if god_mode:
     real_loss = game.gdp * (game.current_real_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
-    st.error(t(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Construction loss: {real_loss:.1f})"))
+    st.error(t(f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Loss of infra: {real_loss:.1f})", f"👁️ **God Mode:** Real decay value is **{game.current_real_decay:.3f}** (Loss of infra: {real_loss:.1f})"))
 
 if game.phase == 1 or game.phase == 2:
     if game.phase == 1: ui_core.render_dashboard(game, view_party, cfg, is_preview=False)
