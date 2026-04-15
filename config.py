@@ -5,11 +5,12 @@ import i18n
 t = i18n.t
 
 DEFAULT_CONFIG = {
-    'CALENDAR_NAME': "Year", 'PARTY_A_COLOR': "#2E8B57", 'PARTY_B_COLOR': "#4169E1",
+    'CALENDAR_NAME': "Star Era", 'PARTY_A_COLOR': "#2E8B57", 'PARTY_B_COLOR': "#4169E1",
     'PARTY_A_NAME': "Prosperity", 'PARTY_B_NAME': "Equity", 
     'CROWN_WINNER': "👑 Ruling", 'CROWN_LOSER': "🎯 Candidate",
     'INITIAL_WEALTH': 1000.0, 'END_YEAR': 12,
     
+    # Real decay random default range 0.1 ~ 1.0
     'DECAY_MIN': 0.1, 'DECAY_MAX': 1.0,  
     'DECAY_WEIGHT_MULT': 0.05,
     'BASE_DECAY_RATE': 0.0,
@@ -49,46 +50,46 @@ DEFAULT_CONFIG = {
 def get_config_translations():
     return {
         'DECAY_MIN': "Min Decay Rate", 'DECAY_MAX': "Max Decay Rate",  
-        'DECAY_WEIGHT_MULT': "Decay GDP Weight (Default 0.05)", 'BASE_DECAY_RATE': "Base Decay Limit",
+        'DECAY_WEIGHT_MULT': "Decay Rate GDP Weight (Default 0.05)", 'BASE_DECAY_RATE': "Min Decay Floor",
         'CATCH_RATE_PER_PERCENT': "Base Catch Rate per % Corruption", 'CRONY_CATCH_RATE_PER_PERCENT': "Base Catch Rate per % Cronyism",
     }
     
 def get_intel_market_eval(unit_cost):
-    if unit_cost < 0.8: return "🌟 Extremely Undervalued (Excess capacity, golden era for construction)"
-    elif unit_cost < 1.2: return "🟢 Stable Market (Balanced supply/demand, costs as expected)"
-    elif unit_cost < 1.8: return "🟡 Inflation Premium (Tight labor/materials, costs rising)"
-    elif unit_cost < 2.5: return "🔴 Overheated Market (High systemic resistance, rapid budget burn)"
-    else: return "💀 Structural Decay (Destructive inflation, pause non-essential development)"
+    if unit_cost < 0.8: return "🌟 Market severely undervalued (Overcapacity, entering absolute construction bonus period)"
+    elif unit_cost < 1.2: return "🟢 Market quotes stable (Supply/demand balanced, construction costs meet expectations)"
+    elif unit_cost < 1.8: return "🟡 Inflation premium emerging (Materials and labor tight, costs rising)"
+    elif unit_cost < 2.5: return "🔴 Market overheating alert (High systemic resistance, rapid budget consumption)"
+    else: return "💀 Economic structure deteriorating (Destructive inflation costs, recommend halting non-essential development)"
 
 def get_economic_forecast_text(drop_val):
-    if drop_val <= 10.0: return "🌟 Excellent (Minimal decline)"
-    elif drop_val <= 30.0: return "📈 Stable Growth (Controlled decline)"
-    elif drop_val <= 50.0: return "⚖️ Stagnant (Facing recession)"
+    if drop_val <= 10.0: return "🌟 Excellent Economy (Minor drop)"
+    elif drop_val <= 30.0: return "📈 Stable Growth (Controllable drop)"
+    elif drop_val <= 50.0: return "⚖️ Flat & Slowing (Facing recession)"
     elif drop_val <= 70.0: return "📉 Recession Alert (Widespread depression)"
     else: return "⚠️ Economic Storm (Systemic collapse)"
 
 def get_civic_index_text(score):
     if score < 15: return f"Highly Gullible ({score:.1f})"
     elif score < 30: return f"Easily Influenced ({score:.1f})"
-    elif score < 45: return f"Slightly Influenced ({score:.1f})"
-    elif score < 60: return f"Moderately Rational ({score:.1f})"
+    elif score < 45: return f"Slightly Gullible ({score:.1f})"
+    elif score < 60: return f"Moderate Rationality ({score:.1f})"
     elif score < 75: return f"Slightly Critical ({score:.1f})"
     elif score < 90: return f"Mature Critical Thinking ({score:.1f})"
-    else: return f"Highly Independent ({score:.1f})"
+    else: return f"Highly Independent Thinking ({score:.1f})"
 
 def get_emotion_text(emotion_val):
-    if emotion_val < 20: return f"Calm & Stable ({emotion_val:.1f})"
+    if emotion_val < 20: return f"Calm ({emotion_val:.1f})"
     elif emotion_val < 50: return f"Slightly Restless ({emotion_val:.1f})"
-    elif emotion_val < 80: return f"Enraged ({emotion_val:.1f})"
+    elif emotion_val < 80: return f"Outraged ({emotion_val:.1f})"
     else: return f"Fanatical ({emotion_val:.1f})"
 
 def get_election_icon(year, cycle):
     rem = year % cycle
     if rem == 1: return "🗳️ Election Year"
-    elif rem == 2: return "🌱 First Year of Term"
-    elif rem == cycle - 1: return "⏳ 2 Years to Election"
+    elif rem == 2: return "🌱 First Year of Admin"
+    elif rem == cycle - 1: return "⏳ 2 Yrs to Election"
     elif rem == 0: return "🚨 Election Next Year"
-    else: return f"⏳ {cycle - rem + 1} Years to Election"
+    else: return f"{cycle - rem + 1} Yrs to Election"
 
 def get_party_logo(name):
     if name == "Prosperity": return "🦅"
@@ -99,14 +100,8 @@ def get_thinktank_eval(ability, diff):
     abi_lvl = "high" if ability >= 7 else "med" if ability >= 4 else "low"
     acc_lvl = "high" if diff <= 5.0 else "med" if diff <= 15.0 else "low" 
     matrix = {
-        ('high', 'high'): "Top-tier performance, perfect prediction",
-        ('high', 'med'): "Slight error, strategically manageable",
-        ('high', 'low'): "Black Swan event! Failed to foresee drastic changes",
-        ('med', 'high'): "Exceptional performance, highly accurate",
-        ('med', 'med'): "Average performance, within expected error margin",
-        ('med', 'low'): "Severe miscalculation, upgrade recommended",
-        ('low', 'high'): "Blind luck, happened to guess correctly",
-        ('low', 'med'): "Acceptable performance, but low reference value",
-        ('low', 'low'): "Complete failure, severely misleading decisions!"
+        ('high', 'high'): "Top performance, perfect prediction", ('high', 'med'): "Slight error, strategically controllable", ('high', 'low'): "Black swan event! Failed to foresee drastic changes",
+        ('med', 'high'): "Over-performed, accurate hit", ('med', 'med'): "Average, error within expectations", ('med', 'low'): "Severe misjudgment, recommend upgrade",
+        ('low', 'high'): "Blind luck, fortuitously guessed correctly", ('low', 'med'): "Passable performance, low reference value", ('low', 'low'): "Completely disabled, severely misleads decisions!"
     }
-    return matrix.get((abi_lvl, acc_lvl), "Operational Anomaly")
+    return matrix.get((abi_lvl, acc_lvl), "Operating abnormally")
