@@ -24,6 +24,7 @@ def render(game, view_party, cfg):
         else:
             role_text_en = 'R-System' if active_role == 'R' else 'H-System'
             
+            # 🚀 罰金方格小型化
             c_title, c_fine, c_btn = st.columns([0.5, 0.3, 0.2])
             with c_title:
                 st.markdown(t(f"#### 📝 {view_party.name} ({role_text_en}) Draft Room"))
@@ -33,10 +34,11 @@ def render(game, view_party, cfg):
             
             with c_fine:
                 if active_role == 'R':
-                    fine_mult = st.number_input(t("⚖️ Fine Multiplier (R Only)"), min_value=0.0, max_value=5.0, value=0.3, step=0.1, help="Extra fine multiplier paid to treasury upon caught corruption.")
+                    # 使用極簡的 number_input
+                    fine_mult = st.number_input(t("⚖️ Judicial Fine Multiplier"), min_value=0.0, max_value=5.0, value=0.3, step=0.1)
                 else:
                     fine_mult = opp_plan.get('fine_mult', 0.3) if opp_plan else 0.3
-                    st.info(f"⚖️ Current Judicial Fine: **{fine_mult}x**")
+                    st.info(f"⚖️ Judicial Fine: **{fine_mult}x**")
             
             input_decay_key = f"ui_decay_val_{game.year}_{active_role}"
             input_cost_key = f"ui_cost_val_{game.year}_{active_role}"
