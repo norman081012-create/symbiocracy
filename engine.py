@@ -1,6 +1,6 @@
+Python
 # ==========================================
 # engine.py
-# Handles Game Engine, Party Classes, and Global Event Logic
 # ==========================================
 import random
 import streamlit as st
@@ -19,6 +19,7 @@ class Party:
         self.media_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.predict_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.stealth_ability = cfg.get('ABILITY_DEFAULT', 3.0)
+        self.edu_stance = 0.0 
         
         self.current_forecast = 0.0
         self.poll_history = {'Small': [], 'Medium': [], 'Large': []}
@@ -52,9 +53,9 @@ class GameEngine:
         self.swap_triggered_this_year = False
         self.last_year_report = None
         
-        # 🚀 Support 2.0 Update: Scrapped the old queue decay, switched to 200-person array border
-        # Initial support is 50% each, so Party A occupies slots 1~100, boundary_B is 100
         self.boundary_B = 100 
+        # 🚀 Store Media Censorship Polarization Buff (lasts 2 years)
+        self.h_rigidity_buff = {'amount': 0.0, 'duration': 0, 'party': None}
 
     def record_history(self, is_election):
         self.history.append({
@@ -64,8 +65,8 @@ class GameEngine:
             'Is_Election': is_election, 'Is_Swap': self.swap_triggered_this_year,
             'Ruling': self.ruling_party.name, 'H_Party': self.h_role_party.name,
             'R_Party': self.r_role_party.name,
-            'A_Edu': float(self.party_A.last_acts.get('edu_amt', 0)),
-            'B_Edu': float(self.party_B.last_acts.get('edu_amt', 0)),
+            'A_Edu': float(self.party_A.last_acts.get('edu_stance', 0)),
+            'B_Edu': float(self.party_B.last_acts.get('edu_stance', 0)),
             'A_Avg_Abi': (self.party_A.build_ability + self.party_A.investigate_ability + self.party_A.media_ability + self.party_A.predict_ability + self.party_A.stealth_ability)/5,
             'B_Avg_Abi': (self.party_B.build_ability + self.party_B.investigate_ability + self.party_B.media_ability + self.party_B.predict_ability + self.party_B.stealth_ability)/5
         })
@@ -91,6 +92,6 @@ def trigger_swap(game, penalty_amt, msg_prefix="Political Turmoil!"):
     game.swap_triggered_this_year = True
     game.emotion = min(100.0, game.emotion + 30.0) 
     
-    st.session_state.news_flash = f"🗞️ **[BREAKING] {msg_prefix}** Both sides forced to pay {penalty_amt:.1f} funds to 3rd party charities, triggering swap!"
+    st.session_state.news_flash = f"🗞️ **[BREAKING] {msg_prefix}** Both parties forced to pay {penalty_amt:.1f} to charities, triggering an immediate Cabinet Swap!"
     st.session_state.anim = 'snow'
     game.phase = 2
