@@ -99,10 +99,14 @@ def render_formula_panel(game, view_party, cfg):
         st.write(f"> **Calc**: (0.85 / `{build_val/10:.2f}{TAG_CFM}`) × 2^(2 × `{decay_val:.3f}{TAG_EST}` - 1) × (1 + `{inflation:.2f} Inf{TAG_CON}`) = **{unit_cost_v:.2f}**")
 
         st.markdown("---")
-        st.markdown("### ⚖️ Linear Confiscation Model (Cronyism)")
+        st.markdown(f"### ⚖️ Fake EV Audit Model ({t('Fake EV Investigation')})")
         
-        st.markdown("**🏢 Expected Cronyism Profit**")
-        st.latex(r"Caught_{crony} = Profit \times \min(1.0, BaseCatch \times CatchMult)")
-        st.latex(r"Net_{crony} = (Profit - Caught_{crony}) - Caught_{crony} \times FineMult")
-        st.write(f"> **Base Crony Rate**: `{cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05)*100:.1f}%`")
-        st.write(f"> **Chunk Mechanics**: Every `10 / Net_Fin_EV` dollars triggers one catch roll.")
+        st.markdown("**🔍 Chunk-based Dice Roll**")
+        st.latex(r"Net\_Fin\_EV = R\_Investigate\_Fin - H\_Hide\_Fin")
+        st.latex(r"ChunkSize = \frac{10}{Net\_Fin\_EV}")
+        st.latex(r"CatchProb = BaseRate \times \max(1.0, Net\_Fin\_EV \times 0.1)")
+        st.write(f"> **Cost of 1 Fake EV**: `{cfg.get('FAKE_EV_COST_RATIO', 0.2)}x Unit Cost`")
+        
+        st.markdown("**💸 Expected Penalties**")
+        st.latex(r"CaughtValue = Caught\_Fake\_EV \times RealUnitCost")
+        st.latex(r"Fine = CaughtValue \times FineMult")
