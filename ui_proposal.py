@@ -1,6 +1,5 @@
 # ==========================================
 # ui_proposal.py
-# 負責 提案草案渲染 (修正換位模擬邏輯與支持度明細)
 # ==========================================
 import streamlit as st
 import formulas
@@ -71,12 +70,12 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     ha = st.session_state.get(f"{sim_h_party.name}_acts", {})
     ra = st.session_state.get(f"{sim_r_party.name}_acts", {})
     
-    sim_judicial_lvl = float(ra.get('judicial_lvl', 0.0))
+    sim_judicial_lvl = float(ra.get('alloc_inv_censor', 0.0))
     h_censor_penalty = max(0.1, 1.0 - (sim_judicial_lvl / 100.0)) 
     
     pr_mult = cfg.get('PR_EFFICIENCY_MULT', 3.0)
-    h_media_pwr = float(ha.get('media', 0.0)) * pr_mult * (sim_h_party.media_ability / 10.0) * cfg.get('H_MEDIA_BONUS', 1.2) * media_multiplier * h_censor_penalty
-    r_media_pwr = float(ra.get('media', 0.0)) * pr_mult * (sim_r_party.media_ability / 10.0) * media_multiplier
+    h_media_pwr = float(ha.get('alloc_med_control', 0.0)) * pr_mult * media_multiplier * h_censor_penalty
+    r_media_pwr = float(ra.get('alloc_med_control', 0.0)) * pr_mult * media_multiplier
     
     shift_preview = formulas.calc_performance_preview(
         cfg, sim_h_party, sim_r_party, sim_ruling_name,
@@ -133,7 +132,7 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     conv_rate = cfg.get('GDP_CONVERSION_RATE', 0.2)
     equiv_infra_loss = (game.gdp * (cl_decay * cfg.get('DECAY_WEIGHT_MULT', 0.05))) / conv_rate
     st.write(f"**{t('Claimed Decay')}:** {cl_decay:.3f} **({t(f'Equivalent to {equiv_infra_loss:.1f} loss')})**")
-    st.write(f"**{t('Total Plan Reward (Max=Budget)')}:** {plan['proj_fund']:.1f} | **{t('Plan Total Benefit (Construction Volume)')}:** {plan['bid_cost']:.1f}")
+    st.write(f"**{t('Total Plan Reward (Max=Budget-Salaries)')}:** {plan['proj_fund']:.1f} | **{t('Plan Total Benefit (Construction Volume)')}:** {plan['bid_cost']:.1f}")
     
     if simulate_swap:
         st.info(f"🔧 **{t('Simulated H-System Pays')}:** {t('Total')} {eval_req_cost:.1f} ({t('R-Pays')}: {eval_r_pays:.1f} | {t('H-Pays')}: {eval_h_pays:.1f})")
