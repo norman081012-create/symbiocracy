@@ -11,11 +11,12 @@ def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
 def calc_unit_cost(cfg, gdp, build_abi, decay):
-    effective_build = build_abi * 2.0
-    b_norm = max(0.01, effective_build / 10.0)
+    # 0 級無折扣 (1.0)，10 級打 5 折 (0.5)
+    discount_factor = 1.0 - (build_abi / 10.0) * 0.5 
     inflation = max(0.0, (gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0))
-    base_cost = (0.85 / b_norm) * (2 ** (2 * decay - 1))
-    return base_cost * (1 + inflation)
+    # Base Cost 移除 b_norm 影響，純靠折數
+    base_cost = 0.85 * (2 ** (2 * decay - 1))
+    return base_cost * discount_factor * (1 + inflation)
 
 def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float, chunk_size: float = 1.0, unit_cost: float = 1.0):
     if total_fake_ev <= 0 or chunk_size <= 0:
@@ -32,7 +33,6 @@ def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float,
     caught_fake_ev = caught_int_amount + caught_remainder
     safe_fake_ev = total_fake_ev - caught_fake_ev
     
-    # 假EV被抓包後，依據「真實單位成本」折算為沒收的現金價值
     caught_value = caught_fake_ev * unit_cost
     fine = caught_value * fine_mult
     
@@ -51,7 +51,6 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
         act_fund = (c_net_real + fake_ev * cfg.get('FAKE_EV_COST_RATIO', 0.2)) * unit_cost
         h_idx = min(1.0, c_net_total / max(1.0, float(bid_cost)))
     else:
-        # Default scenario if no override (AI/baseline check)
         if req_cost <= available_fund:
             act_fund = req_cost
             c_net_real = float(bid_cost)
@@ -67,7 +66,6 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
     total_bonus_deduction = budget_t * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
     payout_r = max(0.0, budget_t - total_bonus_deduction - proj_fund)
     
-    # GDP 成長僅採計「真實 EV (c_net_real)」
     est_gdp = max(0.0, gdp - l_gdp + (c_net_real * cfg.get('GDP_CONVERSION_RATE', 0.2)))
     
     h_project_profit = payout_h + r_pays - act_fund
@@ -87,7 +85,6 @@ def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net_
     gap = delta_A - delta_E
     p_plan = (delta_A * 0.05) + (gap * 0.15)
 
-    # 達標率 (Completion Rate) 採用 c_net_total (包含假 EV)，可騙取執行支持度
     completion_rate = c_net_total / max(1.0, float(bid_cost))
     delta_C = (completion_rate - 0.5) * 2.0 
     
