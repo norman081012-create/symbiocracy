@@ -82,6 +82,7 @@ def render(game, view_party, opponent_party, cfg):
         
         fake_ev = 0.0
         c_net = 0.0
+        is_ev_deficit = False
         
         unit_cost = formulas.calc_unit_cost(cfg, game.gdp, view_party.build_ability, view_party.current_forecast)
         
@@ -91,17 +92,20 @@ def render(game, view_party, opponent_party, cfg):
         st.markdown(f"**💰 {t('Total Available EV')}:** `{total_ev_pool:.1f}` EV")
         
         if is_h:
-            c_net = st.number_input(f"Allocate Real EV to National Project (Target EV: {bid_cost})", min_value=0.0, max_value=float(total_ev_pool), value=float(min(total_ev_pool, bid_cost)))
-            rem_ev_1 = total_ev_pool - c_net
+            # 開放自由輸入專案 EV 與 假 EV (不鎖死最大值，用紅字警告處理)
+            c_net = st.number_input(f"Allocate Real EV to National Project (Target EV: {bid_cost})", min_value=0.0, value=float(min(total_ev_pool, bid_cost)))
             
             fake_ev_cost_ratio = cfg.get('FAKE_EV_COST_RATIO', 0.2)
-            max_fake_ev = rem_ev_1 / fake_ev_cost_ratio
-            
             fake_label = t("Inject Fake EV") + f" (Costs {fake_ev_cost_ratio} EV per 1 Fake EV)"
-            fake_ev = st.number_input(fake_label, min_value=0.0, max_value=float(max_fake_ev), value=float(min(last_acts.get('fake_ev', 0.0), max_fake_ev)))
+            fake_ev = st.number_input(fake_label, min_value=0.0, value=float(last_acts.get('fake_ev', 0.0)))
             
-            rem_ev_2 = rem_ev_1 - (fake_ev * fake_ev_cost_ratio)
-            available_upgrade_ev = rem_ev_2
+            # 扣除專案成本後的可用 EV
+            ev_spent_on_project = c_net + (fake_ev * fake_ev_cost_ratio)
+            available_upgrade_ev = total_ev_pool - ev_spent_on_project
+            
+            if available_upgrade_ev < 0:
+                st.error(f"🚨 **資金不足 (Insufficient Funds)**: 專案分配所需的 EV (`{ev_spent_on_project:.1f}`) 超過了您投入資金產出的可用 EV (`{total_ev_pool:.1f}`)。請增加投入資金或減少專案 EV 分配！")
+                is_ev_deficit = True
         else:
             available_upgrade_ev = total_ev_pool
 
@@ -155,14 +159,14 @@ def render(game, view_party, opponent_party, cfg):
         
         st.write(f"**Total Costs EV:** `{total_maint_cost + total_upgrade_cost:.1f}` (Maint: {total_maint_cost:.1f} + Net Changes: {total_upgrade_cost:.1f})")
         
-        is_invalid = False
+        is_invalid = is_ev_deficit
         if pure_upgrades > eng_limit:
             st.error(f"🚨 Upgrades exceed Engineering Limit! Max upgrade EV allowed: `{eng_limit:.1f}`. (Current pure upgrades: `{pure_upgrades:.1f}`)")
             is_invalid = True
-        elif net_ev < 0:
+        elif net_ev < 0 and not is_ev_deficit:
             st.error(f"🚨 Insufficient EV! Deficit of {-net_ev:.1f} EV. Downgrade departments or inject more Party Wealth.")
             is_invalid = True
-        else:
+        elif not is_invalid:
             if is_h:
                 st.success(f"✅ EV flow is valid. Excess `{net_ev:.1f}` EV will be discarded at year-end.")
             else:
@@ -199,6 +203,7 @@ def render(game, view_party, opponent_party, cfg):
     eval_c_net = float(act_ha.get('c_net', 0))
     eval_fake_ev = float(act_ha.get('fake_ev', 0))
     
+    # Preview using fake_ev to show the false completion rate
     res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(view_party.current_forecast), r_pays=r_pays, h_wealth=expected_h_wealth, c_net_override=eval_c_net, fake_ev=eval_fake_ev)
     
     hp_net_est = h_base_expected + res_prev['h_project_profit']
