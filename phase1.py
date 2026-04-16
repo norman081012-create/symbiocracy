@@ -24,7 +24,6 @@ def render(game, view_party, cfg):
         else:
             role_text_en = 'R-System' if active_role == 'R' else 'H-System'
             
-            # 🚀 罰金方格小型化
             c_title, c_fine, c_btn = st.columns([0.5, 0.3, 0.2])
             with c_title:
                 st.markdown(t(f"#### 📝 {view_party.name} ({role_text_en}) Draft Room"))
@@ -34,7 +33,6 @@ def render(game, view_party, cfg):
             
             with c_fine:
                 if active_role == 'R':
-                    # 使用極簡的 number_input
                     fine_mult = st.number_input(t("⚖️ Judicial Fine Multiplier"), min_value=0.0, max_value=5.0, value=0.3, step=0.1)
                 else:
                     fine_mult = opp_plan.get('fine_mult', 0.3) if opp_plan else 0.3
@@ -81,15 +79,16 @@ def render(game, view_party, cfg):
                 claimed_cost = st.number_input("Claimed Unit Cost", step=0.01, key=widget_cost_key, label_visibility="collapsed")
                 st.session_state[input_cost_key] = claimed_cost
             
-            max_budget = max(10.0, float(game.total_budget))
+            total_bonus_deduction = game.total_budget * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
+            max_proj_fund = max(0.0, float(game.total_budget) - total_bonus_deduction)
             
             def_proj = float(opp_plan.get('proj_fund', 0.0)) if opp_plan else 0.0
             def_bid = float(opp_plan.get('bid_cost', 0.0)) if opp_plan else 0.0
             def_rpays = float(opp_plan.get('r_pays', 0.0)) if opp_plan else 0.0
             
-            proj_fund = st.slider(t("Total Plan Reward (Max=Budget)"), 0.0, max_budget, def_proj, 10.0)
-            bid_cost = st.slider(t("Plan Total Benefit (Construction Volume)"), 0.0, max_budget * 1.5, def_bid, 10.0)
-            r_pays = st.slider(t("💰 R-Pays"), 0.0, max_budget, def_rpays, 10.0)
+            proj_fund = st.slider(t("Total Plan Reward (Max=Budget-Salaries)"), 0.0, max_proj_fund, min(def_proj, max_proj_fund), 10.0)
+            bid_cost = st.slider(t("Plan Total Benefit (Construction Volume)"), 0.0, max_proj_fund * 1.5, def_bid, 10.0)
+            r_pays = st.slider(t("💰 R-Pays"), 0.0, max_proj_fund, def_rpays, 10.0)
             
             req_cost = bid_cost * claimed_cost
             h_pays = req_cost - r_pays
