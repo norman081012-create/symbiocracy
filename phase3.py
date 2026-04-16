@@ -244,4 +244,110 @@ def render(game, cfg):
     st.markdown("---")
     st.markdown("### 🗞️ **[年度頭版頭條]**")
     if rep['caught_fake_ev'] > 0:
-        st.error(f"🚨 **【貪瀆醜聞】豆腐渣工程現形！**\n\n檢調大動作搜索，查獲 `{rep['caught_fake_ev']:.1f}` 單位虛報工程（假 EV）！\n- **{rep['h_party
+        st.error(f"🚨 **【貪瀆醜聞】豆腐渣工程現形！**\n\n檢調大動作搜索，查獲 `{rep['caught_fake_ev']:.1f}` 單位虛報工程（假 EV）！\n- **{rep['h_party_name']}** 遭沒收不法利得 `${rep['caught_value']:.1f}` 並被重罰 `${rep['fine_value']:.1f}`\n- **{rep['r_party_name']}** 獲頒全額查緝獎金 `${rep['caught_value']:.1f}`\n- 國庫進帳懲罰性違約金 `${rep['fine_value']:.1f}`")
+    else:
+        if rep.get('chunk_size', float('inf')) == float('inf'):
+            st.success(f"🕊️ **【粉飾太平】查無不法？**\n\n監管方本年度未深入追查金流，或執行方隱蔽過於高明，所有帳目皆「合法合規」過關。")
+        elif rep.get('fake_ev_attempted', 0) > 0:
+            st.success(f"🎩 **【完美脫身】金流查核過關！**\n\n儘管面臨嚴格查核，執政團隊的「特殊帳目」依然滴水不漏，安然度過危機！")
+        else:
+            st.success(f"🏛️ **【廉能政府】查無不法！**\n\n監管單位翻遍帳本，證實本年度工程皆為真材實料，毫無虛報假帳！")
+            
+    st.markdown("---")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f"### 💰 {t('Economy & Finance')}")
+        st.write(f"**GDP:** `{rep['old_gdp']:.1f}` ➔ `{game.gdp:.1f}`")
+        if rep['fine_value'] > 0:
+            st.success(f"🏛️ 國庫進帳: 次年總預算額外增加 `${rep['fine_value']:.1f}` (來自假 EV 懲罰性違約金)")
+        
+        with st.expander(f"📊 {rep['h_party_name']} ({t('role_exec')}) Project & Profit Breakdown"):
+            st.write(f"- 📥 Received Project Reward: `${rep['payout_h']:.1f}`")
+            st.write(f"- 📥 Received R-Subsidy: `${rep['r_pays']:.1f}`")
+            st.write(f"- 📤 Actual Engineering Cost: `-${rep['act_fund']:.1f}`")
+            st.write(f"**= Net Project Profit: `${rep['h_project_net']:.1f}`**")
+            st.markdown("---")
+            st.write(f"- Base Income (inc. Ruling Bonus): `${rep['h_base']:.1f}`")
+            if rep['caught_fake_ev'] > 0:
+                st.write(f"- 🚨 假 EV 被抓沒收 (撥交監管方): `-${rep['caught_value']:.1f}`")
+                st.write(f"- 🚨 假 EV 懲罰性違約金 (上繳國庫, {rep['fine_mult']}x): `-${rep['fine_value']:.1f}`")
+            st.write(f"- Eng. Invested Wealth: `-${rep['h_invest_wealth']:.1f}`")
+            
+            net_cash = rep['h_project_net'] + rep['h_base'] - rep.get('hp_penalty', 0) - rep['h_invest_wealth']
+            st.write(f"**💰 Final Net Cash Flow: `${net_cash:.1f}`**")
+
+        with st.expander(f"📊 {rep['r_party_name']} ({t('role_reg')}) Surplus & Profit Breakdown"):
+            st.write(f"- Base Income (inc. Ruling Bonus): `${rep['r_base']:.1f}`")
+            st.write(f"- 📤 Paid R-Subsidy: `-${rep['r_pays']:.1f}`")
+            st.write(f"- 📥 Unspent Project Funds Recovered: `${rep['unspent_proj']:.1f}`")
+            st.write(f"- 📥 Regulatory Budget Surplus: `${rep['base_r_surplus']:.1f}`")
+            if rep['r_extra'] > 0: 
+                st.write(f"- 🏆 追回假 EV 貪瀆款項 (From Opponent): `${rep['r_extra']:.1f}`")
+            st.write(f"- Eng. Invested Wealth: `-${rep['r_invest_wealth']:.1f}`")
+            
+            net_cash_r = rep['r_base'] - rep['r_pays'] + rep['unspent_proj'] + rep['base_r_surplus'] + rep['r_extra'] - rep['r_invest_wealth']
+            st.write(f"**💰 Final Net Cash Flow: `${net_cash_r:.1f}`**")
+
+    with c2:
+        st.markdown(f"### 🧠 {t('Society & Opinion')}")
+        s_move = game.sanity - rep['old_san']
+        e_move = game.emotion - rep['old_emo']
+        
+        st.write(f"**{t('Civic Literacy')}:** `{rep['old_san']:.1f}` ➔ `{game.sanity:.1f}` ({s_move:+.1f})")
+        st.write(f"**{t('Voter Emotion')}:** `{rep['old_emo']:.1f}` ➔ `{game.emotion:.1f}` ({e_move:+.1f})")
+        
+        st.markdown("---")
+        st.markdown(f"### ⚔️ Support Shift Resolution")
+        st.caption(f"*(📡 This Year's Rational Attribution Rate: `{rep['correct_prob']*100:.1f}%`)*")
+        
+        if rep['h_spun_exec'] != 0 or rep['r_spun_exec'] != 0:
+            st.info(f"📺 **Media Spin Output:** {rep['h_party_name']} media altered `{rep['h_spun_exec']:+.1f}` support points; {rep['r_party_name']} media altered `{rep['r_spun_exec']:+.1f}` points!")
+            
+        if rep.get('censor_buff', 0) > 0:
+            st.warning(f"⚖️ **Censorship Backlash:** Regulator's forced media suppression enraged `{rep['censor_successes']}` opponent units! Executive's voter rigidity drastically increased by `+{rep['censor_buff']:.3f}` for the next 2 years!")
+
+        with st.expander("👁️ 上帝模式：支持量與板塊戰鬥明細 (God Mode details)"):
+            st.write(f"**{game.party_A.name} Total Support Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Support Force:** `{rep['ammo_B']:.1f}`")
+            net_ammo = rep['net_ammo_A']
+            atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
+            def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
+            
+            if abs(net_ammo) < 1.0: 
+                st.info("🤝 Support forces are deadlocked. No change in the political landscape.")
+            else:
+                st.success(f"**Net Support Advantage:** `{abs(net_ammo):.1f}` points! **{atk_party}** launched an influence wave against **{def_party}**!")
+                blocked_ammo = rep['used_ammo'] - rep['conquered']
+                st.write(f"🛡️ **Voter Rigidity Defense:** `{blocked_ammo:.1f}` impact points were absorbed by entrenched voters! Successful conversion: **{rep['conquered']}** blocs.")
+
+        old_sup_A = rep['old_boundary'] * 0.5
+        new_sup_A = rep['new_boundary'] * 0.5
+        old_sup_B = 100.0 - old_sup_A
+        new_sup_B = 100.0 - new_sup_A
+        
+        st.markdown(f"### 📊 **{game.party_A.name} Support:** `{old_sup_A:.1f}%` ➔ `{new_sup_A:.1f}%` ({new_sup_A - old_sup_A:+.1f}%)")
+        st.markdown(f"### 📊 **{game.party_B.name} Support:** `{old_sup_B:.1f}%` ➔ `{new_sup_B:.1f}%` ({new_sup_B - old_sup_B:+.1f}%)")
+
+    st.markdown("---")
+    if st.button(t("⏩ Confirm Report & Next Year"), type="primary", use_container_width=True):
+        if 'pending_dice_roll' in st.session_state: del st.session_state.pending_dice_roll
+        
+        is_election_end = (game.year % cfg['ELECTION_CYCLE'] == 0)
+        game.year += 1
+        
+        if game.year > cfg['END_YEAR']: game.phase = 4
+        else:
+            game.phase = 1; game.p1_step = 'draft_r'
+            game.p1_proposals = {'R': None, 'H': None}; game.p1_selected_plan = None
+            
+            if is_election_end:
+                game.r_role_party = game.ruling_party
+                game.h_role_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A
+            
+            game.proposing_party = game.r_role_party
+            game.last_year_report = None
+            
+            for k in list(st.session_state.keys()):
+                if k.endswith('_acts') or k.startswith('up_'): del st.session_state[k]
+            if 'turn_initialized' in st.session_state: del st.session_state.turn_initialized
+        st.rerun()
