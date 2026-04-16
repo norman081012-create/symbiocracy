@@ -17,8 +17,8 @@ DEFAULT_CONFIG = {
     'DECAY_AMOUNT_DEFAULT': 1500.0,
     'DECAY_AMOUNT_BUILD': 500.0,
     
-    # Linear Confiscation Core Parameters (Fake EV)
-    'FAKE_EV_CATCH_BASE_RATE': 0.05,      
+    # Fake EV Audit Parameters
+    'FAKE_EV_CATCH_BASE_RATE': 0.10,      
     'FAKE_EV_COST_RATIO': 0.20,            
     'CORRUPTION_FINE_MULT': 0.4,          
     'CATCH_RATE_PER_PERCENT': 0.02,
@@ -31,8 +31,8 @@ DEFAULT_CONFIG = {
     'HEALTH_MULTIPLIER': 0.2, 
     'BASE_TOTAL_BUDGET': 0.0,  
     
-    'BASE_INCOME_RATIO': 0.08,    
-    'RULING_BONUS_RATIO': 0.12,   
+    'BASE_INCOME_RATIO': 0.05,    
+    'RULING_BONUS_RATIO': 0.10,   
     
     'H_FUND_DEFAULT': 600.0, 
     'H_MEDIA_BONUS': 1.2, 'R_INV_BONUS': 1.2,
@@ -49,7 +49,6 @@ DEFAULT_CONFIG = {
     'CLAIMED_DECAY_WEIGHT': 0.2,
     'AMMO_MULTIPLIER': 50.0,
     
-    # Cost Scale Adjustments
     'MAX_UPGRADE_SPEED': 20.0,
     'UPGRADE_COST_MULT': 0.15,      
     'PR_EFFICIENCY_MULT': 3.0,      
