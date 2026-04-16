@@ -76,8 +76,14 @@ def render(game, cfg):
         
         actual_h_wealth_available = max(0.0, hp.wealth + req_cost - float(ha.get('invest_wealth', 0)) - hp_wealth_penalty + hp_base)
         
-        eval_fake_ev = safe_fake_ev if dice_data['is_rolled'] else fake_ev
-        res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), r_pays=r_pays, h_wealth=actual_h_wealth_available, c_net_override=c_net_h, fake_ev=eval_fake_ev)
+        # --- 修正假 EV 的傳遞參數 ---
+        eval_fake_ev_safe = safe_fake_ev if dice_data['is_rolled'] else fake_ev
+        res_exec = formulas.calc_economy(
+            cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, 
+            float(hp.build_ability), float(game.current_real_decay), 
+            r_pays=r_pays, h_wealth=actual_h_wealth_available, 
+            c_net_override=c_net_h, fake_ev_spent=fake_ev, fake_ev_safe=eval_fake_ev_safe
+        )
         
         budg = cfg['BASE_TOTAL_BUDGET'] + (res_exec['est_gdp'] * cfg['HEALTH_MULTIPLIER'])
         
@@ -100,7 +106,6 @@ def render(game, cfg):
         censor_successes = 0; censor_failures = 0
         
         for i in opp_indices:
-            # 修正呼叫：改為 get_spin_rigidity
             rig = formulas.get_spin_rigidity(i, game.sanity, getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), B, game.party_A.name)
             if random.random() > rig: censor_successes += 1
             else: censor_failures += 1
@@ -126,7 +131,6 @@ def render(game, cfg):
         ruling_spun_plan, opp_spun_plan = formulas.apply_media_spin(plan_wrong, ruling_media_pwr, opp_media_pwr)
         h_spun_exec, r_spun_exec = formulas.apply_media_spin(exec_wrong, h_media_pwr, r_media_pwr)
 
-        # ---------------- 分離真實政績與公關火力 ----------------
         perf_A = 0.0; perf_B = 0.0
         spin_A = 0.0; spin_B = 0.0
 
@@ -158,7 +162,6 @@ def render(game, cfg):
         net_spin_A = spin_A - spin_B
         old_boundary = game.boundary_B
         
-        # 🛡️ 雙軌戰鬥結算：傳入分離的火力值
         new_boundary, perf_used, perf_conquered, spin_used, spin_conquered = formulas.run_conquest_split(
             game.boundary_B, net_perf_A, net_spin_A, game.sanity, 
             getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), game.party_A.name
