@@ -36,7 +36,11 @@ class GameEngine:
         self.total_budget = cfg['BASE_TOTAL_BUDGET'] + (self.gdp * cfg['HEALTH_MULTIPLIER'])
         self.h_fund = cfg['H_FUND_DEFAULT']
         
-        self.phase = 1
+        self.phase = 0 # 📌 Phase 0 為遊戲初始設定階段
+        self.is_pve = False
+        self.human_party_name = None
+        self.ai_party_name = None
+
         self.p1_step = 'draft_r' 
         self.p1_proposals = {'R': None, 'H': None}
         self.p1_selected_plan = None
@@ -94,4 +98,3 @@ def trigger_swap(game, penalty_amt, msg_prefix="Political Turmoil!"):
     st.session_state.news_flash = f"🗞️ **[BREAKING] {msg_prefix}** Both parties forced to pay {penalty_amt:.1f} to charities, triggering an immediate Cabinet Swap!"
     st.session_state.anim = 'snow'
     game.phase = 2
-
