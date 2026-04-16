@@ -125,13 +125,23 @@ def render(game, cfg):
         ruling_spun_plan, opp_spun_plan = formulas.apply_media_spin(plan_wrong, ruling_media_pwr, opp_media_pwr)
         h_spun_exec, r_spun_exec = formulas.apply_media_spin(exec_wrong, h_media_pwr, r_media_pwr)
 
-        ammo_A = 0.0; ammo_B = 0.0
+        # ---------------- 分離真實政績與公關火力 ----------------
+        perf_A = 0.0; perf_B = 0.0
+        spin_A = 0.0; spin_B = 0.0
 
-        if ruling_name == game.party_A.name: ammo_A += plan_correct + ruling_spun_plan; ammo_B += opp_spun_plan
-        else: ammo_B += plan_correct + ruling_spun_plan; ammo_A += opp_spun_plan
+        if ruling_name == game.party_A.name: 
+            perf_A += plan_correct; spin_A += ruling_spun_plan
+            spin_B += opp_spun_plan
+        else: 
+            perf_B += plan_correct; spin_B += ruling_spun_plan
+            spin_A += opp_spun_plan
 
-        if hp.name == game.party_A.name: ammo_A += exec_correct + h_spun_exec; ammo_B += r_spun_exec
-        else: ammo_B += exec_correct + h_spun_exec; ammo_A += r_spun_exec
+        if hp.name == game.party_A.name: 
+            perf_A += exec_correct; spin_A += h_spun_exec
+            spin_B += r_spun_exec
+        else: 
+            perf_B += exec_correct; spin_B += h_spun_exec
+            spin_A += r_spun_exec
             
         def get_camp_pwr(alloc, san, emo, edu_stance):
             rote_factor = max(0.0, -edu_stance / 100.0)
@@ -140,13 +150,18 @@ def render(game, cfg):
         h_camp_pwr = get_camp_pwr(float(ha.get('alloc_med_camp', 0.0)), game.sanity, game.emotion, hp.edu_stance)
         r_camp_pwr = get_camp_pwr(float(ra.get('alloc_med_camp', 0.0)), game.sanity, game.emotion, rp.edu_stance)
 
-        if hp.name == game.party_A.name: ammo_A += h_camp_pwr; ammo_B += r_camp_pwr
-        else: ammo_B += h_camp_pwr; ammo_A += r_camp_pwr
+        if hp.name == game.party_A.name: spin_A += h_camp_pwr; spin_B += r_camp_pwr
+        else: spin_B += h_camp_pwr; spin_A += r_camp_pwr
 
-        net_ammo_A = ammo_A - ammo_B
+        net_perf_A = perf_A - perf_B
+        net_spin_A = spin_A - spin_B
         old_boundary = game.boundary_B
         
-        new_boundary, used_ammo, conquered = formulas.run_conquest(game.boundary_B, net_ammo_A, game.sanity, getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), game.party_A.name)
+        # 執行分開結算 (真實傷害無視防禦，公關傷害受防禦)
+        new_boundary, perf_used, perf_conquered, spin_used, spin_conquered = formulas.run_conquest_split(
+            game.boundary_B, net_perf_A, net_spin_A, game.sanity, 
+            getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), game.party_A.name
+        )
         
         game.boundary_B = new_boundary
         game.party_A.support = new_boundary * 0.5
@@ -168,8 +183,11 @@ def render(game, cfg):
             'new_san': new_sanity, 'new_emo': new_emotion,
             'h_party_name': hp.name, 'r_party_name': rp.name,
             'raw_p_plan': raw_p_plan, 'raw_p_exec': raw_p_exec,
-            'ammo_A': ammo_A, 'ammo_B': ammo_B, 'net_ammo_A': net_ammo_A,
-            'old_boundary': old_boundary, 'new_boundary': new_boundary, 'used_ammo': used_ammo, 'conquered': conquered,
+            'perf_A': perf_A, 'perf_B': perf_B, 'net_perf_A': net_perf_A,
+            'spin_A': spin_A, 'spin_B': spin_B, 'net_spin_A': net_spin_A,
+            'perf_used': perf_used, 'perf_conquered': perf_conquered,
+            'spin_used': spin_used, 'spin_conquered': spin_conquered,
+            'old_boundary': old_boundary, 'new_boundary': new_boundary, 
             'correct_prob': correct_prob,
             'h_spun_exec': h_spun_exec, 'r_spun_exec': r_spun_exec, 
             'censor_successes': censor_successes, 'censor_failures': censor_failures, 'censor_emotion_add': censor_emotion_add, 'censor_buff': censor_rigidity_buff,
@@ -287,8 +305,7 @@ def render(game, cfg):
     with c2:
         st.markdown(f"### 🗳️ ELECTORAL SHIFT (Support Force)")
         
-        st.write(f"**{game.party_A.name} Total Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Force:** `{rep['ammo_B']:.1f}`")
-        net_ammo = rep['net_ammo_A']
+        net_ammo = rep['net_ammo_A'] + rep['net_spin_A']
         atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
         def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
         
@@ -300,13 +317,17 @@ def render(game, cfg):
         if st.session_state.get('god_mode'):
             with st.expander("👁️ God Mode: Electoral Mechanics & True Support", expanded=True):
                 st.write(f"*(Attribution Rate: `{rep['correct_prob']*100:.1f}%`)*")
-                if rep['h_spun_exec'] != 0 or rep['r_spun_exec'] != 0:
-                    st.info(f"Media Spin: {rep['h_party_name']} ({rep['h_spun_exec']:+.1f}), {rep['r_party_name']} ({rep['r_spun_exec']:+.1f})")
-                if rep.get('censor_buff', 0) > 0:
-                    st.warning(f"Censorship Backlash: {rep['censor_successes']} units enraged! Exec rigidity +`{rep['censor_buff']:.3f}`.")
-
-                blocked_ammo = rep['used_ammo'] - rep['conquered']
-                st.write(f"🛡️ Voter Armor absorbed `{blocked_ammo:.1f}` impact points. Conquered: **{rep['conquered']}** blocs.")
+                
+                st.markdown(f"**Performance (True Damage)**: {game.party_A.name} `{rep['perf_A']:.1f}` | {game.party_B.name} `{rep['perf_B']:.1f}`")
+                if abs(rep['net_perf_A']) >= 1.0:
+                    atk_p = game.party_A.name if rep['net_perf_A'] > 0 else game.party_B.name
+                    st.success(f"⚡ {atk_p} dealt `{rep['perf_used']:.1f}` unblockable impact, conquering **{rep['perf_conquered']}** blocs!")
+                    
+                st.markdown(f"**Media & Spin (Blockable)**: {game.party_A.name} `{rep['spin_A']:.1f}` | {game.party_B.name} `{rep['spin_B']:.1f}`")
+                if abs(rep['net_spin_A']) >= 1.0:
+                    atk_s = game.party_A.name if rep['net_spin_A'] > 0 else game.party_B.name
+                    blocked = rep['spin_used'] - rep['spin_conquered']
+                    st.warning(f"🛡️ Voter Sanity Armor absorbed `{blocked:.1f}` spin impact. {atk_s} conquered **{rep['spin_conquered']}** blocs.")
 
                 old_sup_A = rep['old_boundary'] * 0.5
                 new_sup_A = rep['new_boundary'] * 0.5
