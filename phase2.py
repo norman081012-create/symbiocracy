@@ -18,6 +18,7 @@ def render(game, view_party, opponent_party, cfg):
     req_cost = float(d.get('req_cost', 0.0))
     bid_cost = float(d.get('bid_cost', 1.0))
     
+    # 執行方 (H-System) 的資金為 黨產 + 專案需求金 (Req. Cost)
     if is_h: cw = float(view_party.wealth) + req_cost
     else: cw = float(view_party.wealth)
     
@@ -79,31 +80,28 @@ def render(game, view_party, opponent_party, cfg):
     with c2:
         st.markdown(t("#### 🔒 Financial & Engineering (EV)"))
         
-        h_crony_amt = 0.0
-        invest_wealth = 0.0
-        total_ev = 0.0
+        fake_ev = 0.0
         c_net = 0.0
         
         unit_cost = formulas.calc_unit_cost(cfg, game.gdp, view_party.build_ability, view_party.current_forecast)
         
+        invest_wealth = st.number_input(t("Invest Funds into Engineering ($)"), min_value=0.0, max_value=float(cw), value=float(min(req_cost, cw) if is_h else 0.0))
+        total_ev_pool = invest_wealth / max(0.01, unit_cost)
+        
+        st.markdown(f"**💰 {t('Total Available EV')}:** `{total_ev_pool:.1f}` EV")
+        
         if is_h:
-            invest_wealth = st.number_input(t("Invest Party Wealth into Engineering ($)"), min_value=0.0, max_value=float(view_party.wealth), value=min(req_cost, float(view_party.wealth)))
-            crony_max = min(invest_wealth, req_cost)
-            h_crony_amt = st.number_input(t("Cronyism ($)"), min_value=0.0, max_value=float(crony_max), value=float(min(last_acts.get('crony_amt', 0.0), crony_max)))
+            c_net = st.number_input(f"Allocate Real EV to National Project (Target EV: {bid_cost})", min_value=0.0, max_value=float(total_ev_pool), value=float(min(total_ev_pool, bid_cost)))
+            rem_ev_1 = total_ev_pool - c_net
             
-            total_money = invest_wealth - h_crony_amt
-            total_ev = total_money / max(0.01, unit_cost)
+            fake_ev_cost_ratio = cfg.get('FAKE_EV_COST_RATIO', 0.2)
+            max_fake_ev = rem_ev_1 / fake_ev_cost_ratio
+            fake_ev = st.number_input(t(f"Inject Fake EV (Costs {fake_ev_cost_ratio} EV per 1 Fake EV)"), min_value=0.0, max_value=float(max_fake_ev), value=float(min(last_acts.get('fake_ev', 0.0), max_fake_ev)))
             
-            st.markdown(f"**💰 {t('Total Available EV')}:** `{total_ev:.1f}` EV")
-            
-            c_net = st.number_input(f"Allocate EV to National Project (Target EV: {bid_cost})", min_value=0.0, max_value=float(total_ev), value=float(min(total_ev, bid_cost)))
-            available_upgrade_ev = total_ev - c_net
+            rem_ev_2 = rem_ev_1 - (fake_ev * fake_ev_cost_ratio)
+            available_upgrade_ev = rem_ev_2
         else:
-            invest_wealth = st.number_input(t("Invest Party Wealth into Engineering ($)"), min_value=0.0, max_value=float(view_party.wealth), value=0.0)
-            total_money = invest_wealth
-            total_ev = total_money / max(0.01, unit_cost)
-            st.markdown(f"**💰 {t('Total Available EV')}:** `{total_ev:.1f}` EV")
-            available_upgrade_ev = total_ev
+            available_upgrade_ev = total_ev_pool
 
         st.markdown("##### 🛠️ Upgrade Departments (Target Value)")
         st.caption(f"*(All abilities scale from 0 to infinity. Upgrade Costs limited to `{eng_limit:.1f}` EV by Engineering.)*")
@@ -175,7 +173,7 @@ def render(game, view_party, opponent_party, cfg):
         'alloc_ci_anticen': alloc_ci_anticen, 'alloc_ci_hideorg': alloc_ci_hideorg, 'alloc_ci_hidefin': alloc_ci_hidefin,
         'w_m_cam': w_m_cam, 'w_m_inc': w_m_inc, 'w_m_con': w_m_con,
         'alloc_med_camp': alloc_med_camp, 'alloc_med_incite': alloc_med_incite, 'alloc_med_control': alloc_med_control,
-        'edu_stance': new_edu_stance, 'crony_amt': h_crony_amt, 
+        'edu_stance': new_edu_stance, 'fake_ev': fake_ev, 
         't_pre': t_pre, 't_inv': t_inv, 't_med': t_med, 't_stl': t_stl, 't_bld': t_bld, 't_edu': t_edu,
         'invest_wealth': invest_wealth, 'c_net': c_net
     }
@@ -187,22 +185,21 @@ def render(game, view_party, opponent_party, cfg):
         act_ra = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'alloc_inv_censor': 0, 'alloc_inv_fin': 0})
     else:
         act_ra = my_acts
-        act_ha = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'crony_amt': 0, 'c_net': float(d.get('bid_cost') or 1.0), 'alloc_ci_hidefin': 0})
+        act_ha = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'fake_ev': 0, 'c_net': float(d.get('bid_cost') or 1.0), 'alloc_ci_hidefin': 0})
 
     claimed_decay = float(d.get('claimed_decay') or 0.0)
     r_pays = float(d.get('r_pays') or 0.0)
     proj_fund = float(d.get('proj_fund') or 0.0)
     
-    orig_crony_income = float(act_ha.get('crony_amt', 0.0)) * cfg.get('CRONY_PROFIT_RATE', 0.2)
-    
     h_base_expected = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.h_role_party.name else 0))
     expected_h_wealth = view_party.wealth - act_ha.get('invest_wealth', 0) + req_cost if is_h else float(game.h_role_party.wealth) - float(act_ha.get('invest_wealth', 0)) + req_cost
     
     eval_c_net = float(act_ha.get('c_net', 0))
+    eval_fake_ev = float(act_ha.get('fake_ev', 0))
     
-    res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(view_party.current_forecast), r_pays=r_pays, h_wealth=expected_h_wealth, c_net_override=eval_c_net)
+    res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(view_party.current_forecast), r_pays=r_pays, h_wealth=expected_h_wealth, c_net_override=eval_c_net, fake_ev=eval_fake_ev)
     
-    hp_net_est = h_base_expected + res_prev['h_project_profit'] + orig_crony_income
+    hp_net_est = h_base_expected + res_prev['h_project_profit']
     rp_net_est = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.r_role_party.name else 0)) + res_prev['payout_r'] - r_pays
 
     eval_req_cost = res_prev['req_cost']
@@ -217,7 +214,7 @@ def render(game, view_party, opponent_party, cfg):
     shift_preview = formulas.calc_performance_preview(
         cfg, game.h_role_party, game.r_role_party, game.ruling_party.name,
         res_prev['est_gdp'], game.gdp, 
-        claimed_decay, game.sanity, game.emotion, bid_cost, res_prev['c_net'],
+        claimed_decay, game.sanity, game.emotion, bid_cost, res_prev['c_net_total'],
         h_media_pwr, r_media_pwr
     )
     
