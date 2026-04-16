@@ -101,10 +101,9 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     st.markdown(f"1. {t('Our Est. Net Profit')}: **{my_net:.1f}** (ROI: {fmt_roi(my_roi)})")
     st.markdown(f"2. {t('Opp. Est. Net Profit')}: **{opp_net:.1f}** (ROI: {fmt_roi(opp_roi)})")
     
-    # 🚀 完全依照你的要求，精簡化字眼
     st.markdown(f"3. {t('Total Expected Support')}:")
-    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🔹 **我方總和: `{my_total_perf:+.1f}`** *(大環境: {my_gdp_perf:+.1f} | 專案: {my_proj_perf:+.1f})*")
-    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🔸 **對手總和: `{opp_total_perf:+.1f}`** *(大環境: {opp_gdp_perf:+.1f} | 專案: {opp_proj_perf:+.1f})*")
+    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🔹 **Our Total: `{my_total_perf:+.1f}`** *(Base: {my_gdp_perf:+.1f} | Proj: {my_proj_perf:+.1f})*")
+    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🔸 **Opp. Total: `{opp_total_perf:+.1f}`** *(Base: {opp_gdp_perf:+.1f} | Proj: {opp_proj_perf:+.1f})*")
     
     st.markdown(f"4. {t('Expected GDP Shift')}: {game.gdp:.1f} ➔ **{res['est_gdp']:.1f}** ({o_gdp_pct:+.2f}%)")
     
