@@ -95,20 +95,10 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
     with c4:
         if game.phase == 1:
             st.markdown(t("### 📊 Financial Report"))
-            total_maint = (
-                formulas.get_ability_maintenance(view_party.predict_ability, cfg, False, view_party.build_ability) +
-                formulas.get_ability_maintenance(view_party.investigate_ability, cfg, False, view_party.build_ability) +
-                formulas.get_ability_maintenance(view_party.media_ability, cfg, False, view_party.build_ability) +
-                formulas.get_ability_maintenance(view_party.stealth_ability, cfg, False, view_party.build_ability) +
-                formulas.get_ability_maintenance(view_party.build_ability, cfg, True, view_party.build_ability)
-            )
-            edu_maint = abs(view_party.edu_stance) * 0.5 if hasattr(view_party, 'edu_stance') else 0.0
-            total_maint += edu_maint
-            
             if game.year == 1:
-                st.write(f"{t('Available Net Assets')}: **{view_party.wealth:.1f}** ({view_party.wealth:.1f} - 0.0)")
+                st.write(f"{t('Available Net Assets')}: **{view_party.wealth:.1f}**")
             else:
-                st.write(f"{t('Available Net Assets')}: **{view_party.wealth:.1f}** ({(view_party.wealth + total_maint):.1f} - {total_maint:.1f})")
+                st.write(f"{t('Available Net Assets')}: **{view_party.wealth:.1f}**")
                 
             if rep:
                 my_is_h = view_party.name == rep['h_party_name']
@@ -116,16 +106,15 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 proj = rep['h_project_net'] if my_is_h else rep['r_project_net']
                 extra = rep['h_extra'] if my_is_h else rep['r_extra']
                 penalty = rep.get('hp_penalty', 0.0) if my_is_h else 0.0
-                pol = rep['h_pol_cost'] if my_is_h else rep['r_pol_cost']
-                maint = rep['h_maint'] if my_is_h else rep['r_maint']
+                inv_w = rep['h_invest_wealth'] if my_is_h else rep['r_invest_wealth']
                 
                 real_inc_gross = base + proj + extra
-                expenses = pol + maint + penalty
+                expenses = inv_w + penalty
                 real_inc_net = real_inc_gross - expenses
                 
                 st.markdown(f"**Last Yr Net Flow: `{real_inc_net:+.1f}`**")
                 st.caption(f"*(➕ Base `{base:.1f}` | Proj `{proj:.1f}` | Extra `{extra:.1f}`)*")
-                st.caption(f"*(➖ Exp `{pol+maint:.1f}` | Fine `{penalty:.1f}`)*")
+                st.caption(f"*(➖ Invested `{inv_w:.1f}` | Fine `{penalty:.1f}`)*")
         else:
             if is_preview:
                 my_net = preview_data['h_inc'] if (view_party.name == game.h_role_party.name) else preview_data['r_inc']
@@ -227,7 +216,8 @@ def get_observed_abilities(viewer, target, game, cfg):
             'investigate': target.investigate_ability,
             'media': target.media_ability,
             'stealth': target.stealth_ability,
-            'build': target.build_ability
+            'build': target.build_ability,
+            'edu': getattr(target, 'edu_ability', cfg.get('EDU_ABILITY_DEFAULT', 3.0))
         }
     
     opp_stl = target.stealth_ability / 10.0
@@ -248,7 +238,8 @@ def get_observed_abilities(viewer, target, game, cfg):
         'investigate': get_obs(target.investigate_ability),
         'media': get_obs(target.media_ability),
         'stealth': get_obs(target.stealth_ability),
-        'build': get_obs(target.build_ability)
+        'build': get_obs(target.build_ability),
+        'edu': get_obs(getattr(target, 'edu_ability', cfg.get('EDU_ABILITY_DEFAULT', 3.0)))
     }
 
 def render_sidebar_intel_audit(game, view_party, cfg):
@@ -269,20 +260,7 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     
     st.write(f"{t('Think Tank')}: {obs_abis['predict']*10:.1f}% | {t('Intelligence')}: {obs_abis['investigate']*10:.1f}%")
     st.write(f"{t('Media Dept')}: {obs_abis['media']*10:.1f}% | {t('Counter-Intel')}: {obs_abis['stealth']*10:.1f}%")
-    
-    my_inv_raw_pct = view_party.investigate_ability / 10.0
-    r_bonus = cfg['R_INV_BONUS'] if view_party.name == game.r_role_party.name else 1.0
-    obs_stl_pct = obs_abis['stealth'] / 10.0
-    catch_mult = max(0.1, (my_inv_raw_pct * r_bonus) - obs_stl_pct + 1.0)
-    
-    corr_rate = min(1.0, cfg.get('CATCH_RATE_PER_DOLLAR', 0.10) * catch_mult)
-    crony_rate = min(1.0, cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05) * catch_mult)
-    
-    st.write(f"**{t('Anti-Corruption Est.')}**: Catch Multiplier `{catch_mult:.2f}x`")
-    st.caption(f"*(Expected Opp. Corruption Catch Rate: `{corr_rate*100:.1f}%` | Cronyism Catch Rate: `{crony_rate*100:.1f}%`)*")
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    st.write(f"{t('Engineering')}: {obs_abis['build']*10:.1f}%")
+    st.write(f"{t('Engineering')}: {obs_abis['build']*10:.1f}% | {t('Edu Dept')}: {obs_abis['edu']*10:.1f}%")
     
     est_unit_cost = formulas.calc_unit_cost(cfg, game.gdp, obs_abis['build'], view_party.current_forecast)
     eval_txt = config.get_intel_market_eval(est_unit_cost)
@@ -295,87 +273,10 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.markdown("---")
     st.title(t("🧾 Audit - Internal Dept."))
     st.write(f"**Current Inflation Index:** `{inflation_rate:.1f}%`")
-    total_maint = (
-        formulas.get_ability_maintenance(view_party.predict_ability, cfg, False, view_party.build_ability) +
-        formulas.get_ability_maintenance(view_party.investigate_ability, cfg, False, view_party.build_ability) +
-        formulas.get_ability_maintenance(view_party.media_ability, cfg, False, view_party.build_ability) +
-        formulas.get_ability_maintenance(view_party.stealth_ability, cfg, False, view_party.build_ability) +
-        formulas.get_ability_maintenance(view_party.build_ability, cfg, True, view_party.build_ability)
-    )
-    edu_maint = abs(view_party.edu_stance) * 0.5 if hasattr(view_party, 'edu_stance') else 0.0
-    total_maint += edu_maint
+    total_maint = (view_party.predict_ability + view_party.investigate_ability + view_party.media_ability + view_party.stealth_ability + view_party.build_ability + view_party.edu_ability) * 1.5
     
-    st.write(f"{t('Think Tank')}: {view_party.predict_ability*10:.1f}% | {t('Intelligence')}: {view_party.investigate_ability*10:.1f}%")
-    st.write(f"{t('Media Dept')}: {view_party.media_ability*10:.1f}% | {t('Counter-Intel')}: {view_party.stealth_ability*10:.1f}%")
-    st.write(f"{t('Engineering')}: {view_party.build_ability*10:.1f}%")
-    st.write(f"**(Next Year's Maint. Est. based on current stats: -${total_maint:.1f})**")
+    st.write(f"{t('Think Tank')}: {view_party.predict_ability*10:.0f} | {t('Intelligence')}: {view_party.investigate_ability*10:.0f}")
+    st.write(f"{t('Media Dept')}: {view_party.media_ability*10:.0f} | {t('Counter-Intel')}: {view_party.stealth_ability*10:.0f}")
+    st.write(f"{t('Engineering')}: {view_party.build_ability*10:.0f} | {t('Edu Dept')}: {view_party.edu_ability*10:.0f}")
+    st.write(f"**(Next Year's Maint. Est. EV: -{total_maint:.1f} EV)**")
 
-def ability_slider(label, key, current_val, wealth, cfg, build_ability=0.0, is_build=False, is_edu=False, is_jud=False):
-    if is_edu:
-        current_display = current_val
-        min_pct = max(-100.0, current_display - 10.0)
-        max_pct = min(100.0, current_display + 10.0)
-        t_pct = st.slider(f"{label}", float(min_pct), float(max_pct), float(current_display), 1.0, key=key)
-        
-        cost_mult = cfg.get('UPGRADE_COST_MULT', 0.15)
-        cost = ((abs(t_pct)**2 - abs(current_display)**2) * cost_mult)
-        new_maint = abs(t_pct) * 0.5
-        
-        if abs(t_pct) > abs(current_display): 
-            st.caption(f"📈 <span style='color:orange'>**Shift Cost**: ${cost:.1f} | Maint: ${new_maint:.1f}</span>", unsafe_allow_html=True)
-        elif abs(t_pct) < abs(current_display): 
-            refund = abs(cost) * 0.5 
-            st.caption(f"📉 <span style='color:blue'>**Moderation Refund**: +${refund:.1f} | Maint: ${new_maint:.1f}</span>", unsafe_allow_html=True)
-        else: 
-            st.caption(f"🛡️ Status Quo (Maint: ${new_maint:.1f})")
-            cost = 0.0
-        return t_pct, cost
-        
-    elif is_jud:
-        current_display = current_val
-        min_pct = max(0.0, current_display - 10.0)
-        max_pct = min(100.0, current_display + 10.0)
-        t_pct = st.slider(f"{label}", float(min_pct), float(max_pct), float(current_display), 1.0, key=key)
-        
-        cost_mult = cfg.get('UPGRADE_COST_MULT', 0.15)
-        cost = ((t_pct**2 - current_display**2) * cost_mult)
-        new_maint = t_pct * 1.0
-        
-        if t_pct > current_display: 
-            st.caption(f"📈 <span style='color:orange'>**Upgrade Cost**: ${cost:.1f} | Maint: ${new_maint:.1f}</span>", unsafe_allow_html=True)
-        elif t_pct < current_display: 
-            refund = abs(cost) * 0.5 
-            st.caption(f"📉 <span style='color:blue'>**Downgrade Refund**: +${refund:.1f} | Maint: ${new_maint:.1f}</span>", unsafe_allow_html=True)
-        else: 
-            st.caption(f"🛡️ Status Quo (Maint: ${new_maint:.1f})")
-            cost = 0.0
-        return t_pct, cost
-
-    else:
-        current_pct = current_val * 10.0
-        max_upgrade = cfg.get('MAX_UPGRADE_SPEED', 20.0) * (1.0 + build_ability / 5.0)
-        min_pct = max(0.0, current_pct - 20.0)
-        max_pct = min(100.0, current_pct + max_upgrade)
-        
-        t_pct = st.slider(f"{label}", float(min_pct), float(max_pct), float(current_pct), 0.1, key=key)
-        
-        cost_mult = cfg.get('UPGRADE_COST_MULT', 0.15)
-        discount = 1.0 + build_ability / 5.0
-        
-        import formulas
-        new_val = t_pct / 10.0
-        eff_build = new_val if is_build else build_ability
-        new_maint = formulas.get_ability_maintenance(new_val, cfg, is_build, eff_build)
-        
-        if t_pct > current_pct: 
-            cost = ((t_pct**2 - current_pct**2) * cost_mult) / discount
-            st.caption(f"📈 <span style='color:orange'>**Upgrade Cost**: ${cost:.1f} (Eng. Discount) | Maint: ${new_maint:.1f}</span>", unsafe_allow_html=True)
-        elif t_pct < current_pct: 
-            refund = ((current_pct**2 - t_pct**2) * cost_mult * 0.5) 
-            cost = -refund
-            st.caption(f"📉 <span style='color:blue'>**Downgrade Refund**: +${abs(cost):.1f} | Maint: ${new_maint:.1f}</span>", unsafe_allow_html=True)
-        else: 
-            cost = 0.0
-            st.caption(f"🛡️ Status Quo (Maint: ${new_maint:.1f})")
-            
-        return new_val, cost
