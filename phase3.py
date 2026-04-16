@@ -77,7 +77,10 @@ def render(game, cfg):
         # 扣除被抓包與罰金後的實際可運用資金
         actual_h_wealth_available = max(0.0, hp.wealth + req_cost - float(ha.get('invest_wealth', 0)) - hp_wealth_penalty + hp_base)
         
-        res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), r_pays=r_pays, h_wealth=actual_h_wealth_available, c_net_override=c_net_h, fake_ev=fake_ev)
+        # 這裡將 fake_ev 設定為 safe_fake_ev，讓被抓到的假 EV 無法提升專案達標率
+        eval_fake_ev = safe_fake_ev if dice_data['is_rolled'] else fake_ev
+        res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), r_pays=r_pays, h_wealth=actual_h_wealth_available, c_net_override=c_net_h, fake_ev=eval_fake_ev)
+        
         budg = cfg['BASE_TOTAL_BUDGET'] + (res_exec['est_gdp'] * cfg['HEALTH_MULTIPLIER'])
         
         hp_project_net = res_exec['h_project_profit']
@@ -239,6 +242,8 @@ def render(game, cfg):
     with c1:
         st.markdown(f"### 💰 {t('Economy & Finance')}")
         st.write(f"**GDP:** `{rep['old_gdp']:.1f}` ➔ `{game.gdp:.1f}`")
+        if rep['fine_value'] > 0:
+            st.success(f"🏛️ 國庫進帳: 次年總預算額外增加 `${rep['fine_value']:.1f}` (來自假 EV 懲罰性違約金)")
         
         with st.expander(f"📊 {rep['h_party_name']} ({t('role_exec')}) Project & Profit Breakdown"):
             st.write(f"- 📥 Received Project Reward: `${rep['payout_h']:.1f}`")
@@ -247,7 +252,9 @@ def render(game, cfg):
             st.write(f"**= Net Project Profit: `${rep['h_project_net']:.1f}`**")
             st.markdown("---")
             st.write(f"- Base Income (inc. Ruling Bonus): `${rep['h_base']:.1f}`")
-            if rep.get('hp_penalty', 0) > 0: st.write(f"- 🚨 假 EV 被抓回繳並追加罰款 ({rep['fine_mult']}x): `-${rep['hp_penalty']:.1f}`")
+            if rep['caught_fake_ev'] > 0:
+                st.write(f"- 🚨 假 EV 被抓沒收 (撥交監管方): `-${rep['caught_value']:.1f}`")
+                st.write(f"- 🚨 假 EV 懲罰性違約金 (上繳國庫, {rep['fine_mult']}x): `-${rep['fine_value']:.1f}`")
             st.write(f"- Eng. Invested Wealth: `-${rep['h_invest_wealth']:.1f}`")
             
             net_cash = rep['h_project_net'] + rep['h_base'] - rep.get('hp_penalty', 0) - rep['h_invest_wealth']
@@ -258,13 +265,14 @@ def render(game, cfg):
             st.write(f"- 📤 Paid R-Subsidy: `-${rep['r_pays']:.1f}`")
             st.write(f"- 📥 Unspent Project Funds Recovered: `${rep['unspent_proj']:.1f}`")
             st.write(f"- 📥 Regulatory Budget Surplus: `${rep['base_r_surplus']:.1f}`")
-            if rep['r_extra'] > 0: st.write(f"- 🏆 追回假 EV 貪瀆款項 (From Opponent): `${rep['r_extra']:.1f}`")
+            if rep['r_extra'] > 0: 
+                st.write(f"- 🏆 追回假 EV 貪瀆款項 (From Opponent): `${rep['r_extra']:.1f}`")
             st.write(f"- Eng. Invested Wealth: `-${rep['r_invest_wealth']:.1f}`")
             
             net_cash_r = rep['r_base'] - rep['r_pays'] + rep['unspent_proj'] + rep['base_r_surplus'] + rep['r_extra'] - rep['r_invest_wealth']
             st.write(f"**💰 Final Net Cash Flow: `${net_cash_r:.1f}`**")
 
-        if rep.get('fake_ev_caught'): st.error(f"🚨 豆腐渣工程弊案！監管方查獲 `{rep['caught_fake_ev']:.1f}` 單位假 EV。不法利得 `${rep['caught_value']:.1f}` 遭全數沒收，並追加罰金 (`{rep['fine_value']:.1f}`) 充公國庫。")
+        if rep.get('fake_ev_caught'): st.error(f"🚨 豆腐渣工程弊案！監管方查獲 `{rep['caught_fake_ev']:.1f}` 單位假 EV。不法利得 `${rep['caught_value']:.1f}` 遭全數沒收並撥交給 **{rep['r_party_name']}**，另追加罰金 (`{rep['fine_value']:.1f}`) 充公國庫。")
 
     with c2:
         st.markdown(f"### 🧠 {t('Society & Opinion')}")
@@ -279,22 +287,31 @@ def render(game, cfg):
         st.caption(f"*(📡 This Year's Rational Attribution Rate: `{rep['correct_prob']*100:.1f}%`)*")
         
         if rep['h_spun_exec'] != 0 or rep['r_spun_exec'] != 0:
-            st.info(f"📺 **Media Spin Output:** Executive media altered `{rep['h_spun_exec']:+.1f}` support points; Regulator media altered `{rep['r_spun_exec']:+.1f}` points!")
+            st.info(f"📺 **Media Spin Output:** {rep['h_party_name']} media altered `{rep['h_spun_exec']:+.1f}` support points; {rep['r_party_name']} media altered `{rep['r_spun_exec']:+.1f}` points!")
             
         if rep.get('censor_buff', 0) > 0:
             st.warning(f"⚖️ **Censorship Backlash:** Regulator's forced media suppression enraged `{rep['censor_successes']}` opponent units! Executive's voter rigidity drastically increased by `+{rep['censor_buff']:.3f}` for the next 2 years!")
 
-        st.write(f"**{game.party_A.name} Total Support Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Support Force:** `{rep['ammo_B']:.1f}`")
+        with st.expander("👁️ 上帝模式：支持量與板塊戰鬥明細 (God Mode details)"):
+            st.write(f"**{game.party_A.name} Total Support Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Support Force:** `{rep['ammo_B']:.1f}`")
+            net_ammo = rep['net_ammo_A']
+            atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
+            def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
+            
+            if abs(net_ammo) < 1.0: 
+                st.info("🤝 Support forces are deadlocked. No change in the political landscape.")
+            else:
+                st.success(f"**Net Support Advantage:** `{abs(net_ammo):.1f}` points! **{atk_party}** launched an influence wave against **{def_party}**!")
+                blocked_ammo = rep['used_ammo'] - rep['conquered']
+                st.write(f"🛡️ **Voter Rigidity Defense:** `{blocked_ammo:.1f}` impact points were absorbed by entrenched voters! Successful conversion: **{rep['conquered']}** blocs.")
+
+        old_sup_A = rep['old_boundary'] * 0.5
+        new_sup_A = rep['new_boundary'] * 0.5
+        old_sup_B = 100.0 - old_sup_A
+        new_sup_B = 100.0 - new_sup_A
         
-        net_ammo = rep['net_ammo_A']
-        atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
-        def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
-        
-        if abs(net_ammo) < 1.0: st.info("🤝 Support forces are deadlocked. No change in the political landscape.")
-        else:
-            st.success(f"**Net Support Advantage:** `{abs(net_ammo):.1f}` points! **{atk_party}** launched an influence wave against **{def_party}**!")
-            old_sup = rep['old_boundary'] * 0.5; new_sup = rep['new_boundary'] * 0.5
-            st.write(f"📊 👁️ **{game.party_A.name} New Support:** `{old_sup:.1f}%` ➔ `{new_sup:.1f}%`")
+        st.markdown(f"### 📊 **{game.party_A.name} Support:** `{old_sup_A:.1f}%` ➔ `{new_sup_A:.1f}%` ({new_sup_A - old_sup_A:+.1f}%)")
+        st.markdown(f"### 📊 **{game.party_B.name} Support:** `{old_sup_B:.1f}%` ➔ `{new_sup_B:.1f}%` ({new_sup_B - old_sup_B:+.1f}%)")
 
     st.markdown("---")
     if st.button(t("⏩ Confirm Report & Next Year"), type="primary", use_container_width=True):
