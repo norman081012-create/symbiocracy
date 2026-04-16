@@ -18,9 +18,8 @@ def render(game, view_party, opponent_party, cfg):
     req_cost = float(d.get('req_cost', 0.0))
     bid_cost = float(d.get('bid_cost', 1.0))
     
-    # 執行方 (H-System) 的資金為 黨產 + 專案需求金 (Req. Cost)
-    if is_h: cw = float(view_party.wealth) + req_cost
-    else: cw = float(view_party.wealth)
+    if is_h: cw = float(view_party.wealth) + float(d.get('r_pays', 0.0))
+    else: cw = float(view_party.wealth) - float(d.get('r_pays', 0.0))
     
     h_bonus = 1.2 if is_h else 1.0
     r_bonus = 1.2 if not is_h else 1.0
@@ -89,13 +88,6 @@ def render(game, view_party, opponent_party, cfg):
         new_edu_stance = max(-100.0, min(100.0, old_edu_stance + edu_shift))
         st.info(f"Education Stance: `{old_edu_stance:.1f}` ➔ `{new_edu_stance:.1f}`")
 
-        if (w_i_cen + w_i_org + w_i_fin) == 0 and inv_cap > 0:
-            st.warning(f"⚠️ {t('Intelligence')} 尚有未分配的 Ops Capacity！")
-        if (w_c_cen + w_c_org + w_c_fin) == 0 and ci_cap > 0:
-            st.warning(f"⚠️ {t('Counter-Intel')} 尚有未分配的 Ops Capacity！")
-        if (w_m_cam + w_m_inc + w_m_con) == 0 and med_cap > 0:
-            st.warning(f"⚠️ {t('Media Dept')} 尚有未分配的 Influence Capacity！")
-
     with c2:
         st.markdown(t("#### 🔒 Financial & Engineering (Engineering Value)"))
         
@@ -144,7 +136,6 @@ def render(game, view_party, opponent_party, cfg):
                     is_up = False
 
                 st.caption(f"💡 *{cap_text_func(new_ui_val)}*")
-            # 回傳時，new_raw 就是除以 10 之後的基礎內部數值
             return new_raw, ev_cost, maint_new, (ev_cost if is_up else 0.0)
 
         t_pre, pre_cost, pre_maint, pre_up = render_dept(t("Think Tank"), f"tt_pre_{view_party.name}", view_party.predict_ability, lambda v: f"Produces {v:.1f} EV for Forecasting Accuracy")
@@ -187,7 +178,6 @@ def render(game, view_party, opponent_party, cfg):
         'w_m_cam': w_m_cam, 'w_m_inc': w_m_inc, 'w_m_con': w_m_con,
         'alloc_med_camp': alloc_med_camp, 'alloc_med_incite': alloc_med_incite, 'alloc_med_control': alloc_med_control,
         'edu_stance': new_edu_stance, 'fake_ev': fake_ev, 
-        # 修正: t_pre 等變數在 render_dept 中回傳的就已經是底層所需的小數點數值了，不需要再除以 10
         't_pre': t_pre, 't_inv': t_inv, 't_med': t_med, 't_stl': t_stl, 't_bld': t_bld, 't_edu': t_edu,
         'invest_wealth': invest_wealth, 'c_net': c_net
     }
@@ -196,48 +186,32 @@ def render(game, view_party, opponent_party, cfg):
     
     if is_h:
         act_ha = my_acts
-        act_ra = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'alloc_inv_censor': 0, 'alloc_inv_fin': 0})
+        act_ra = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'alloc_inv_censor': 0, 'alloc_inv_fin': 0, 'invest_wealth': 0})
     else:
         act_ra = my_acts
-        act_ha = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'fake_ev': 0, 'c_net': float(d.get('bid_cost') or 1.0), 'alloc_ci_hidefin': 0})
+        act_ha = st.session_state.get(f"{opponent_party.name}_acts", {'alloc_med_control': 0, 'alloc_med_camp': 0, 'alloc_med_incite': 0, 'fake_ev': 0, 'c_net': float(d.get('bid_cost') or 1.0), 'alloc_ci_hidefin': 0, 'invest_wealth': 0})
 
-    claimed_decay = float(d.get('claimed_decay') or 0.0)
-    r_pays = float(d.get('r_pays') or 0.0)
-    proj_fund = float(d.get('proj_fund') or 0.0)
-    
-    h_base_expected = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.h_role_party.name else 0))
-    expected_h_wealth = view_party.wealth - act_ha.get('invest_wealth', 0) + req_cost if is_h else float(game.h_role_party.wealth) - float(act_ha.get('invest_wealth', 0)) + req_cost
-    
     eval_c_net = float(act_ha.get('c_net', 0))
     eval_fake_ev = float(act_ha.get('fake_ev', 0))
+    r_pays = float(d.get('r_pays', 0.0))
+    proj_fund = float(d.get('proj_fund', 0.0))
     
-    res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(view_party.current_forecast), r_pays=r_pays, h_wealth=expected_h_wealth, c_net_override=eval_c_net, fake_ev=eval_fake_ev)
+    # Preview using fake_ev_spent and fake_ev_safe as the same since it's not audited yet
+    res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(game.current_real_decay), r_pays=r_pays, c_net_override=eval_c_net, fake_ev_spent=eval_fake_ev, fake_ev_safe=eval_fake_ev)
     
-    hp_net_est = h_base_expected + res_prev['h_project_profit']
-    rp_net_est = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.r_role_party.name else 0)) + res_prev['payout_r'] - r_pays
-
-    eval_req_cost = res_prev['req_cost']
-    eval_h_pays = eval_req_cost - r_pays
-    
-    o_h_roi = (res_prev['h_project_profit'] / eval_h_pays) * 100.0 if eval_h_pays > 0 else float('inf')
-    o_r_roi = ((res_prev['payout_r'] - r_pays) / r_pays) * 100.0 if r_pays > 0 else float('inf')
-
     h_media_pwr = float(act_ha.get('alloc_med_control', 0.0))
     r_media_pwr = float(act_ra.get('alloc_med_control', 0.0))
 
     shift_preview = formulas.calc_performance_preview(
         cfg, game.h_role_party, game.r_role_party, game.ruling_party.name,
         res_prev['est_gdp'], game.gdp, 
-        claimed_decay, game.sanity, game.emotion, bid_cost, res_prev['c_net_total'],
+        float(d.get('claimed_decay', 0.0)), game.sanity, game.emotion, bid_cost, res_prev['c_net_total'],
         h_media_pwr, r_media_pwr
     )
     
     preview_data = {
         'gdp': res_prev['est_gdp'], 'budg': game.total_budget, 'h_fund': res_prev['payout_h'],
         'san': game.sanity, 'emo': game.emotion,
-        'h_inc': hp_net_est, 'r_inc': rp_net_est,
-        'my_roi': o_h_roi if is_h else o_r_roi,
-        'opp_roi': o_r_roi if is_h else o_h_roi,
         'my_perf_gdp': shift_preview[view_party.name]['perf_gdp'],
         'my_perf_proj': shift_preview[view_party.name]['perf_proj'],
         'opp_perf_gdp': shift_preview[opponent_party.name]['perf_gdp'],
