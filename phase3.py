@@ -32,7 +32,7 @@ def render(game, cfg):
         claimed_decay = float(d.get('claimed_decay') or 0.0)
         r_pays = float(d.get('r_pays') or 0.0)
         
-        crony_base = float(ha.get('crony_amt') or 0.0)
+        fake_ev = float(ha.get('fake_ev') or 0.0)
         c_net_h = float(ha.get('c_net', 0))
         
         r_inv_fin = float(ra.get('alloc_inv_fin', 0))
@@ -41,42 +41,43 @@ def render(game, cfg):
         
         if net_fin_ev > 0:
             chunk_size = max(0.01, 10.0 / net_fin_ev)
-            catch_prob = min(1.0, cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05) * max(1.0, net_fin_ev * 0.1))
+            catch_prob = min(1.0, cfg.get('FAKE_EV_CATCH_BASE_RATE', 0.05) * max(1.0, net_fin_ev * 0.1))
         else:
             chunk_size = float('inf')
             catch_prob = 0.0
-            
-        crony_profit_rate = cfg.get('CRONY_PROFIT_RATE', 0.20)
-        crony_income = crony_base * crony_profit_rate
 
-        caught_crony = safe_crony = fine_crony = 0.0
-        crony_caught = False
+        unit_cost_real = formulas.calc_unit_cost(cfg, game.gdp, hp.build_ability, game.current_real_decay)
+        
+        caught_fake_ev = safe_fake_ev = caught_value = fine_value = 0.0
+        fake_ev_caught = False
 
         if 'pending_dice_roll' not in st.session_state:
              st.session_state.pending_dice_roll = {
-                 'crony_income': crony_income,
-                 'crony_catch_rate': catch_prob,
+                 'fake_ev': fake_ev,
+                 'catch_prob': catch_prob,
                  'chunk_size': chunk_size,
                  'fine_mult': fine_mult,
+                 'unit_cost_real': unit_cost_real,
                  'is_rolled': False
              }
         
         dice_data = st.session_state.pending_dice_roll
 
         if dice_data['is_rolled']:
-            caught_crony, safe_crony, fine_crony = dice_data['crony_results']
+            caught_fake_ev, safe_fake_ev, caught_value, fine_value = dice_data['fake_ev_results']
             
-            returned_to_r += caught_crony
-            hp_wealth_penalty += fine_crony
-            confiscated_to_budget += fine_crony
-            crony_caught = (caught_crony > 0)
+            returned_to_r += caught_value
+            hp_wealth_penalty += (caught_value + fine_value)
+            confiscated_to_budget += fine_value
+            fake_ev_caught = (caught_fake_ev > 0)
             
         hp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == hp.name else 0))
         rp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == rp.name else 0))
         
+        # 扣除被抓包與罰金後的實際可運用資金
         actual_h_wealth_available = max(0.0, hp.wealth + req_cost - float(ha.get('invest_wealth', 0)) - hp_wealth_penalty + hp_base)
         
-        res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), r_pays=r_pays, h_wealth=actual_h_wealth_available, c_net_override=c_net_h)
+        res_exec = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(hp.build_ability), float(game.current_real_decay), r_pays=r_pays, h_wealth=actual_h_wealth_available, c_net_override=c_net_h, fake_ev=fake_ev)
         budg = cfg['BASE_TOTAL_BUDGET'] + (res_exec['est_gdp'] * cfg['HEALTH_MULTIPLIER'])
         
         hp_project_net = res_exec['h_project_profit']
@@ -86,7 +87,7 @@ def render(game, cfg):
         
         rp_project_net = base_r_surplus + unspent_proj - r_pays
         
-        hp_inc = hp_base + hp_project_net + safe_crony + req_cost
+        hp_inc = hp_base + hp_project_net + req_cost
         rp_inc = rp_base + rp_project_net + returned_to_r
         
         r_censor_alloc = float(ra.get('alloc_inv_censor', 0))
@@ -111,7 +112,7 @@ def render(game, cfg):
         h_media_pwr = float(ha.get('alloc_med_control', 0.0))
         r_media_pwr = float(ra.get('alloc_med_control', 0.0))
         
-        raw_p_plan, raw_p_exec, d_a, d_e, d_c = formulas.generate_raw_support(cfg, res_exec['est_gdp'], game.gdp, claimed_decay, bid_cost, res_exec['c_net'])
+        raw_p_plan, raw_p_exec, d_a, d_e, d_c = formulas.generate_raw_support(cfg, res_exec['est_gdp'], game.gdp, claimed_decay, bid_cost, res_exec['c_net_total'])
         
         plan_correct, plan_wrong, correct_prob = formulas.apply_sanity_filter(raw_p_plan, game.sanity, game.emotion, is_preview=False)
         exec_correct, exec_wrong, _ = formulas.apply_sanity_filter(raw_p_exec, game.sanity, game.emotion, is_preview=False)
@@ -175,11 +176,12 @@ def render(game, cfg):
             'h_base': hp_base, 'r_base': rp_base, 
             'h_project_net': hp_project_net, 'r_project_net': rp_project_net,
             'payout_h': res_exec['payout_h'], 'act_fund': res_exec['act_fund'], 'r_pays': r_pays,
-            'h_extra': safe_crony, 'r_extra': returned_to_r,
-            'caught_crony': caught_crony,
-            'fine_crony': fine_crony,
+            'r_extra': returned_to_r,
+            'caught_fake_ev': caught_fake_ev,
+            'caught_value': caught_value,
+            'fine_value': fine_value,
             'hp_penalty': hp_wealth_penalty,
-            'crony_caught': crony_caught,
+            'fake_ev_caught': fake_ev_caught,
             'fine_mult': fine_mult,
             'proj_fund': proj_fund, 'h_idx': res_exec['h_idx'], 
             'total_bonus_deduction': total_bonus_deduction, 'base_r_surplus': base_r_surplus, 'unspent_proj': unspent_proj,
@@ -210,27 +212,26 @@ def render(game, cfg):
     
     dice_data = st.session_state.get('pending_dice_roll')
     if dice_data and not dice_data['is_rolled']:
-        if dice_data['crony_income'] > 0:
+        if dice_data['fake_ev'] > 0:
             st.markdown("---")
-            st.markdown(f"### 🎲 {t('btn_roll_dice')} (監管單位介入調查)")
-            if dice_data['crony_income'] > 0:
-                if dice_data['chunk_size'] == float('inf'):
-                    st.success(f"🛡️ **金流隱蔽成功**: 調查單位無功而返，未發現不當利得 ${dice_data['crony_income']:.1f}。")
-                    if st.button("⏩ 確認並進入結算", type="primary", use_container_width=True):
-                        st.session_state.pending_dice_roll['crony_results'] = (0.0, dice_data['crony_income'], 0.0)
-                        st.session_state.pending_dice_roll['is_rolled'] = True
-                        st.rerun()
-                else:
-                    st.warning(f"⚠️ **圖利調查**: 追查不當利得 ${dice_data['crony_income']:.1f} | 單次查獲率: `{dice_data['crony_catch_rate']*100:.1f}%` (每 `{dice_data['chunk_size']:.2f}` 元判定一次)")
+            st.markdown(f"### 🎲 {t('btn_roll_dice')} ({t('Fake EV Investigation')})")
+            if dice_data['chunk_size'] == float('inf'):
+                st.success(f"🛡️ **金流隱蔽成功**: 監管方未投入足夠金流調查，完美掩蓋 `{dice_data['fake_ev']:.1f}` 單位假 EV。")
+                if st.button("⏩ 確認並進入結算", type="primary", use_container_width=True):
+                    st.session_state.pending_dice_roll['fake_ev_results'] = (0.0, dice_data['fake_ev'], 0.0, 0.0)
+                    st.session_state.pending_dice_roll['is_rolled'] = True
+                    st.rerun()
+            else:
+                st.warning(f"⚠️ **豆腐渣工程查核**: 追查 `{dice_data['fake_ev']:.1f}` 假 EV | 單次查獲率: `{dice_data['catch_prob']*100:.1f}%` (每 `{dice_data['chunk_size']:.2f}` 單位判定一次)")
 
-                    if st.button("🎲 擲骰進行年度監管判定！", type="primary", use_container_width=True):
-                        with st.spinner('監管單位正在進行全面搜查...'):
-                            import time
-                            time.sleep(1.5) 
-                            crony_res = formulas.calc_corruption_dice(dice_data['crony_income'], dice_data['crony_catch_rate'], dice_data['fine_mult'], dice_data['chunk_size'])
-                            st.session_state.pending_dice_roll['crony_results'] = crony_res
-                            st.session_state.pending_dice_roll['is_rolled'] = True
-                        st.rerun() 
+                if st.button("🎲 擲骰進行年度監管判定！", type="primary", use_container_width=True):
+                    with st.spinner('監管單位正在循線追查豆腐渣工程與金流...'):
+                        import time
+                        time.sleep(1.5) 
+                        fake_ev_res = formulas.calc_fake_ev_dice(dice_data['fake_ev'], dice_data['catch_prob'], dice_data['fine_mult'], dice_data['chunk_size'], dice_data['unit_cost_real'])
+                        st.session_state.pending_dice_roll['fake_ev_results'] = fake_ev_res
+                        st.session_state.pending_dice_roll['is_rolled'] = True
+                    st.rerun() 
             st.stop()
 
     rep = game.last_year_report
@@ -246,11 +247,10 @@ def render(game, cfg):
             st.write(f"**= Net Project Profit: `${rep['h_project_net']:.1f}`**")
             st.markdown("---")
             st.write(f"- Base Income (inc. Ruling Bonus): `${rep['h_base']:.1f}`")
-            if rep['h_extra'] > 0: st.write(f"- {t('safe_amount')} (Evaded Detection): `${rep['h_extra']:.1f}`")
-            if rep.get('hp_penalty', 0) > 0: st.write(f"- 🚨 {t('fine_paid')} ({rep['fine_mult']}x Multiplier): `-${rep['hp_penalty']:.1f}`")
+            if rep.get('hp_penalty', 0) > 0: st.write(f"- 🚨 假 EV 被抓回繳並追加罰款 ({rep['fine_mult']}x): `-${rep['hp_penalty']:.1f}`")
             st.write(f"- Eng. Invested Wealth: `-${rep['h_invest_wealth']:.1f}`")
             
-            net_cash = rep['h_project_net'] + rep['h_base'] + rep['h_extra'] - rep.get('hp_penalty', 0) - rep['h_invest_wealth']
+            net_cash = rep['h_project_net'] + rep['h_base'] - rep.get('hp_penalty', 0) - rep['h_invest_wealth']
             st.write(f"**💰 Final Net Cash Flow: `${net_cash:.1f}`**")
 
         with st.expander(f"📊 {rep['r_party_name']} ({t('role_reg')}) Surplus & Profit Breakdown"):
@@ -258,13 +258,13 @@ def render(game, cfg):
             st.write(f"- 📤 Paid R-Subsidy: `-${rep['r_pays']:.1f}`")
             st.write(f"- 📥 Unspent Project Funds Recovered: `${rep['unspent_proj']:.1f}`")
             st.write(f"- 📥 Regulatory Budget Surplus: `${rep['base_r_surplus']:.1f}`")
-            if rep['r_extra'] > 0: st.write(f"- 🏆 {t('caught_amount')} (From Opponent): `${rep['r_extra']:.1f}`")
+            if rep['r_extra'] > 0: st.write(f"- 🏆 追回假 EV 貪瀆款項 (From Opponent): `${rep['r_extra']:.1f}`")
             st.write(f"- Eng. Invested Wealth: `-${rep['r_invest_wealth']:.1f}`")
             
             net_cash_r = rep['r_base'] - rep['r_pays'] + rep['unspent_proj'] + rep['base_r_surplus'] + rep['r_extra'] - rep['r_invest_wealth']
             st.write(f"**💰 Final Net Cash Flow: `${net_cash_r:.1f}`**")
 
-        if rep.get('crony_caught'): st.error(f"🚨 Cronyism Controversy! Regulator seized `{rep['caught_crony']:.1f}`. Fines (`{rep['fine_crony']:.1f}`) applied to Treasury.")
+        if rep.get('fake_ev_caught'): st.error(f"🚨 豆腐渣工程弊案！監管方查獲 `{rep['caught_fake_ev']:.1f}` 單位假 EV。不法利得 `${rep['caught_value']:.1f}` 遭全數沒收，並追加罰金 (`{rep['fine_value']:.1f}`) 充公國庫。")
 
     with c2:
         st.markdown(f"### 🧠 {t('Society & Opinion')}")
@@ -319,4 +319,3 @@ def render(game, cfg):
                 if k.endswith('_acts') or k.startswith('up_'): del st.session_state[k]
             if 'turn_initialized' in st.session_state: del st.session_state.turn_initialized
         st.rerun()
-
