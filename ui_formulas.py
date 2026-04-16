@@ -98,56 +98,11 @@ def render_formula_panel(game, view_party, cfg):
         unit_cost_v = (0.85 / b_norm) * (2 ** (2 * decay_val - 1)) * (1 + inflation)
         st.write(f"> **Calc**: (0.85 / `{build_val/10:.2f}{TAG_CFM}`) × 2^(2 × `{decay_val:.3f}{TAG_EST}` - 1) × (1 + `{inflation:.2f} Inf{TAG_CON}`) = **{unit_cost_v:.2f}**")
 
-        st.markdown("**3. Project Delivery & GDP Impact**")
-        st.latex(r"Required = BidCost \times UnitCost")
-        st.latex(r"Available = ProjFund + RPays + HWealth")
-        
-        can_calc = all(v is not None for v in [proj_fund_v, bid_cost_v, r_pays_v])
-        
-        if can_calc:
-            req_v = bid_cost_v * unit_cost_v
-            avail_v = proj_fund_v + r_pays_v + h_wealth_val
-            st.write(f"> **Required Funds**: `{bid_cost_s}` × `{unit_cost_v:.2f}` = **{req_v:.2f}**")
-            st.write(f"> **Available Funds**: `{proj_fund_s}` + `{r_pays_s}` + `{h_wealth_str}` = **{avail_v:.2f}**")
-            
-            if avail_v >= req_v:
-                st.success(f"✅ Sufficient Funds (Available {avail_v:.1f} >= Required {req_v:.1f}). 100% Completion.")
-                c_net = bid_cost_v
-            else:
-                st.error(f"❌ Funding Gap (Available {avail_v:.1f} < Required {req_v:.1f}). Project will under-deliver.")
-                c_net = avail_v / unit_cost_v
-            
-            st.latex(r"GDP_{new} = GDP_{old} - Loss + (C_{net} \times 0.2)")
-            new_gdp = gdp_val - loss_v + (c_net * 0.2)
-            st.write(f"> **Result**: `{gdp_str}` - `{loss_v:.2f}` + (`{c_net:.2f}{TAG_EST}` × `0.2{TAG_CON}`) = **{new_gdp:.2f}**")
-        else:
-            st.info("💡 Some key metrics are still pending; unable to calculate preview.")
-
         st.markdown("---")
-        st.markdown("### ⚖️ Linear Confiscation Model (Corruption/Cronyism)")
-        
-        rp = game.r_role_party
-        hp = game.h_role_party
-        
-        rp_inv_pct = rp.investigate_ability / 10.0
-        hp_stl_pct = hp.stealth_ability / 10.0
-        catch_mult = max(0.1, (rp_inv_pct * cfg.get('R_INV_BONUS', 1.2)) - hp_stl_pct + 1.0)
-        
-        corr_base_rate = cfg.get('CATCH_RATE_PER_DOLLAR', 0.10)
-        crony_base_rate = cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05)
-        
-        corr_catch_ratio = min(1.0, corr_base_rate * catch_mult)
-        crony_catch_ratio = min(1.0, crony_base_rate * catch_mult)
-        
-        st.write(f"**🛡️ Catch Multiplier**: `max(0.1, (R-Intel {rp_inv_pct:.2f} × 1.2) - H-Stealth {hp_stl_pct:.2f} + 1.0) = {catch_mult:.2f}x`")
-        
-        st.markdown("**💸 Expected Corruption Profit**")
-        st.latex(r"Caught_{corr} = Amount_{corr} \times \min(1.0, 10\% \times CatchMult)")
-        st.latex(r"Net_{corr} = Amount_{corr} - Caught_{corr} - (Caught_{corr} \times 0.4_{fine})")
-        st.write(f"> **Current Base Corr. Rate**: `{corr_base_rate*100:.1f}% × {catch_mult:.2f} = {corr_catch_ratio*100:.1f}%` (Pre-inflation correction)")
+        st.markdown("### ⚖️ Linear Confiscation Model (Cronyism)")
         
         st.markdown("**🏢 Expected Cronyism Profit**")
-        st.latex(r"Caught_{crony} = Amount_{crony} \times \min(1.0, 5\% \times CatchMult)")
-        st.latex(r"Net_{crony} = (Amount_{crony} - Caught_{crony}) \times 20\% - Caught_{crony} \times 0.7_{fine}")
-        st.write(f"> **Current Base Crony Rate**: `{crony_base_rate*100:.1f}% × {catch_mult:.2f} = {crony_catch_ratio*100:.1f}%`")
-        st.caption(f"*(⚖️ The 0.7x Crony Fine comes from: Forfeiting the `{cfg.get('CRONY_PROFIT_RATE', 0.20)*100:.0f}%` profit + paying a `50%` punitive fine on the caught contract value)*")
+        st.latex(r"Caught_{crony} = Profit \times \min(1.0, BaseCatch \times CatchMult)")
+        st.latex(r"Net_{crony} = (Profit - Caught_{crony}) - Caught_{crony} \times FineMult")
+        st.write(f"> **Base Crony Rate**: `{cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05)*100:.1f}%`")
+        st.write(f"> **Chunk Mechanics**: Every `10 / Net_Fin_EV` dollars triggers one catch roll.")
