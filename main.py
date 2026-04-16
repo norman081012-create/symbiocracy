@@ -45,7 +45,7 @@ if game.phase == 4:
     st.stop()
 
 # ==========================================
-# PHASE 0: 遊戲初始設定
+# PHASE 0: 遊戲初始設定 (僅在剛啟動時出現)
 # ==========================================
 if game.phase == 0:
     st.title("🏛️ Symbiocracy Simulator - Game Setup")
@@ -74,14 +74,14 @@ if game.phase == 0:
     st.stop()  # 阻擋渲染，直到玩家按下開始
 
 # ==========================================
-# AI 自動攔截系統
+# AI 自動攔截系統 (無縫代打)
 # ==========================================
 if getattr(game, 'is_pve', False) and game.phase in [1, 2] and game.proposing_party.name == game.ai_party_name:
     st.title("🏛️ Symbiocracy Simulator v3.0.0")
     st.markdown("<br><br>", unsafe_allow_html=True)
     with st.spinner(f"🤖 **{game.ai_party_name}** is formulating strategies and taking actions..."):
         import time
-        time.sleep(0.8) # 稍微延遲 0.8 秒，讓玩家有對方在操作的代入感
+        time.sleep(0.8) # 稍微延遲 0.8 秒，讓玩家有對手在思考的沉浸感
         ai_bot.take_turn(game, cfg)
         st.rerun()
 # ==========================================
