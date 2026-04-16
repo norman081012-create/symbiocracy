@@ -54,7 +54,6 @@ if 'turn_initialized' not in st.session_state:
         observed_loss = max(0.0, real_infra_loss + random.uniform(-error_range, error_range))
         
         p.current_forecast = max(0.0, round(((observed_loss / max(1.0, game.gdp)) - cfg['BASE_DECAY_RATE']) / cfg['DECAY_WEIGHT_MULT'], 3))
-        
         p.poll_history = {'Small': [], 'Medium': [], 'Large': []}
         p.latest_poll = None
         p.poll_count = 0 
@@ -102,3 +101,4 @@ elif game.phase == 2: phase2.render(game, view_party, opponent_party, cfg)
 elif game.phase == 3: phase3.render(game, cfg)
 
 if game.phase != 4: ui_formulas.render_formula_panel(game, view_party, cfg)
+
