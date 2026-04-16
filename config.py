@@ -17,12 +17,11 @@ DEFAULT_CONFIG = {
     'DECAY_AMOUNT_DEFAULT': 1500.0,
     'DECAY_AMOUNT_BUILD': 500.0,
     
-    # Linear Confiscation Core Parameters
-    'CRONY_CATCH_RATE_DOLLAR': 0.05,      
-    'CRONY_PROFIT_RATE': 0.20,            
+    # Linear Confiscation Core Parameters (Fake EV)
+    'FAKE_EV_CATCH_BASE_RATE': 0.05,      
+    'FAKE_EV_COST_RATIO': 0.20,            
     'CORRUPTION_FINE_MULT': 0.4,          
     'CATCH_RATE_PER_PERCENT': 0.02,
-    'CRONY_CATCH_RATE_PER_PERCENT': 0.01,
     
     'RESISTANCE_MULT': 1.0, 
     'BUILD_DIFF': 1.0, 'INVESTIGATE_DIFF': 1.0, 'PREDICT_DIFF': 1.0, 'MEDIA_DIFF': 1.0,
@@ -65,7 +64,7 @@ DEFAULT_CONFIG = {
 def get_config_translations():
     return {
         'DECAY_MIN': "Min Decay Rate", 'DECAY_MAX': "Max Decay Rate",  
-        'CRONY_CATCH_RATE_DOLLAR': "Crony Catch Rate per $",
+        'FAKE_EV_CATCH_BASE_RATE': "Fake EV Catch Base Rate",
         'DECAY_WEIGHT_MULT': "Decay GDP Weight (Default 0.05)", 'BASE_DECAY_RATE': "Base Decay Floor",
         'CLAIMED_DECAY_WEIGHT': "Expectation Gap Weight", 'AMMO_MULTIPLIER': "Perf to Support Multiplier",
         'PREDICT_ACCURACY_WEIGHT': "Think Tank Acc. Weight", 'INVESTIGATE_ACCURACY_WEIGHT': "Intel Acc. Weight",
@@ -123,4 +122,3 @@ def get_thinktank_eval(ability, diff):
         ('low', 'high'): "Blind luck", ('low', 'med'): "Acceptable", ('low', 'low'): "Completely dysfunctional"
     }
     return matrix.get((abi_lvl, acc_lvl), "System Malfunction")
-
