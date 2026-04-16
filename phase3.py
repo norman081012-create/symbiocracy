@@ -285,34 +285,38 @@ def render(game, cfg):
             st.write(f"**Final Cash Flow:** `${net_cash_r:.1f}`")
 
     with c2:
-        st.markdown(f"### 🗳️ ELECTORAL SHIFT")
+        st.markdown(f"### 🗳️ ELECTORAL SHIFT (Support Force)")
         
-        old_sup_A = rep['old_boundary'] * 0.5
-        new_sup_A = rep['new_boundary'] * 0.5
-        old_sup_B = 100.0 - old_sup_A
-        new_sup_B = 100.0 - new_sup_A
+        st.write(f"**{game.party_A.name} Total Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Force:** `{rep['ammo_B']:.1f}`")
+        net_ammo = rep['net_ammo_A']
+        atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
+        def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
         
-        st.markdown(f"#### **{game.party_A.name}:** `{old_sup_A:.1f}%` ➔ **`{new_sup_A:.1f}%`** ({new_sup_A - old_sup_A:+.1f}%)")
-        st.markdown(f"#### **{game.party_B.name}:** `{old_sup_B:.1f}%` ➔ **`{new_sup_B:.1f}%`** ({new_sup_B - old_sup_B:+.1f}%)")
+        if abs(net_ammo) < 1.0: 
+            st.info("🤝 Support forces are deadlocked. No significant momentum generated.")
+        else:
+            st.success(f"🔥 **Net Advantage:** `{abs(net_ammo):.1f}`! **{atk_party}** launched an influence wave against **{def_party}**!")
 
-        with st.expander("👁️ God Mode: Electoral Mechanics"):
-            st.write(f"*(Attribution Rate: `{rep['correct_prob']*100:.1f}%`)*")
-            if rep['h_spun_exec'] != 0 or rep['r_spun_exec'] != 0:
-                st.info(f"Media Spin: {rep['h_party_name']} ({rep['h_spun_exec']:+.1f}), {rep['r_party_name']} ({rep['r_spun_exec']:+.1f})")
-            if rep.get('censor_buff', 0) > 0:
-                st.warning(f"Censorship Backlash: {rep['censor_successes']} units enraged! Exec rigidity +`{rep['censor_buff']:.3f}`.")
+        if st.session_state.get('god_mode'):
+            with st.expander("👁️ God Mode: Electoral Mechanics & True Support", expanded=True):
+                st.write(f"*(Attribution Rate: `{rep['correct_prob']*100:.1f}%`)*")
+                if rep['h_spun_exec'] != 0 or rep['r_spun_exec'] != 0:
+                    st.info(f"Media Spin: {rep['h_party_name']} ({rep['h_spun_exec']:+.1f}), {rep['r_party_name']} ({rep['r_spun_exec']:+.1f})")
+                if rep.get('censor_buff', 0) > 0:
+                    st.warning(f"Censorship Backlash: {rep['censor_successes']} units enraged! Exec rigidity +`{rep['censor_buff']:.3f}`.")
 
-            st.write(f"**{game.party_A.name} Total Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Force:** `{rep['ammo_B']:.1f}`")
-            net_ammo = rep['net_ammo_A']
-            atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
-            def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
-            
-            if abs(net_ammo) < 1.0: 
-                st.info("Deadlock. No shift.")
-            else:
-                st.success(f"Advantage: `{abs(net_ammo):.1f}`! {atk_party} attacks!")
                 blocked_ammo = rep['used_ammo'] - rep['conquered']
-                st.write(f"Voter Armor absorbed `{blocked_ammo:.1f}`. Conquered: **{rep['conquered']}** blocs.")
+                st.write(f"🛡️ Voter Armor absorbed `{blocked_ammo:.1f}` impact points. Conquered: **{rep['conquered']}** blocs.")
+
+                old_sup_A = rep['old_boundary'] * 0.5
+                new_sup_A = rep['new_boundary'] * 0.5
+                old_sup_B = 100.0 - old_sup_A
+                new_sup_B = 100.0 - new_sup_A
+                
+                st.markdown(f"#### 📊 **{game.party_A.name} True Support:** `{old_sup_A:.1f}%` ➔ **`{new_sup_A:.1f}%`** ({new_sup_A - old_sup_A:+.1f}%)")
+                st.markdown(f"#### 📊 **{game.party_B.name} True Support:** `{old_sup_B:.1f}%` ➔ **`{new_sup_B:.1f}%`** ({new_sup_B - old_sup_B:+.1f}%)")
+        else:
+            st.caption("*(True support percentages are hidden. Conduct Polls to reveal current standing.)*")
 
     st.markdown("---")
     if st.button("⏩ Next Year", type="primary", use_container_width=True):
