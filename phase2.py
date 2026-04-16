@@ -18,6 +18,7 @@ def render(game, view_party, opponent_party, cfg):
     req_cost = float(d.get('req_cost', 0.0))
     bid_cost = float(d.get('bid_cost', 1.0))
     
+    # 執行方 (H-System) 的資金為 黨產 + 專案需求金 (Req. Cost)
     if is_h: cw = float(view_party.wealth) + req_cost
     else: cw = float(view_party.wealth)
     
@@ -29,8 +30,6 @@ def render(game, view_party, opponent_party, cfg):
     ci_cap = view_party.stealth_ability * 10.0
     edu_cap = view_party.edu_ability * 10.0 * r_bonus
     eng_base_ev = view_party.build_ability * 10.0 * h_bonus
-    
-    # 升級上限不吃 h_bonus，純看基礎 Engineering 能力
     eng_limit = view_party.build_ability * 10.0 * 2.0  
     
     last_acts = view_party.last_acts if hasattr(view_party, 'last_acts') else {}
@@ -90,13 +89,23 @@ def render(game, view_party, opponent_party, cfg):
         new_edu_stance = max(-100.0, min(100.0, old_edu_stance + edu_shift))
         st.info(f"Education Stance: `{old_edu_stance:.1f}` ➔ `{new_edu_stance:.1f}`")
 
+        # 檢查未使用的 EV 並提醒
+        if (w_i_cen + w_i_org + w_i_fin) == 0 and inv_cap > 0:
+            st.warning(f"⚠️ {t('Intelligence')} 尚有未分配的 EV Capacity！")
+        if (w_c_cen + w_c_org + w_c_fin) == 0 and ci_cap > 0:
+            st.warning(f"⚠️ {t('Counter-Intel')} 尚有未分配的 EV Capacity！")
+        if (w_m_cam + w_m_inc + w_m_con) == 0 and med_cap > 0:
+            st.warning(f"⚠️ {t('Media Dept')} 尚有未分配的 EV Capacity！")
+
     with c2:
         st.markdown(t("#### 🔒 Financial & Engineering (Engineering Value)"))
         
         fake_ev = 0.0
         c_net = 0.0
         
-        unit_cost = formulas.calc_unit_cost(cfg, game.gdp, view_party.build_ability, view_party.current_forecast)
+        # 📌 已經開始實體建設，改採用真實衰退率計算成本
+        real_decay = game.current_real_decay
+        unit_cost = formulas.calc_unit_cost(cfg, game.gdp, view_party.build_ability, real_decay)
         
         if is_h:
             c_net = st.number_input(f"Allocate Real EV to National Project (Target EV: {bid_cost})", min_value=0.0, value=float(min((cw / max(0.01, unit_cost)) + eng_base_ev, bid_cost)), key=f"c_net_{view_party.name}")
@@ -155,7 +164,10 @@ def render(game, view_party, opponent_party, cfg):
         total_maint_cost = pre_maint + inv_maint + med_maint + stl_maint + bld_maint + edu_maint
         pure_upgrades = pre_up + inv_up + med_up + stl_up + bld_up + edu_up
         
+        # 計算總需求 EV (專案 + 維護 + 升降級淨額)
         total_ev_required = project_ev_cost + total_maint_cost + total_upgrade_cost
+        
+        # 扣除免費的 Base EV，得出需要用錢買的 EV
         ev_to_buy = max(0.0, total_ev_required - eng_base_ev)
         invest_wealth = ev_to_buy * max(0.01, unit_cost)
         
@@ -209,7 +221,8 @@ def render(game, view_party, opponent_party, cfg):
     eval_c_net = float(act_ha.get('c_net', 0))
     eval_fake_ev = float(act_ha.get('fake_ev', 0))
     
-    res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(view_party.current_forecast), r_pays=r_pays, h_wealth=expected_h_wealth, c_net_override=eval_c_net, fake_ev=eval_fake_ev)
+    # 📌 Phase 2 預覽也使用 game.current_real_decay 
+    res_prev = formulas.calc_economy(cfg, float(game.gdp), float(game.total_budget), proj_fund, bid_cost, float(game.h_role_party.build_ability), float(game.current_real_decay), r_pays=r_pays, h_wealth=expected_h_wealth, c_net_override=eval_c_net, fake_ev=eval_fake_ev)
     
     hp_net_est = h_base_expected + res_prev['h_project_profit']
     rp_net_est = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.r_role_party.name else 0)) + res_prev['payout_r'] - r_pays
