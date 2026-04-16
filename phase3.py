@@ -35,8 +35,6 @@ def render(game, cfg):
         returned_to_r = 0.0
         confiscated_to_budget = 0.0
         hp_wealth_penalty = 0.0
-        corr_caught = False
-        crony_caught = False
         
         proj_fund = float(d.get('proj_fund') or 0.0)
         bid_cost = float(d.get('bid_cost') or 1.0)
@@ -59,39 +57,26 @@ def render(game, cfg):
         
         inflation = max(0.0, (game.gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0))
         
-        # 1. 貪污結算 (扣除工程款，全額沒收)
-        adj_corr_amt = corr_amt / (1.0 + inflation)
-        rolls_corr = adj_corr_amt * actual_catch_mult
-        catch_rate_per_dollar = cfg.get('CATCH_RATE_PER_DOLLAR', 0.10)
-        catch_prob_corr = 1.0 - (1.0 - catch_rate_per_dollar)**rolls_corr
+        # 🚀 1. 貪污結算 (套用新骰子邏輯)
+        catch_rate_per_dollar = cfg.get('CATCH_RATE_PER_DOLLAR', 0.10) * actual_catch_mult
+        caught_corr, safe_corr, fine_corr = formulas.calc_corruption_dice(corr_amt, catch_rate_per_dollar, fine_mult)
         
-        if corr_amt > 0 and random.random() < catch_prob_corr:
-            original_corr_amt = corr_amt
-            returned_to_r += original_corr_amt
-            penalty = original_corr_amt * fine_mult
-            hp_wealth_penalty += penalty
-            confiscated_to_budget += penalty
-            corr_caught = True
-            corr_amt = 0 
+        returned_to_r += caught_corr
+        hp_wealth_penalty += fine_corr
+        confiscated_to_budget += fine_corr
+        corr_caught = (caught_corr > 0)
 
-        # 2. 圖利結算 (不扣工程款，僅沒收利潤，罰金以利潤為基礎)
+        # 🚀 2. 圖利結算 (套用新骰子邏輯)
         crony_profit_rate = cfg.get('CRONY_PROFIT_RATE', 0.20)
         crony_income = crony_base * crony_profit_rate
+        crony_catch_rate_dollar = cfg.get('CRONY_CATCH_RATE_DOLLAR', 0.05) * actual_catch_mult
         
-        adj_crony_base = crony_base / (1.0 + inflation)
-        rolls_crony = adj_crony_base * actual_catch_mult
-        crony_catch_rate_dollar = catch_rate_per_dollar * 0.2 
-        catch_prob_crony = 1.0 - (1.0 - crony_catch_rate_dollar)**rolls_crony
+        caught_crony, safe_crony, fine_crony = formulas.calc_corruption_dice(crony_income, crony_catch_rate_dollar, fine_mult)
         
-        if crony_base > 0 and random.random() < catch_prob_crony:
-            # 🚀 修正：只沒收圖利的「不當得利 (Profit)」，而不是整個工程款
-            returned_to_r += crony_income
-            # 🚀 修正：罰款也是基於利潤來計算
-            penalty = crony_income * fine_mult
-            hp_wealth_penalty += penalty
-            confiscated_to_budget += penalty
-            crony_caught = True
-            crony_income = 0
+        returned_to_r += caught_crony
+        hp_wealth_penalty += fine_crony
+        confiscated_to_budget += fine_crony
+        crony_caught = (caught_crony > 0)
             
         hp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == hp.name else 0))
         rp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == rp.name else 0))
@@ -102,23 +87,21 @@ def render(game, cfg):
         
         hp_project_net = res_exec['h_project_profit']
         
-        # 🚀 修正：R黨的結算收益必須包含未發放的預算結餘
         total_bonus_deduction = game.total_budget * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
         base_r_surplus = max(0.0, game.total_budget - total_bonus_deduction - proj_fund)
         unspent_proj = proj_fund * (1.0 - res_exec['h_idx'])
         
-        # rp_project_net 是 R 黨在該專案的最終獲益 (包含原本省下的預算結餘 + 執行方未達標退回的專案款 - R黨自己掏錢墊付的款項)
         rp_project_net = base_r_surplus + unspent_proj - r_pays
         
-        hp_inc = hp_base + hp_project_net + corr_amt + crony_income
+        # 🚀 執行方最終獲得的額外收入是「安全過關」的錢
+        hp_inc = hp_base + hp_project_net + safe_corr + safe_crony
         rp_inc = rp_base + rp_project_net + returned_to_r
         
         s_val = max(0.0, (game.sanity - 50.0) / 50.0) 
         c_val = max(0.0, (50.0 - game.sanity) / 50.0) 
-        censor_factor = 1.0 + s_val - c_val           
+        censor_factor = 1.0 + s_val - c_val            
         
         media_multiplier = max(0.1, 1.0 - s_val + c_val + (game.emotion / 100.0))
-        
         judicial_lvl = float(ra.get('judicial_lvl', 0.0))
         
         B = game.boundary_B
@@ -222,7 +205,12 @@ def render(game, cfg):
             'h_base': hp_base, 'r_base': rp_base, 
             'h_project_net': hp_project_net, 'r_project_net': rp_project_net,
             'payout_h': res_exec['payout_h'], 'act_fund': res_exec['act_fund'], 'r_pays': r_pays,
-            'h_extra': corr_amt + crony_income, 'r_extra': returned_to_r,
+            
+            # 🚀 記錄圖利結算結果
+            'h_extra': safe_corr + safe_crony, 'r_extra': returned_to_r,
+            'caught_corr': caught_corr, 'caught_crony': caught_crony,
+            'fine_corr': fine_corr, 'fine_crony': fine_crony,
+            
             'h_pol_cost': h_tot_action, 'r_pol_cost': r_tot_action,
             'h_maint': h_tot_maint, 'r_maint': r_tot_maint,
             'h_refund': h_refund, 'r_refund': r_refund,
@@ -262,7 +250,7 @@ def render(game, cfg):
         st.markdown(f"### 💰 {t('Economy & Finance')}")
         st.write(f"**GDP:** `{rep['old_gdp']:.1f}` ➔ `{game.gdp:.1f}`")
         
-        with st.expander(f"📊 {rep['h_party_name']} ({t('H-System')}) Project & Profit Breakdown"):
+        with st.expander(f"📊 {rep['h_party_name']} ({t('role_exec')}) Project & Profit Breakdown"):
             st.write(f"- 📥 Received Project Reward: `${rep['payout_h']:.1f}`")
             st.write(f"- 📥 Received R-Subsidy: `${rep['r_pays']:.1f}`")
             st.write(f"- 📤 Actual Engineering Cost: `-${rep['act_fund']:.1f}`")
@@ -270,30 +258,30 @@ def render(game, cfg):
             st.markdown("---")
             st.write(f"- Base Income (inc. Ruling Bonus): `${rep['h_base']:.1f}`")
             if rep['h_extra'] > 0:
-                st.write(f"- Secret Income (Laundered Corruption/Cronyism): `${rep['h_extra']:.1f}`")
+                st.write(f"- {t('safe_amount')} (Evaded Detection): `${rep['h_extra']:.1f}`")
             if rep.get('hp_penalty', 0) > 0:
-                st.write(f"- 🚨 Confiscated Fine to Treasury ({rep['fine_mult']}x Multiplier): `-${rep['hp_penalty']:.1f}`")
+                st.write(f"- 🚨 {t('fine_paid')} ({rep['fine_mult']}x Multiplier): `-${rep['hp_penalty']:.1f}`")
             st.write(f"- PR, Operations & Shift Costs: `-${rep['h_pol_cost']:.1f}`")
             st.write(f"- Dept & Policy Maintenance: `-${rep['h_maint']:.1f}`")
             if rep['h_refund'] > 0: st.write(f"- Downgrade Refunds: `+${rep['h_refund']:.1f}`")
             net_cash = rep['h_inc'] - rep['h_pol_cost'] - rep['h_maint'] + rep['h_refund'] - rep.get('hp_penalty', 0)
             st.write(f"**💰 Final Net Cash Flow: `${net_cash:.1f}`**")
 
-        with st.expander(f"📊 {rep['r_party_name']} ({t('R-System')}) Surplus & Profit Breakdown"):
+        with st.expander(f"📊 {rep['r_party_name']} ({t('role_reg')}) Surplus & Profit Breakdown"):
             st.write(f"- Base Income (inc. Ruling Bonus): `${rep['r_base']:.1f}`")
             st.write(f"- 📤 Paid R-Subsidy: `-${rep['r_pays']:.1f}`")
             st.write(f"- 📥 Unspent Project Funds Recovered: `${rep['unspent_proj']:.1f}`")
             st.write(f"- 📥 Regulatory Budget Surplus: `${rep['base_r_surplus']:.1f}`")
             if rep['r_extra'] > 0:
-                st.write(f"- 🏆 Confiscated Illegal Funds from Opponent: `${rep['r_extra']:.1f}`")
+                st.write(f"- 🏆 {t('caught_amount')} (From Opponent): `${rep['r_extra']:.1f}`")
             st.write(f"- PR, Operations & Shift Costs: `-${rep['r_pol_cost']:.1f}`")
             st.write(f"- Dept & Policy Maintenance: `-${rep['r_maint']:.1f}`")
             if rep['r_refund'] > 0: st.write(f"- Downgrade Refunds: `+${rep['r_refund']:.1f}`")
             net_cash_r = rep['r_inc'] - rep['r_pol_cost'] - rep['r_maint'] + rep['r_refund']
             st.write(f"**💰 Final Net Cash Flow: `${net_cash_r:.1f}`**")
 
-        if rep.get('corr_caught'): st.error(t("🚨 Corruption Scandal! Illegal funds seized by R-System. Extra fines applied to Treasury."))
-        if rep.get('crony_caught'): st.error(t("🚨 Cronyism Controversy! Illegal profit seized by R-System. Extra fines applied to Treasury."))
+        if rep.get('corr_caught'): st.error(f"🚨 Corruption Scandal! Regulator seized `{rep['caught_corr']:.1f}`. Fines (`{rep['fine_corr']:.1f}`) applied to Treasury.")
+        if rep.get('crony_caught'): st.error(f"🚨 Cronyism Controversy! Regulator seized `{rep['caught_crony']:.1f}`. Fines (`{rep['fine_crony']:.1f}`) applied to Treasury.")
 
     with c2:
         st.markdown(f"### 🧠 {t('Society & Opinion')}")
@@ -312,10 +300,10 @@ def render(game, cfg):
         st.caption(f"*(📡 This Year's Rational Attribution Rate: `{rep['correct_prob']*100:.1f}%`)*")
         
         if rep['h_spun_exec'] != 0 or rep['r_spun_exec'] != 0:
-            st.info(f"📺 **Media Spin Output:** H-System media altered `{rep['h_spun_exec']:+.1f}` support points; R-System media altered `{rep['r_spun_exec']:+.1f}` points!")
+            st.info(f"📺 **Media Spin Output:** Executive media altered `{rep['h_spun_exec']:+.1f}` support points; Regulator media altered `{rep['r_spun_exec']:+.1f}` points!")
             
         if rep.get('censor_buff', 0) > 0:
-            st.warning(f"⚖️ **Censorship Backlash:** R-System's forced media suppression enraged `{rep['censor_successes']}` opponent units! H-System's voter rigidity drastically increased by `+{rep['censor_buff']:.3f}` for the next 2 years!")
+            st.warning(f"⚖️ **Censorship Backlash:** Regulator's forced media suppression enraged `{rep['censor_successes']}` opponent units! Executive's voter rigidity drastically increased by `+{rep['censor_buff']:.3f}` for the next 2 years!")
 
         st.write(f"**{game.party_A.name} Total Support Force:** `{rep['ammo_A']:.1f}` | **{game.party_B.name} Total Support Force:** `{rep['ammo_B']:.1f}`")
         
