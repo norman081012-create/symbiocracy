@@ -80,7 +80,7 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     shift_preview = formulas.calc_performance_preview(
         cfg, sim_h_party, sim_r_party, sim_ruling_name,
         res['est_gdp'], game.gdp, 
-        cl_decay, game.sanity, game.emotion, plan['bid_cost'], res['c_net'],
+        cl_decay, game.sanity, game.emotion, plan['bid_cost'], res['c_net_total'],
         h_media_pwr, r_media_pwr
     )
     
@@ -131,10 +131,13 @@ def render_proposal_component(title, plan, game, view_party, cfg):
     st.markdown(f"#### {title}")
     conv_rate = cfg.get('GDP_CONVERSION_RATE', 0.2)
     equiv_infra_loss = (game.gdp * (cl_decay * cfg.get('DECAY_WEIGHT_MULT', 0.05))) / conv_rate
-    st.write(f"**{t('Claimed Decay')}:** {cl_decay:.3f} **({t(f'Equivalent to {equiv_infra_loss:.1f} EV Loss')})**")
+    
+    equiv_str = t(f"Equivalent to {equiv_infra_loss:.1f} EV Loss")
+    st.write(f"**{t('Claimed Decay')}:** {cl_decay:.3f} **({equiv_str})**")
+    
     st.write(f"**{t('Total Plan Reward (Max=Budget-Salaries)')}:** {plan['proj_fund']:.1f} | **{t('Plan Total Benefit (Construction Volume)')}:** {plan['bid_cost']:.1f}")
     
     if simulate_swap:
         st.info(f"🔧 **{t('Simulated H-System Pays')}:** {t('Total')} {eval_req_cost:.1f} ({t('R-Pays')}: {eval_r_pays:.1f} | {t('H-Pays')}: {eval_h_pays:.1f})")
     else:
-        st.write(f"**{t('Total Req. Cost')}:** {eval_req_cost:.1f} ({t('R-Pays')}: {eval_r_pays:.1f} | {t('H-Pays')
+        st.write(f"**{t('Total Req. Cost')}:** {eval_req_cost:.1f} ({t('R-Pays')}: {eval_r_pays:.1f} | {t('H-Pays')}: {eval_h_pays:.1f})")
