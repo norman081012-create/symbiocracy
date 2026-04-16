@@ -11,25 +11,22 @@ def calc_log_gain(invest_amount, base_cost=50.0):
     return math.log2(1 + (invest_amount / base_cost)) if invest_amount > 0 else 0.0
 
 def calc_unit_cost(cfg, gdp, build_abi, decay):
-    # 0 級無折扣 (1.0)，10 級打 5 折 (0.5)
     discount_factor = 1.0 - (build_abi / 10.0) * 0.5 
     inflation = max(0.0, (gdp - cfg.get('CURRENT_GDP', 5000.0)) / cfg.get('GDP_INFLATION_DIVISOR', 10000.0))
     base_cost = 0.85 * (2 ** (2 * decay - 1))
     return base_cost * discount_factor * (1 + inflation)
 
-def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float, chunk_size: float = 1.0, unit_cost: float = 1.0):
-    if total_fake_ev <= 0 or chunk_size <= 0:
+def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float, chunk_size: float = 5.0, unit_cost: float = 1.0):
+    if total_fake_ev <= 0 or catch_prob <= 0 or chunk_size == float('inf'):
         return 0.0, total_fake_ev, 0.0, 0.0
         
-    num_full_chunks = int(total_fake_ev / chunk_size)
-    remainder = total_fake_ev - (num_full_chunks * chunk_size)
+    num_chunks = int(total_fake_ev / chunk_size)
+    remainder = total_fake_ev - (num_chunks * chunk_size)
     
-    caught_chunks = float(np.random.binomial(n=num_full_chunks, p=catch_prob)) if num_full_chunks > 0 else 0.0
-    caught_int_amount = caught_chunks * chunk_size
-    
+    caught_chunks = float(np.random.binomial(n=num_chunks, p=catch_prob)) if num_chunks > 0 else 0.0
     caught_remainder = remainder if random.random() < catch_prob else 0.0
     
-    caught_fake_ev = caught_int_amount + caught_remainder
+    caught_fake_ev = (caught_chunks * chunk_size) + caught_remainder
     safe_fake_ev = total_fake_ev - caught_fake_ev
     
     caught_value = caught_fake_ev * unit_cost
@@ -37,7 +34,8 @@ def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float,
     
     return caught_fake_ev, safe_fake_ev, caught_value, fine
 
-def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, r_pays=0.0, h_wealth=0.0, c_net_override=None, override_unit_cost=None, fake_ev=0.0):
+# 📌 修正：分離 fake_ev_spent (花費) 與 fake_ev_safe (達標)，被抓的假 EV 不計入達標率
+def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, r_pays=0.0, h_wealth=0.0, c_net_override=None, override_unit_cost=None, fake_ev_spent=0.0, fake_ev_safe=0.0):
     l_gdp = gdp * (forecast_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
     unit_cost = override_unit_cost if override_unit_cost is not None else calc_unit_cost(cfg, gdp, build_abi, forecast_decay)
     req_cost = bid_cost * unit_cost
@@ -46,19 +44,19 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
     
     if c_net_override is not None:
         c_net_real = min(float(bid_cost), c_net_override)
-        c_net_total = c_net_real + fake_ev
-        act_fund = (c_net_real + fake_ev * cfg.get('FAKE_EV_COST_RATIO', 0.2)) * unit_cost
+        c_net_total = c_net_real + fake_ev_safe
+        act_fund = (c_net_real + fake_ev_spent * cfg.get('FAKE_EV_COST_RATIO', 0.2)) * unit_cost
         h_idx = min(1.0, c_net_total / max(1.0, float(bid_cost)))
     else:
         if req_cost <= available_fund:
             act_fund = req_cost
             c_net_real = float(bid_cost)
-            c_net_total = c_net_real + fake_ev
-            h_idx = 1.0
+            c_net_total = c_net_real + fake_ev_safe
+            h_idx = min(1.0, c_net_total / max(1.0, float(bid_cost)))
         else:
             act_fund = available_fund
             c_net_real = act_fund / max(0.01, unit_cost)
-            c_net_total = c_net_real + fake_ev
+            c_net_total = c_net_real + fake_ev_safe
             h_idx = min(1.0, c_net_total / max(1.0, float(bid_cost)))
 
     payout_h = min(budget_t, proj_fund * h_idx)
@@ -175,30 +173,37 @@ def calc_incite_success(base_incite_rolls, current_emotion, is_preview=False):
             
     return successful_incites
 
-# 🛡️ 新增：公關火力專屬裝甲 (包含 Sanity 理智度防禦)
-def get_spin_rigidity(i, sanity=50.0, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
+def get_base_rigidity(i, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
     x = (i - 100.5) / 99.5
     base_rigidity = 0.95 * (x**2) + 0.05
-    sanity_defense = (sanity / 100.0) * 0.5 
-    final_rigidity = base_rigidity + sanity_defense
     if buff_amt > 0 and buff_party and party_a_name:
         belongs_to_A = (i <= h_boundary)
         if (buff_party == party_a_name and belongs_to_A) or (buff_party != party_a_name and not belongs_to_A):
-            final_rigidity += buff_amt
-    return min(1.0, final_rigidity)
+            base_rigidity += buff_amt
+    return min(1.0, base_rigidity)
 
-# ⚔️ 新增：雙軌戰鬥結算 (真實政績 vs 公關操弄)
+def get_spin_rigidity(i, sanity=50.0, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
+    base_rigidity = get_base_rigidity(i, buff_amt, buff_party, h_boundary, party_a_name)
+    sanity_defense = (sanity / 100.0) * 0.5 
+    return min(1.0, base_rigidity + sanity_defense)
+
 def run_conquest_split(boundary_B, net_perf_A, net_spin_A, sanity=50.0, buff_amt=0.0, buff_party=None, party_a_name=None):
     B = int(boundary_B)
     perf_used = 0.0; perf_conquered = 0
     if net_perf_A > 0:
         sup = net_perf_A
         while sup >= 1.0 and B < 200:
-            sup -= 1.0; perf_used += 1.0; B += 1; perf_conquered += 1
+            sup -= 1.0; perf_used += 1.0
+            rigidity = get_base_rigidity(B + 1, buff_amt, buff_party, boundary_B, party_a_name)
+            if random.random() < (1.0 - rigidity):
+                B += 1; perf_conquered += 1
     elif net_perf_A < 0:
         sup = abs(net_perf_A)
         while sup >= 1.0 and B > 0:
-            sup -= 1.0; perf_used += 1.0; B -= 1; perf_conquered += 1
+            sup -= 1.0; perf_used += 1.0
+            rigidity = get_base_rigidity(B, buff_amt, buff_party, boundary_B, party_a_name)
+            if random.random() < (1.0 - rigidity):
+                B -= 1; perf_conquered += 1
             
     spin_used = 0.0; spin_conquered = 0
     if net_spin_A > 0:
