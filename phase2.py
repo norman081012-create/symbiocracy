@@ -202,20 +202,42 @@ def render(game, view_party, opponent_party, cfg):
     h_media_pwr = float(act_ha.get('alloc_med_control', 0.0))
     r_media_pwr = float(act_ra.get('alloc_med_control', 0.0))
 
-    shift_preview = formulas.calc_performance_preview(
+shift_preview = formulas.calc_performance_preview(
         cfg, game.h_role_party, game.r_role_party, game.ruling_party.name,
         res_prev['est_gdp'], game.gdp, 
         float(d.get('claimed_decay', 0.0)), game.sanity, game.emotion, bid_cost, res_prev['c_net_total'],
         h_media_pwr, r_media_pwr
     )
     
+    # --- NEW CALCULATION LOGIC ADDED HERE ---
+    # 1. Calculate Base Income
+    h_base_prev = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.h_role_party.name else 0))
+    r_base_prev = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == game.r_role_party.name else 0))
+
+    # 2. Calculate Project Profit
+    r_project_profit = res_prev['payout_r'] + (proj_fund * (1.0 - res_prev['h_idx'])) - r_pays
+    
+    h_inc_prev = h_base_prev + res_prev['h_project_profit']
+    r_inc_prev = r_base_prev + r_project_profit
+
+    # 3. Calculate ROI
+    eval_h_pays = max(0.0, req_cost - r_pays)
+    h_roi = (res_prev['h_project_profit'] / eval_h_pays) * 100.0 if eval_h_pays > 0 else float('inf')
+    r_roi = (r_project_profit / r_pays) * 100.0 if r_pays > 0 else float('inf')
+    # --- END NEW LOGIC ---
+
+    # Include the calculated keys in the dictionary
     preview_data = {
         'gdp': res_prev['est_gdp'], 'budg': game.total_budget, 'h_fund': res_prev['payout_h'],
         'san': game.sanity, 'emo': game.emotion,
         'my_perf_gdp': shift_preview[view_party.name]['perf_gdp'],
         'my_perf_proj': shift_preview[view_party.name]['perf_proj'],
         'opp_perf_gdp': shift_preview[opponent_party.name]['perf_gdp'],
-        'opp_perf_proj': shift_preview[opponent_party.name]['perf_proj']
+        'opp_perf_proj': shift_preview[opponent_party.name]['perf_proj'],
+        'h_inc': h_inc_prev,                   # Fixes the KeyError
+        'r_inc': r_inc_prev,                   # Fixes the KeyError
+        'my_roi': h_roi if is_h else r_roi,    # Fixes the 0% UI bug
+        'opp_roi': r_roi if is_h else h_roi    # Fixes the 0% UI bug
     }
     
     ui_core.render_dashboard(game, view_party, cfg, is_preview=True, preview_data=preview_data)
