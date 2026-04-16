@@ -100,7 +100,8 @@ def render(game, cfg):
         censor_successes = 0; censor_failures = 0
         
         for i in opp_indices:
-            rig = formulas.get_rigidity(i, game.sanity, getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), B, game.party_A.name)
+            # 修正呼叫：改為 get_spin_rigidity
+            rig = formulas.get_spin_rigidity(i, game.sanity, getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), B, game.party_A.name)
             if random.random() > rig: censor_successes += 1
             else: censor_failures += 1
         
@@ -157,7 +158,7 @@ def render(game, cfg):
         net_spin_A = spin_A - spin_B
         old_boundary = game.boundary_B
         
-        # 執行分開結算 (真實傷害無視防禦，公關傷害受防禦)
+        # 🛡️ 雙軌戰鬥結算：傳入分離的火力值
         new_boundary, perf_used, perf_conquered, spin_used, spin_conquered = formulas.run_conquest_split(
             game.boundary_B, net_perf_A, net_spin_A, game.sanity, 
             getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), game.party_A.name
@@ -187,7 +188,7 @@ def render(game, cfg):
             'spin_A': spin_A, 'spin_B': spin_B, 'net_spin_A': net_spin_A,
             'perf_used': perf_used, 'perf_conquered': perf_conquered,
             'spin_used': spin_used, 'spin_conquered': spin_conquered,
-            'old_boundary': old_boundary, 'new_boundary': new_boundary, 
+            'old_boundary': old_boundary, 'new_boundary': new_boundary,
             'correct_prob': correct_prob,
             'h_spun_exec': h_spun_exec, 'r_spun_exec': r_spun_exec, 
             'censor_successes': censor_successes, 'censor_failures': censor_failures, 'censor_emotion_add': censor_emotion_add, 'censor_buff': censor_rigidity_buff,
@@ -305,7 +306,7 @@ def render(game, cfg):
     with c2:
         st.markdown(f"### 🗳️ ELECTORAL SHIFT (Support Force)")
         
-        net_ammo = rep['net_ammo_A'] + rep['net_spin_A']
+        net_ammo = rep['net_perf_A'] + rep['net_spin_A']
         atk_party = game.party_A.name if net_ammo > 0 else game.party_B.name
         def_party = game.party_B.name if net_ammo > 0 else game.party_A.name
         
