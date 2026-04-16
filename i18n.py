@@ -65,7 +65,10 @@ DYNAMIC_REPLACEMENTS = {
     "Claimed Decay": "宣告衰退率",
     "Claimed Unit Cost": "宣告單位成本",
     
-    "Cronyism ($)": "圖利特定廠商 ($)",
+    "Fake EV": "假 EV (豆腐渣工程)",
+    "Fake EV Investigation": "假 EV 調查 (金流查核)",
+    "EV Loss": "EV 損失",
+    
     "Media Censorship": "媒體審查與言論控制",
     "Education Policy (Left: Rote | Right: Critical)": "教育方針 (左: 填鴨愚民 | 右: 批判思考)",
     "Media Control": "媒體識讀與控制",
