@@ -202,7 +202,7 @@ def render(game, view_party, opponent_party, cfg):
     h_media_pwr = float(act_ha.get('alloc_med_control', 0.0))
     r_media_pwr = float(act_ra.get('alloc_med_control', 0.0))
 
-shift_preview = formulas.calc_performance_preview(
+    shift_preview = formulas.calc_performance_preview(
         cfg, game.h_role_party, game.r_role_party, game.ruling_party.name,
         res_prev['est_gdp'], game.gdp, 
         float(d.get('claimed_decay', 0.0)), game.sanity, game.emotion, bid_cost, res_prev['c_net_total'],
@@ -234,10 +234,10 @@ shift_preview = formulas.calc_performance_preview(
         'my_perf_proj': shift_preview[view_party.name]['perf_proj'],
         'opp_perf_gdp': shift_preview[opponent_party.name]['perf_gdp'],
         'opp_perf_proj': shift_preview[opponent_party.name]['perf_proj'],
-        'h_inc': h_inc_prev,                   # Fixes the KeyError
-        'r_inc': r_inc_prev,                   # Fixes the KeyError
-        'my_roi': h_roi if is_h else r_roi,    # Fixes the 0% UI bug
-        'opp_roi': r_roi if is_h else h_roi    # Fixes the 0% UI bug
+        'h_inc': h_inc_prev,
+        'r_inc': r_inc_prev,
+        'my_roi': h_roi if is_h else r_roi,
+        'opp_roi': r_roi if is_h else h_roi
     }
     
     ui_core.render_dashboard(game, view_party, cfg, is_preview=True, preview_data=preview_data)
