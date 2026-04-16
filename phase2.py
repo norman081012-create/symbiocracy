@@ -96,7 +96,9 @@ def render(game, view_party, opponent_party, cfg):
             
             fake_ev_cost_ratio = cfg.get('FAKE_EV_COST_RATIO', 0.2)
             max_fake_ev = rem_ev_1 / fake_ev_cost_ratio
-            fake_ev = st.number_input(t(f"Inject Fake EV (Costs {fake_ev_cost_ratio} EV per 1 Fake EV)"), min_value=0.0, max_value=float(max_fake_ev), value=float(min(last_acts.get('fake_ev', 0.0), max_fake_ev)))
+            
+            fake_label = t("Inject Fake EV") + f" (Costs {fake_ev_cost_ratio} EV per 1 Fake EV)"
+            fake_ev = st.number_input(fake_label, min_value=0.0, max_value=float(max_fake_ev), value=float(min(last_acts.get('fake_ev', 0.0), max_fake_ev)))
             
             rem_ev_2 = rem_ev_1 - (fake_ev * fake_ev_cost_ratio)
             available_upgrade_ev = rem_ev_2
