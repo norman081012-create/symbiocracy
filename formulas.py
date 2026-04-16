@@ -17,26 +17,28 @@ def calc_unit_cost(cfg, gdp, build_abi, decay):
     base_cost = (0.85 / b_norm) * (2 ** (2 * decay - 1))
     return base_cost * (1 + inflation)
 
-def calc_corruption_dice(total_amount: float, catch_prob: float, fine_mult: float, chunk_size: float = 1.0):
-    if total_amount <= 0 or chunk_size <= 0:
-        return 0.0, total_amount, 0.0
+def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float, chunk_size: float = 1.0, unit_cost: float = 1.0):
+    if total_fake_ev <= 0 or chunk_size <= 0:
+        return 0.0, total_fake_ev, 0.0, 0.0
         
-    num_full_chunks = int(total_amount / chunk_size)
-    remainder = total_amount - (num_full_chunks * chunk_size)
+    num_full_chunks = int(total_fake_ev / chunk_size)
+    remainder = total_fake_ev - (num_full_chunks * chunk_size)
     
-    # 確保 n 為整數且大於 0
     caught_chunks = float(np.random.binomial(n=num_full_chunks, p=catch_prob)) if num_full_chunks > 0 else 0.0
     caught_int_amount = caught_chunks * chunk_size
     
     caught_remainder = remainder if random.random() < catch_prob else 0.0
     
-    caught_total = caught_int_amount + caught_remainder
-    safe_total = total_amount - caught_total
-    fine = caught_total * fine_mult
+    caught_fake_ev = caught_int_amount + caught_remainder
+    safe_fake_ev = total_fake_ev - caught_fake_ev
     
-    return caught_total, safe_total, fine
+    # 假EV被抓包後，依據「真實單位成本」折算為沒收的現金價值
+    caught_value = caught_fake_ev * unit_cost
+    fine = caught_value * fine_mult
+    
+    return caught_fake_ev, safe_fake_ev, caught_value, fine
 
-def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, r_pays=0.0, h_wealth=0.0, c_net_override=None, override_unit_cost=None):
+def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, r_pays=0.0, h_wealth=0.0, c_net_override=None, override_unit_cost=None, fake_ev=0.0):
     l_gdp = gdp * (forecast_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
     unit_cost = override_unit_cost if override_unit_cost is not None else calc_unit_cost(cfg, gdp, build_abi, forecast_decay)
     req_cost = bid_cost * unit_cost
@@ -44,34 +46,40 @@ def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_de
     available_fund = max(0.0, proj_fund + r_pays + h_wealth)
     
     if c_net_override is not None:
-        c_net = min(float(bid_cost), c_net_override)
-        act_fund = c_net * unit_cost
-        h_idx = c_net / max(1.0, float(bid_cost))
+        c_net_real = min(float(bid_cost), c_net_override)
+        c_net_total = c_net_real + fake_ev
+        act_fund = (c_net_real + fake_ev * cfg.get('FAKE_EV_COST_RATIO', 0.2)) * unit_cost
+        h_idx = min(1.0, c_net_total / max(1.0, float(bid_cost)))
     else:
+        # Default scenario if no override (AI/baseline check)
         if req_cost <= available_fund:
             act_fund = req_cost
-            c_net = float(bid_cost)
+            c_net_real = float(bid_cost)
+            c_net_total = c_net_real + fake_ev
             h_idx = 1.0
         else:
             act_fund = available_fund
-            c_net = act_fund / max(0.01, unit_cost)
-            h_idx = c_net / max(1.0, float(bid_cost))
+            c_net_real = act_fund / max(0.01, unit_cost)
+            c_net_total = c_net_real + fake_ev
+            h_idx = min(1.0, c_net_total / max(1.0, float(bid_cost)))
 
     payout_h = min(budget_t, proj_fund * h_idx)
     total_bonus_deduction = budget_t * ((cfg['BASE_INCOME_RATIO'] * 2) + cfg['RULING_BONUS_RATIO'])
     payout_r = max(0.0, budget_t - total_bonus_deduction - proj_fund)
-    est_gdp = max(0.0, gdp - l_gdp + (c_net * cfg.get('GDP_CONVERSION_RATE', 0.2)))
+    
+    # GDP 成長僅採計「真實 EV (c_net_real)」
+    est_gdp = max(0.0, gdp - l_gdp + (c_net_real * cfg.get('GDP_CONVERSION_RATE', 0.2)))
     
     h_project_profit = payout_h + r_pays - act_fund
     
     return {
         'est_gdp': est_gdp, 'payout_h': payout_h, 'payout_r': payout_r,
-        'h_idx': h_idx, 'c_net': c_net, 'l_gdp': l_gdp, 
+        'h_idx': h_idx, 'c_net': c_net_real, 'c_net_total': c_net_total, 'l_gdp': l_gdp, 
         'unit_cost': unit_cost, 'act_fund': act_fund, 
         'h_project_profit': h_project_profit, 'req_cost': req_cost
     }
 
-def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net):
+def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net_total):
     delta_A = ((new_gdp - curr_gdp) / max(1.0, curr_gdp)) * 100.0
     expected_loss_pct = (claimed_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE']) * 100.0
     delta_E = -expected_loss_pct
@@ -79,7 +87,8 @@ def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net)
     gap = delta_A - delta_E
     p_plan = (delta_A * 0.05) + (gap * 0.15)
 
-    completion_rate = c_net / max(1.0, float(bid_cost))
+    # 達標率 (Completion Rate) 採用 c_net_total (包含假 EV)，可騙取執行支持度
+    completion_rate = c_net_total / max(1.0, float(bid_cost))
     delta_C = (completion_rate - 0.5) * 2.0 
     
     target_gdp_growth = (bid_cost * cfg.get('GDP_CONVERSION_RATE', 0.2)) / max(1.0, curr_gdp) * 100.0
@@ -212,8 +221,8 @@ def run_conquest(boundary_B, net_support_A, sanity=50.0, buff_amt=0.0, buff_part
 
     return B, support_used, conquered
 
-def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net, h_media_pwr=0.0, r_media_pwr=0.0):
-    p_plan, p_exec, d_a, d_e, d_c = generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net)
+def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net_total, h_media_pwr=0.0, r_media_pwr=0.0):
+    p_plan, p_exec, d_a, d_e, d_c = generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net_total)
 
     plan_correct, plan_wrong, correct_prob = apply_sanity_filter(p_plan, sanity, emotion, is_preview=True)
     exec_correct, exec_wrong, _ = apply_sanity_filter(p_exec, sanity, emotion, is_preview=True)
