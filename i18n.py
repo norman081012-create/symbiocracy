@@ -42,6 +42,17 @@ DYNAMIC_REPLACEMENTS = {
     "Phase 3: Annual Resolution Report": "第三階段：年度結算與社會影響報告",
     "Game Over! Final Symbiocracy Summary": "🏁 遊戲結束！共生體制最終歷史結算",
     
+    # 年度通知與廣播
+    "[ANNUAL NOTICE]": "[年度通知]",
+    "A new year begins. The nation awaits rebuilding; initiate budget negotiations immediately.": "新的一年開始了。百廢待舉，請立即展開預算協商。",
+    "A new year begins. Initiate budget negotiations.": "新的一年開始了。請展開預算協商。",
+    
+    # 角色與選舉狀態
+    "Ruling": "當權",
+    "Candidate": "候選",
+    "(Won!)": "(勝選!)",
+    "(Lost)": "(敗選)",
+    
     # 儀表板與面板
     "National Status": "國家總體狀態",
     "Executive Resources": "執行系統資源池",
@@ -87,7 +98,7 @@ DYNAMIC_REPLACEMENTS = {
     "Opponent Draft Ref.": "對手草案參考",
     "Ruling Party Decision": "執政黨最終裁決",
     "Final Decision (H-System Only)": "最終決定 (僅限執行系統)",
-    "Think Tank Analysis Report": "智庫草案分析報告",
+    "Think Tank Analysis Report": "智庫分析報告",
     "Our Est. Net Profit": "我方預估淨利",
     "Opp. Est. Net Profit": "對手預估淨利",
     "Total Expected Support": "預估獲得總支持度",
@@ -95,12 +106,24 @@ DYNAMIC_REPLACEMENTS = {
     "Drop Analysis": "衰退宣告分析",
     "Unit Cost Analysis": "單位成本分析",
     
+    # 支持度明細
+    "Our Total:": "我方總和:",
+    "Opp. Total:": "對手總和:",
+    "Base:": "大環境:",
+    "Proj:": "專案:",
+    
+    # 智庫評價
+    "Honest and Accurate": "誠實且精準",
+    "Medium Expectation Gap": "中度預期落差",
+    "Warning! Opponent is manipulating expectations!": "警告！對手正在操縱預期數值！",
+    "Sir, this is our contrast bonus strategy.": "長官，這是我們為了製造反差紅利的策略。",
+    
     # 其他零碎詞彙
     "Available Net Assets": "可用淨資產",
     "Est.": "預估",
     "Round:": "回合：",
     "Year": "年",
-    "Support": "支持度",
+    "Support:": "支持度:",
     "Share": "佔比",
     "Waiting for opponent's draft...": "等待對手提出草案...",
     "Waiting for ruling party...": "等待執政黨裁決...",
@@ -151,6 +174,5 @@ def t(text, fallback=None):
     # 4. 恢復受保護的名詞
     text = text.replace("__PROTECT_GDP__", "GDP")
     text = text.replace("__PROTECT_ROI__", "ROI")
-
 
     return text
