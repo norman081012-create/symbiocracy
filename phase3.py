@@ -74,7 +74,6 @@ def render(game, cfg):
         hp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == hp.name else 0))
         rp_base = game.total_budget * (cfg['BASE_INCOME_RATIO'] + (cfg['RULING_BONUS_RATIO'] if game.ruling_party.name == rp.name else 0))
         
-        # 扣除被抓包與罰金後的實際可運用資金
         actual_h_wealth_available = max(0.0, hp.wealth + req_cost - float(ha.get('invest_wealth', 0)) - hp_wealth_penalty + hp_base)
         
         # 這裡將 fake_ev 設定為 safe_fake_ev，讓被抓到的假 EV 無法提升專案達標率
