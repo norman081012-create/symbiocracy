@@ -13,11 +13,12 @@ class Party:
         self.wealth = cfg['INITIAL_WEALTH']
         self.support = 50.0 
         
-        self.build_ability = cfg.get('BUILD_ABILITY_DEFAULT', 6.0)
+        self.build_ability = cfg.get('BUILD_ABILITY_DEFAULT', 3.0)
         self.investigate_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.media_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.predict_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.stealth_ability = cfg.get('ABILITY_DEFAULT', 3.0)
+        self.edu_ability = cfg.get('EDU_ABILITY_DEFAULT', 3.0)
         self.edu_stance = 0.0 
         
         self.current_forecast = 0.0
@@ -53,7 +54,6 @@ class GameEngine:
         self.last_year_report = None
         
         self.boundary_B = 100 
-        # 🚀 Store Media Censorship Polarization Buff (lasts 2 years)
         self.h_rigidity_buff = {'amount': 0.0, 'duration': 0, 'party': None}
 
     def record_history(self, is_election):
@@ -64,10 +64,10 @@ class GameEngine:
             'Is_Election': is_election, 'Is_Swap': self.swap_triggered_this_year,
             'Ruling': self.ruling_party.name, 'H_Party': self.h_role_party.name,
             'R_Party': self.r_role_party.name,
-            'A_Edu': float(self.party_A.last_acts.get('edu_stance', 0)),
-            'B_Edu': float(self.party_B.last_acts.get('edu_stance', 0)),
-            'A_Avg_Abi': (self.party_A.build_ability + self.party_A.investigate_ability + self.party_A.media_ability + self.party_A.predict_ability + self.party_A.stealth_ability)/5,
-            'B_Avg_Abi': (self.party_B.build_ability + self.party_B.investigate_ability + self.party_B.media_ability + self.party_B.predict_ability + self.party_B.stealth_ability)/5
+            'A_Edu': float(self.party_A.edu_stance),
+            'B_Edu': float(self.party_B.edu_stance),
+            'A_Avg_Abi': (self.party_A.build_ability + self.party_A.investigate_ability + self.party_A.media_ability + self.party_A.predict_ability + self.party_A.stealth_ability + self.party_A.edu_ability)/6,
+            'B_Avg_Abi': (self.party_B.build_ability + self.party_B.investigate_ability + self.party_B.media_ability + self.party_B.predict_ability + self.party_B.stealth_ability + self.party_B.edu_ability)/6
         })
         self.swap_triggered_this_year = False
 
@@ -94,3 +94,4 @@ def trigger_swap(game, penalty_amt, msg_prefix="Political Turmoil!"):
     st.session_state.news_flash = f"🗞️ **[BREAKING] {msg_prefix}** Both parties forced to pay {penalty_amt:.1f} to charities, triggering an immediate Cabinet Swap!"
     st.session_state.anim = 'snow'
     game.phase = 2
+
