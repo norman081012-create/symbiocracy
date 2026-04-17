@@ -98,11 +98,12 @@ def render_dashboard(game, view_party, cfg, is_preview=False, preview_data=None)
                 
             if rep:
                 my_is_h = view_party.name == rep['h_party_name']
-                base = rep['h_base'] if my_is_h else rep['r_base']
-                proj = rep['h_project_net'] if my_is_h else rep['r_project_net']
-                extra = rep['h_extra'] if my_is_h else rep['r_extra']
+                # 🛡️ 這裡加入了安全的 .get() 讀取，避免報錯
+                base = rep.get('h_base', 0.0) if my_is_h else rep.get('r_base', 0.0)
+                proj = rep.get('h_project_net', 0.0) if my_is_h else rep.get('r_project_net', 0.0)
+                extra = rep.get('h_extra', 0.0) if my_is_h else rep.get('r_extra', 0.0)
                 penalty = rep.get('hp_penalty', 0.0) if my_is_h else 0.0
-                inv_w = rep['h_invest_wealth'] if my_is_h else rep['r_invest_wealth']
+                inv_w = rep.get('h_invest_wealth', 0.0) if my_is_h else rep.get('r_invest_wealth', 0.0)
                 
                 real_inc_gross = base + proj + extra
                 expenses = inv_w + penalty
@@ -221,8 +222,7 @@ def get_observed_abilities(viewer, target, game, cfg):
             'investigate': target.investigate_ability,
             'media': target.media_ability,
             'stealth': target.stealth_ability,
-            'build': target.build_ability,
-            'edu': getattr(target, 'edu_ability', cfg.get('EDU_ABILITY_DEFAULT', 3.0))
+            'build': target.build_ability
         }
     
     opp_stl = target.stealth_ability / 10.0
@@ -243,8 +243,7 @@ def get_observed_abilities(viewer, target, game, cfg):
         'investigate': get_obs(target.investigate_ability),
         'media': get_obs(target.media_ability),
         'stealth': get_obs(target.stealth_ability),
-        'build': get_obs(target.build_ability),
-        'edu': get_obs(getattr(target, 'edu_ability', cfg.get('EDU_ABILITY_DEFAULT', 3.0)))
+        'build': get_obs(target.build_ability)
     }
 
 def render_sidebar_intel_audit(game, view_party, cfg):
@@ -265,7 +264,7 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     
     st.write(f"Think Tank: {obs_abis['predict']*10:.1f}% | Intel: {obs_abis['investigate']*10:.1f}%")
     st.write(f"Media PR: {obs_abis['media']*10:.1f}% | Stealth: {obs_abis['stealth']*10:.1f}%")
-    st.write(f"Engineering: {obs_abis['build']*10:.1f}% | Education: {obs_abis['edu']*10:.1f}%")
+    st.write(f"Engineering: {obs_abis['build']*10:.1f}%")
     
     est_unit_cost = formulas.calc_unit_cost(cfg, game.gdp, obs_abis['build'], view_party.current_forecast)
     eval_txt = config.get_intel_market_eval(est_unit_cost)
@@ -278,9 +277,9 @@ def render_sidebar_intel_audit(game, view_party, cfg):
     st.markdown("---")
     st.title(f"🧾 {t('Internal Audit')}")
     st.write(f"**Current Inflation:** `{inflation_rate:.1f}%\`")
-    total_maint = (view_party.predict_ability + view_party.investigate_ability + view_party.media_ability + view_party.stealth_ability + view_party.build_ability + view_party.edu_ability) * 1.5
+    total_maint = (view_party.predict_ability + view_party.investigate_ability + view_party.media_ability + view_party.stealth_ability + view_party.build_ability) * 5.0
     
     st.write(f"Think Tank: {view_party.predict_ability*10:.0f} | Intel: {view_party.investigate_ability*10:.0f}")
     st.write(f"Media PR: {view_party.media_ability*10:.0f} | Stealth: {view_party.stealth_ability*10:.0f}")
-    st.write(f"Engineering: {view_party.build_ability*10:.0f} | Education: {view_party.edu_ability*10:.0f}")
+    st.write(f"Engineering: {view_party.build_ability*10:.0f}")
     st.write(f"**(Next Year Est. Maint. Cost: -{total_maint:.1f} EV)**")
