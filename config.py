@@ -8,7 +8,7 @@ DEFAULT_CONFIG = {
     'CALENDAR_NAME': "Star Era", 'PARTY_A_COLOR': "#2E8B57", 'PARTY_B_COLOR': "#4169E1",
     'PARTY_A_NAME': "Prosperity", 'PARTY_B_NAME': "Equity", 
     'CROWN_WINNER': "👑 Ruling", 'CROWN_LOSER': "🎯 Candidate",
-    'INITIAL_WEALTH': 500.0, 'END_YEAR': 12,  # 初始資金下修為 500
+    'INITIAL_WEALTH': 500.0, 'END_YEAR': 12,  
     
     'DECAY_MIN': 0.1, 'DECAY_MAX': 0.7,  
     'DECAY_WEIGHT_MULT': 0.05,
@@ -18,7 +18,7 @@ DEFAULT_CONFIG = {
     'DECAY_AMOUNT_BUILD': 500.0,
     
     # Fake EV Audit Parameters
-    'FAKE_EV_CATCH_BASE_RATE': 0.20,      # 基礎抓包率調升至 20%
+    'FAKE_EV_CATCH_BASE_RATE': 0.05,      # 基礎抓包率調降至 5%
     'FAKE_EV_COST_RATIO': 0.20,            
     'CORRUPTION_FINE_MULT': 0.4,          
     'CATCH_RATE_PER_PERCENT': 0.02,
@@ -121,3 +121,4 @@ def get_thinktank_eval(ability, diff):
         ('low', 'high'): "Blind luck", ('low', 'med'): "Acceptable", ('low', 'low'): "Completely dysfunctional"
     }
     return matrix.get((abi_lvl, acc_lvl), "System Malfunction")
+
