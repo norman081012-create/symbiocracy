@@ -11,7 +11,7 @@ t = i18n.t
 
 def render(game, cfg):
     st.balloons()
-    st.title(t("🏁 Game Over! Final Symbiocracy Summary"))
+    st.title(t("Game Over! Final Symbiocracy Summary"))
     
     df = pd.DataFrame(game.history)
     
@@ -27,7 +27,7 @@ def render(game, cfg):
         with c2:
             h_counts = df['H_Party'].value_counts().reset_index()
             h_counts.columns = ['Party', 'Years']
-            fig_h = px.pie(h_counts, names='Party', values='Years', title="Years as H-System (Executive)", hole=0.3, color='Party', color_discrete_map={cfg['PARTY_A_NAME']: cfg['PARTY_A_COLOR'], cfg['PARTY_B_NAME']: cfg['PARTY_B_COLOR']})
+            fig_h = px.pie(h_counts, names='Party', values='Years', title="Years as Executive", hole=0.3, color='Party', color_discrete_map={cfg['PARTY_A_NAME']: cfg['PARTY_A_COLOR'], cfg['PARTY_B_NAME']: cfg['PARTY_B_COLOR']})
             st.plotly_chart(fig_h, use_container_width=True)
 
     st.subheader("📈 2. Macroeconomy & Social Sanity")
@@ -61,7 +61,6 @@ def render(game, cfg):
             st.plotly_chart(fig3, use_container_width=True)
     
     st.markdown("---")
-    if st.button(t("🔄 Restart a New Game"), use_container_width=True, type="primary"): 
+    if st.button(t("🔄 Restart Game"), use_container_width=True, type="primary"): 
         st.session_state.clear()
         st.rerun()
-
