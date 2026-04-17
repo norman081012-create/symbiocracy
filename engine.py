@@ -6,6 +6,36 @@ import streamlit as st
 import i18n
 t = i18n.t
 
+PROJECT_NAMES = ["Phoenix", "Citadel", "Aegis", "Titan", "Neon", "Echo", "Apex", "Nova", "Vanguard", "Zenith", "Helios", "Omega", "Genesis", "Valkyrie", "Atlas", "Apollo", "Orion", "Hyperion"]
+
+def generate_projects(tt_opt_ep, author_name):
+    projects = []
+    ep_buff = (tt_opt_ep / 100.0) * 0.5  
+    
+    tiers = [
+        ('Low', 5, (50, 150), 0.8, (0.3, 1.3)),
+        ('Med', 3, (150, 400), 1.0, (0.5, 1.5)),
+        ('High', 1, (400, 800), 1.2, (0.6, 1.8))
+    ]
+    
+    for tier, count, ev_range, e_mult, m_range in tiers:
+        for _ in range(count):
+            ev = random.randint(*ev_range)
+            m_mult = random.uniform(*m_range) + ep_buff
+            e_mult_final = e_mult + (ep_buff * 0.5)
+
+            projects.append({
+                'id': f"{author_name[:1]}-{tier[0]}-{random.randint(1000,9999)}",
+                'name': f"{t('Project')} {random.choice(PROJECT_NAMES)}",
+                'tier': tier,
+                'ev': float(ev),
+                'exec_mult': e_mult_final,
+                'macro_mult': m_mult,
+                'author': author_name,
+                'investments': [] 
+            })
+    return projects
+
 class Party:
     def __eq__(self, other): return self.name == other.name if hasattr(other, 'name') else False
     def __init__(self, name, cfg):
@@ -18,7 +48,6 @@ class Party:
         self.media_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.predict_ability = cfg.get('ABILITY_DEFAULT', 3.0)
         self.stealth_ability = cfg.get('ABILITY_DEFAULT', 3.0)
-        self.edu_ability = cfg.get('EDU_ABILITY_DEFAULT', 3.0)
         self.edu_stance = 0.0 
         
         self.current_forecast = 0.0
@@ -26,6 +55,11 @@ class Party:
         self.latest_poll = None
         self.poll_count = 0
         self.last_acts = {}
+        self.projects = []
+        # 📌 儲存具有年限 (age) 的歷史政績
+        self.perf_history = {
+            'ruling': [], 'exec': [], 'prop': []
+        }
 
 class GameEngine:
     def __init__(self, cfg):
@@ -36,7 +70,7 @@ class GameEngine:
         self.total_budget = cfg['BASE_TOTAL_BUDGET'] + (self.gdp * cfg['HEALTH_MULTIPLIER'])
         self.h_fund = cfg['H_FUND_DEFAULT']
         
-        self.phase = 0 # 📌 Phase 0 為遊戲初始設定階段
+        self.phase = 0 
         self.is_pve = False
         self.human_party_name = None
         self.ai_party_name = None
@@ -59,6 +93,8 @@ class GameEngine:
         
         self.boundary_B = 100 
         self.h_rigidity_buff = {'amount': 0.0, 'duration': 0, 'party': None}
+        
+        self.active_projects = [] 
 
     def record_history(self, is_election):
         self.history.append({
@@ -70,8 +106,8 @@ class GameEngine:
             'R_Party': self.r_role_party.name,
             'A_Edu': float(self.party_A.edu_stance),
             'B_Edu': float(self.party_B.edu_stance),
-            'A_Avg_Abi': (self.party_A.build_ability + self.party_A.investigate_ability + self.party_A.media_ability + self.party_A.predict_ability + self.party_A.stealth_ability + self.party_A.edu_ability)/6,
-            'B_Avg_Abi': (self.party_B.build_ability + self.party_B.investigate_ability + self.party_B.media_ability + self.party_B.predict_ability + self.party_B.stealth_ability + self.party_B.edu_ability)/6
+            'A_Avg_Abi': (self.party_A.build_ability + self.party_A.investigate_ability + self.party_A.media_ability + self.party_A.predict_ability)/4,
+            'B_Avg_Abi': (self.party_B.build_ability + self.party_B.investigate_ability + self.party_B.media_ability + self.party_B.predict_ability)/4
         })
         self.swap_triggered_this_year = False
 
