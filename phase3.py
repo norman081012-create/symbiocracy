@@ -134,7 +134,6 @@ def render(game, cfg):
             
         if censor_diff > 0: game.h_rigidity_buff = {'amount': censor_rigidity_buff, 'duration': 2, 'party': hp.name}
         
-        # 接收新增的 p_opp
         p_ruling, p_opp, _, _, d_a, d_e = formulas.generate_raw_support(cfg, game.gdp, claimed_decay, res_exec['completed_projects'], float(game.current_real_decay), game.year)
         
         # ⚠️ 政績歷史庫結算與折舊 (6年線性)
@@ -304,7 +303,6 @@ def render(game, cfg):
         
         with st.expander(f"💼 {rep['h_party_name']} (Executive) Financials"):
             st.write(f"**Project Net Profit:** `${rep['h_project_net']:.1f}`")
-            # 🛡️ 防呆：使用 .get() 確保向下相容舊存檔
             cost_real_ev = rep.get('cost_real_ev', 0.0)
             cost_fake_ev = rep.get('cost_fake_ev', 0.0)
             st.caption(f"*(Reward `${rep.get('payout_h', 0.0):.1f}` - Real Cost `${cost_real_ev:.1f}` - Fake Cost `${cost_fake_ev:.1f}`)*")
@@ -396,9 +394,9 @@ def render(game, cfg):
             
             game.proposing_party = game.r_role_party
             
-            # 從剛剛存好的 rep 裡面讀取雙方智庫優化的值來生成新專案
-            hp_ep = rep.get('ha_t_opt', 0.0) if hp.name == game.party_A.name else rep.get('ra_t_opt', 0.0)
-            rp_ep = rep.get('ha_t_opt', 0.0) if rp.name == game.party_A.name else rep.get('ra_t_opt', 0.0)
+            # ✅ 修復 Bug：直接把舊 H 角色投資的點數給舊的 H 政黨，舊 R 角色投資的點數給舊 R 政黨
+            hp_ep = rep.get('ha_t_opt', 0.0)
+            rp_ep = rep.get('ra_t_opt', 0.0)
             
             hp.projects = engine.generate_projects(hp_ep, hp.name)
             rp.projects = engine.generate_projects(rp_ep, rp.name)
@@ -409,4 +407,3 @@ def render(game, cfg):
                 if k.endswith('_acts') or k.startswith('up_'): del st.session_state[k]
             if 'turn_initialized' in st.session_state: del st.session_state.turn_initialized
         st.rerun()
-
