@@ -34,7 +34,6 @@ def calc_fake_ev_dice(total_fake_ev: float, catch_prob: float, fine_mult: float,
     
     return caught_fake_ev, safe_fake_ev, caught_value, fine
 
-# 📌 修正：分離 fake_ev_spent (花費) 與 fake_ev_safe (達標)，被抓的假 EV 不計入達標率
 def calc_economy(cfg, gdp, budget_t, proj_fund, bid_cost, build_abi, forecast_decay, r_pays=0.0, h_wealth=0.0, c_net_override=None, override_unit_cost=None, fake_ev_spent=0.0, fake_ev_safe=0.0):
     l_gdp = gdp * (forecast_decay * cfg['DECAY_WEIGHT_MULT'] + cfg['BASE_DECAY_RATE'])
     unit_cost = override_unit_cost if override_unit_cost is not None else calc_unit_cost(cfg, gdp, build_abi, forecast_decay)
@@ -91,70 +90,6 @@ def generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net_
     support_mult = cfg.get('AMMO_MULTIPLIER', 50.0) 
     return p_plan * support_mult, p_exec * support_mult, delta_A, delta_E, delta_C
 
-def apply_sanity_filter(raw_support, sanity, emotion, is_preview=False):
-    crit_think = sanity / 100.0
-    emo_val = emotion / 100.0
-    correct_prob = max(0.05, min(0.95, crit_think * (1.0 - emo_val * 0.5)))
-
-    if is_preview:
-        return raw_support * correct_prob, raw_support * (1.0 - correct_prob), correct_prob
-
-    correct_support = 0.0
-    wrong_support = 0.0
-    sign = 1.0 if raw_support >= 0 else -1.0
-    abs_total = abs(raw_support)
-    int_parts = int(abs_total)
-    remainder = abs_total - int_parts
-
-    for _ in range(int_parts):
-        if random.random() < correct_prob:
-            correct_support += 1.0
-        else:
-            wrong_support += 1.0
-            
-    if remainder > 0:
-        if random.random() < correct_prob:
-            correct_support += remainder
-        else:
-            wrong_support += remainder
-
-    return correct_support * sign, wrong_support * sign, correct_prob
-
-def apply_media_spin(blind_support, rightful_media, opp_media, is_preview=False):
-    base_inertia = 5.0 
-    total_power = rightful_media + opp_media + base_inertia
-    
-    if blind_support >= 0:
-        move_prob = rightful_media / total_power
-    else:
-        move_prob = opp_media / total_power
-
-    if is_preview:
-        goes_to_rightful = blind_support * move_prob
-        stays_with_opp = blind_support * (1.0 - move_prob)
-        return goes_to_rightful, stays_with_opp
-
-    goes_to_rightful = 0.0
-    stays_with_opp = 0.0
-    sign = 1.0 if blind_support >= 0 else -1.0
-    abs_total = abs(blind_support)
-    int_parts = int(abs_total)
-    remainder = abs_total - int_parts
-
-    for _ in range(int_parts):
-        if random.random() < move_prob:
-            goes_to_rightful += 1.0
-        else:
-            stays_with_opp += 1.0
-            
-    if remainder > 0:
-        if random.random() < move_prob:
-            goes_to_rightful += remainder
-        else:
-            stays_with_opp += remainder
-
-    return goes_to_rightful * sign, stays_with_opp * sign
-
 def calc_incite_success(base_incite_rolls, current_emotion, is_preview=False):
     if is_preview:
         success_rate = (100.0 - current_emotion) / 100.0
@@ -182,26 +117,35 @@ def get_base_rigidity(i, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_
             base_rigidity += buff_amt
     return min(1.0, base_rigidity)
 
-def get_spin_rigidity(i, sanity=50.0, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
-    base_rigidity = get_base_rigidity(i, buff_amt, buff_party, h_boundary, party_a_name)
-    sanity_defense = (sanity / 100.0) * 0.5 
-    return min(1.0, base_rigidity + sanity_defense)
+def get_defense_modifier(sanity, emotion, edu_stance):
+    return (sanity / 100.0) * 0.5 - (emotion / 100.0) * 0.5 + (edu_stance / 100.0) * 0.5
 
-def run_conquest_split(boundary_B, net_perf_A, net_spin_A, sanity=50.0, buff_amt=0.0, buff_party=None, party_a_name=None):
+def get_perf_rigidity(i, sanity, emotion, edu_stance, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
+    base_rigidity = get_base_rigidity(i, buff_amt, buff_party, h_boundary, party_a_name)
+    modifier = get_defense_modifier(sanity, emotion, edu_stance)
+    return max(0.01, min(1.0, base_rigidity - modifier))
+
+def get_spin_rigidity(i, sanity, emotion, edu_stance, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
+    base_rigidity = get_base_rigidity(i, buff_amt, buff_party, h_boundary, party_a_name)
+    modifier = get_defense_modifier(sanity, emotion, edu_stance)
+    return max(0.01, min(1.0, base_rigidity + modifier))
+
+def run_conquest_split(boundary_B, net_perf_A, net_spin_A, sanity=50.0, emotion=30.0, edu_stance=0.0, buff_amt=0.0, buff_party=None, party_a_name=None):
     B = int(boundary_B)
     perf_used = 0.0; perf_conquered = 0
+    
     if net_perf_A > 0:
         sup = net_perf_A
         while sup >= 1.0 and B < 200:
             sup -= 1.0; perf_used += 1.0
-            rigidity = get_base_rigidity(B + 1, buff_amt, buff_party, boundary_B, party_a_name)
+            rigidity = get_perf_rigidity(B + 1, sanity, emotion, edu_stance, buff_amt, buff_party, boundary_B, party_a_name)
             if random.random() < (1.0 - rigidity):
                 B += 1; perf_conquered += 1
     elif net_perf_A < 0:
         sup = abs(net_perf_A)
         while sup >= 1.0 and B > 0:
             sup -= 1.0; perf_used += 1.0
-            rigidity = get_base_rigidity(B, buff_amt, buff_party, boundary_B, party_a_name)
+            rigidity = get_perf_rigidity(B, sanity, emotion, edu_stance, buff_amt, buff_party, boundary_B, party_a_name)
             if random.random() < (1.0 - rigidity):
                 B -= 1; perf_conquered += 1
             
@@ -210,47 +154,35 @@ def run_conquest_split(boundary_B, net_perf_A, net_spin_A, sanity=50.0, buff_amt
         sup = net_spin_A
         while sup >= 1.0 and B < 200:
             sup -= 1.0; spin_used += 1.0
-            rigidity = get_spin_rigidity(B + 1, sanity, buff_amt, buff_party, boundary_B, party_a_name)
+            rigidity = get_spin_rigidity(B + 1, sanity, emotion, edu_stance, buff_amt, buff_party, boundary_B, party_a_name)
             if random.random() < (1.0 - rigidity):
                 B += 1; spin_conquered += 1
     elif net_spin_A < 0:
         sup = abs(net_spin_A)
         while sup >= 1.0 and B > 0:
             sup -= 1.0; spin_used += 1.0
-            rigidity = get_spin_rigidity(B, sanity, buff_amt, buff_party, boundary_B, party_a_name)
+            rigidity = get_spin_rigidity(B, sanity, emotion, edu_stance, buff_amt, buff_party, boundary_B, party_a_name)
             if random.random() < (1.0 - rigidity):
                 B -= 1; spin_conquered += 1
 
     return B, perf_used, perf_conquered, spin_used, spin_conquered
 
-def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net_total, h_media_pwr=0.0, r_media_pwr=0.0):
+def calc_performance_preview(cfg, hp, rp, ruling_party_name, new_gdp, curr_gdp, claimed_decay, sanity, emotion, bid_cost, c_net_total, h_spin_pwr=0.0, r_spin_pwr=0.0, avg_edu=0.0):
     p_plan, p_exec, d_a, d_e, d_c = generate_raw_support(cfg, new_gdp, curr_gdp, claimed_decay, bid_cost, c_net_total)
 
-    plan_correct, plan_wrong, correct_prob = apply_sanity_filter(p_plan, sanity, emotion, is_preview=True)
-    exec_correct, exec_wrong, _ = apply_sanity_filter(p_exec, sanity, emotion, is_preview=True)
-    
-    if ruling_party_name == hp.name:
-        ruling_media_pwr = h_media_pwr; opp_media_pwr = r_media_pwr
-    else:
-        ruling_media_pwr = r_media_pwr; opp_media_pwr = h_media_pwr
-        
-    ruling_reclaimed, opp_kept_plan = apply_media_spin(plan_wrong, ruling_media_pwr, opp_media_pwr, is_preview=True)
-    h_reclaimed_exec, r_kept_exec = apply_media_spin(exec_wrong, h_media_pwr, r_media_pwr, is_preview=True)
+    # 監管方 (Regulator) 嚴格且唯一地取得大環境/預期政績 (p_plan)
+    # 執行方 (Executive) 嚴格且唯一地取得專案執行表現 (p_exec)
+    h_perf = p_exec 
+    r_perf = p_plan
 
-    if ruling_party_name == hp.name:
-        h_plan_sup = plan_correct + ruling_reclaimed
-        r_plan_sup = opp_kept_plan
-    else:
-        r_plan_sup = plan_correct + ruling_reclaimed
-        h_plan_sup = opp_kept_plan
-        
-    h_exec_sup = exec_correct + h_reclaimed_exec
-    r_exec_sup = r_kept_exec
+    perf_ap_center = 1.0 - get_perf_rigidity(100, sanity, emotion, avg_edu)
+    spin_ap_center = 1.0 - get_spin_rigidity(100, sanity, emotion, avg_edu)
 
     return {
-        hp.name: {'perf_gdp': h_plan_sup, 'perf_proj': h_exec_sup, 'spun_gdp': ruling_reclaimed if ruling_party_name == hp.name else opp_kept_plan, 'spun_proj': h_reclaimed_exec},
-        rp.name: {'perf_gdp': r_plan_sup, 'perf_proj': r_exec_sup, 'spun_gdp': ruling_reclaimed if ruling_party_name == rp.name else opp_kept_plan, 'spun_proj': r_kept_exec},
-        'correct_prob': correct_prob,
+        hp.name: {'perf': h_perf, 'spin': h_spin_pwr},
+        rp.name: {'perf': r_perf, 'spin': r_spin_pwr},
+        'perf_ap_center': perf_ap_center,
+        'spin_ap_center': spin_ap_center,
         'p_plan': p_plan, 'p_exec': p_exec,
         'delta_A': d_a, 'delta_E': d_e, 'delta_C': d_c
     }
