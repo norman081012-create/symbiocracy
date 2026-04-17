@@ -121,4 +121,3 @@ def get_thinktank_eval(ability, diff):
         ('low', 'high'): "Blind luck", ('low', 'med'): "Acceptable", ('low', 'low'): "Completely dysfunctional"
     }
     return matrix.get((abi_lvl, acc_lvl), "System Malfunction")
-
