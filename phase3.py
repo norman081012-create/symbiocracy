@@ -409,3 +409,4 @@ def render(game, cfg):
                 if k.endswith('_acts') or k.startswith('up_'): del st.session_state[k]
             if 'turn_initialized' in st.session_state: del st.session_state.turn_initialized
         st.rerun()
+
