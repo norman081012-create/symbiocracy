@@ -159,37 +159,27 @@ def get_depreciated_perf(party, perf_type, current_year):
     return total
 
 def generate_raw_support(cfg, curr_gdp, claimed_decay, completed_projects, real_decay, current_year):
-    # 1. 建設帶來的 GDP 正向成長 (delta_A)
     target_gdp_growth_val = sum(p.get('ev', 0.0) * p.get('macro_mult', 1.0) * cfg.get('GDP_CONVERSION_RATE', 0.2) for p in completed_projects)
     delta_A = (target_gdp_growth_val / max(1.0, curr_gdp)) * 100.0
     
-    # 2. 結算實際衰退 (實際 GDP 減損) 與 宣告預期衰退
     real_loss_pct = (real_decay * cfg.get('DECAY_WEIGHT_MULT', 0.05) + cfg.get('BASE_DECAY_RATE', 0.0)) * 100.0
     expected_loss_pct = (claimed_decay * cfg.get('DECAY_WEIGHT_MULT', 0.05) + cfg.get('BASE_DECAY_RATE', 0.0)) * 100.0
     
-    # 實際淨成長率 (可能為負)
     actual_net_growth = delta_A - real_loss_pct
-    # 預期淨成長率
     expected_net_growth = -expected_loss_pct
     
-    # 表現落差 (超越預期的幅度)
     gap = actual_net_growth - expected_net_growth
     
-    # 3. 分配政績 (GDP 成長給執政，衰退給在野)
     p_ruling = 0.0
     p_opp = 0.0
     
     if actual_net_growth >= 0:
-        # GDP 成長：歸功於 Ruling
         p_ruling_raw = (actual_net_growth * 0.05) + (gap * 0.15)
         p_ruling = max(0.0, p_ruling_raw * cfg.get('AMMO_MULTIPLIER', 50.0))
     else:
-        # GDP 衰退：化為在野黨 (非 Ruling) 的政治子彈
-        # 衰退的絕對值 + 不如預期的落差 (如果 gap < 0)
         p_opp_raw = abs(actual_net_growth * 0.05) + (abs(gap) * 0.15 if gap < 0 else 0.0)
         p_opp = max(0.0, p_opp_raw * cfg.get('AMMO_MULTIPLIER', 50.0))
         
-    # 4. 計算 Exec 與 Prop 政績 (邏輯不變)
     exec_perf = 0.0
     proposal_perf = {}
     inflation_corr = 5000.0 / max(1.0, curr_gdp)
@@ -207,7 +197,6 @@ def generate_raw_support(cfg, curr_gdp, claimed_decay, completed_projects, real_
         author = p.get('author', 'System')
         proposal_perf[author] = proposal_perf.get(author, 0.0) + base_perf
         
-    # 回傳值增加 p_opp
     return p_ruling, p_opp, exec_perf, proposal_perf, actual_net_growth, expected_net_growth
 
 def calc_incite_success(base_incite_rolls, current_emotion, is_preview=False):
@@ -253,55 +242,90 @@ def get_spin_rigidity(i, sanity, emotion, censor_penalty=0.0, buff_amt=0.0, buff
     final_rig = base_rigidity * RIGIDITY_WEIGHT * sanity_acc * max(0.1, (1.0 - censor_penalty))
     return max(0.01, min(1.0, final_rig))
 
-def run_conquest_split(boundary_B, net_perf_A, net_spin_A, sanity=50.0, emotion=30.0, censor_penalty_A=0.0, censor_penalty_B=0.0, buff_amt=0.0, buff_party=None, party_a_name=None):
-    B = int(boundary_B)
-    perf_used = 0.0; perf_conquered = 0
-    
-    if net_perf_A > 0:
-        sup = net_perf_A
-        while sup >= 1.0 and B < 200:
-            sup -= 1.0; perf_used += 1.0
-            rigidity = get_perf_rigidity(B + 1, sanity, emotion, buff_amt, buff_party, boundary_B, party_a_name)
-            if random.random() < (1.0 - rigidity):
-                B += 1; perf_conquered += 1
-    elif net_perf_A < 0:
-        sup = abs(net_perf_A)
-        while sup >= 1.0 and B > 0:
-            sup -= 1.0; perf_used += 1.0
-            rigidity = get_perf_rigidity(B, sanity, emotion, buff_amt, buff_party, boundary_B, party_a_name)
-            if random.random() < (1.0 - rigidity):
-                B -= 1; perf_conquered += 1
-            
-    spin_used = 0.0; spin_conquered = 0
-    if net_spin_A > 0:
-        sup = net_spin_A
-        while sup >= 1.0 and B < 200:
-            sup -= 1.0; spin_used += 1.0
-            rigidity = get_spin_rigidity(B + 1, sanity, emotion, censor_penalty_B, buff_amt, buff_party, boundary_B, party_a_name)
-            if random.random() < (1.0 - rigidity):
-                B += 1; spin_conquered += 1
-    elif net_spin_A < 0:
-        sup = abs(net_spin_A)
-        while sup >= 1.0 and B > 0:
-            sup -= 1.0; spin_used += 1.0
-            rigidity = get_spin_rigidity(B, sanity, emotion, censor_penalty_A, buff_amt, buff_party, boundary_B, party_a_name)
-            if random.random() < (1.0 - rigidity):
-                B -= 1; spin_conquered += 1
+# 📌 全新改版的征服演算法：3階段漏斗 (事實穿透 -> 宣傳EX -> 最終防禦)
+def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanity=50.0, emotion=30.0, censor_penalty_A=0.0, censor_penalty_B=0.0, buff_amt=0.0, buff_party=None, party_a_name=None):
+    B = float(boundary_B)
 
-    return B, perf_used, perf_conquered, spin_used, spin_conquered
+    perf_used = abs(net_perf_A)
+    perf_conquered = 0.0
+    perf_blocked_1 = 0.0
+    perf_penetrated = 0.0
+    perf_multiplier = 1.0
+    perf_ex = 0.0
+    perf_blocked_2 = 0.0
 
-# 📌 終極防呆預覽函式
+    # ==========================================
+    # 軌道 A：政績影響力 (Fact Track)
+    # ==========================================
+    if net_perf_A != 0:
+        is_a_atk = (net_perf_A > 0)
+        raw_perf = abs(net_perf_A)
+
+        # 階段 1：無知/情緒裝甲阻擋
+        center_perf_rig = get_perf_rigidity(B, sanity, emotion, buff_amt, buff_party, boundary_B, party_a_name)
+        perf_blocked_1 = raw_perf * center_perf_rig
+        perf_penetrated = raw_perf - perf_blocked_1
+
+        # 階段 2：媒體宣傳 EX (1 + 比例)
+        if spin_A + spin_B > 0:
+            ratio = (spin_A - spin_B) / (spin_A + spin_B) if is_a_atk else (spin_B - spin_A) / (spin_A + spin_B)
+        else:
+            ratio = 0.0
+        perf_multiplier = max(0.0, 1.0 + ratio)
+        perf_ex = perf_penetrated * perf_multiplier
+
+        # 階段 3：理智裝甲最終防禦
+        censor_opp = censor_penalty_B if is_a_atk else censor_penalty_A
+        center_spin_rig = get_spin_rigidity(B, sanity, emotion, censor_opp, buff_amt, buff_party, boundary_B, party_a_name)
+        perf_blocked_2 = perf_ex * center_spin_rig
+        perf_conquered = perf_ex - perf_blocked_2
+
+        if is_a_atk: B += perf_conquered
+        else: B -= perf_conquered
+
+    # ==========================================
+    # 軌道 B：純粹公關洗腦 (Spin Track)
+    # ==========================================
+    spin_used = abs(net_spin_A)
+    spin_conquered = 0.0
+    spin_blocked = 0.0
+
+    if net_spin_A != 0:
+        is_a_atk_spin = (net_spin_A > 0)
+        censor_opp = censor_penalty_B if is_a_atk_spin else censor_penalty_A
+        center_spin_rig = get_spin_rigidity(B, sanity, emotion, censor_opp, buff_amt, buff_party, boundary_B, party_a_name)
+
+        spin_blocked = spin_used * center_spin_rig
+        spin_conquered = spin_used - spin_blocked
+
+        if is_a_atk_spin: B += spin_conquered
+        else: B -= spin_conquered
+
+    B = max(0.0, min(200.0, B))
+
+    return {
+        'new_boundary': B,
+        'perf_used': perf_used,
+        'perf_blocked_1': perf_blocked_1,
+        'perf_penetrated': perf_penetrated,
+        'perf_multiplier': perf_multiplier,
+        'perf_ex': perf_ex,
+        'perf_blocked_2': perf_blocked_2,
+        'perf_conquered': perf_conquered,
+        'spin_used': spin_used,
+        'spin_blocked': spin_blocked,
+        'spin_conquered': spin_conquered
+    }
+
 def calc_performance_preview(cfg, hp, rp, ruling_party_name, curr_gdp, claimed_decay, sanity, emotion, projects, h_spin_pwr=0.0, r_spin_pwr=0.0, real_decay=0.0, current_year=1):
     hp_name = getattr(hp, 'name', str(hp))
     rp_name = getattr(rp, 'name', str(rp))
     
-    # 接收新增的 p_opp
     p_ruling, p_opp, p_exec, p_prop, d_a, d_e = generate_raw_support(cfg, curr_gdp, claimed_decay, projects, real_decay, current_year)
 
     h_perf = p_exec + p_prop.get(hp_name, 0.0)
     r_perf = p_prop.get(rp_name, 0.0)
     
-    # 依照 Ruling 身分，派發正面或反向政績
     if ruling_party_name == hp_name: 
         h_perf += p_ruling
         r_perf += p_opp
