@@ -10,6 +10,7 @@ t = i18n.t
 
 def render(game, view_party, opponent_party, cfg):
     is_h = (view_party.name == game.h_role_party.name)
+    is_ruling = (view_party.name == game.ruling_party.name)
     h_label = t('🛡️ Executive')
     r_label = t('⚖️ Regulator')
     st.subheader(f"🛠️ Phase 2: Execution & Ops - Turn: {view_party.name} ({h_label if is_h else r_label})")
@@ -30,8 +31,8 @@ def render(game, view_party, opponent_party, cfg):
     # 📌 Intel 與 Stealth 合併為 Intel & Ops Div.
     inv_cap = int((view_party.investigate_ability + view_party.stealth_ability) * 10.0 * r_bonus) 
     
-    # 📌 執行方 (H) 的 Think Tank 產出享有 1.2x 加成
-    tt_cap = int(view_party.predict_ability * 10.0 * (1.2 if is_h else 1.0))
+    # 📌 智庫平權，取消執行方加成
+    tt_cap = int(view_party.predict_ability * 10.0)
     
     eng_base_ev = view_party.build_ability * 10.0 * h_bonus
     eng_limit = 100.0 + (view_party.build_ability * 100.0) * h_bonus
@@ -78,20 +79,20 @@ def render(game, view_party, opponent_party, cfg):
         w_m_inc = col_m2.number_input(t("Incite"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_incite', 0)), key=f"w_m_inc_{view_party.name}")
         w_m_con = col_m3.number_input(t("Control"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_control', 0)), key=f"w_m_con_{view_party.name}")
         
-        # 教育權改為 Regulator (當權方) 專屬
-        if not is_h:
+        # 📌 教育權專屬於當權方 (不受 swap 影響)
+        if is_ruling:
             w_m_edu = col_m4.number_input(t("Edu Shift"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_edu', 0)), key=f"w_m_edu_{view_party.name}")
         else:
             w_m_edu = 0
             col_m4.write(f"**{t('Edu Shift')}**")
-            col_m4.caption(t("(Regulator Only)"))
+            col_m4.caption(t("(Ruling Party Only)"))
             
         med_used = w_m_cam + w_m_inc + w_m_con + w_m_edu
         med_invalid = med_used > med_cap
         if med_invalid: st.error(f"Exceeded PR & Media Capacity! ({med_used}/{med_cap})")
         
         old_edu_stance = view_party.edu_stance
-        if not is_h and w_m_edu > 0:
+        if is_ruling and w_m_edu > 0:
             e_dir = st.radio(t("Education Direction"), [t("Shift Left (Rote/Obedience)"), t("Shift Right (Critical Thinking)")], horizontal=True, key=f"e_dir_{view_party.name}")
             edu_shift = -w_m_edu * 0.5 if "Left" in e_dir else w_m_edu * 0.5
         else:
@@ -183,7 +184,7 @@ def render(game, view_party, opponent_party, cfg):
 
             return new_raw, ev_cost, maint_new, (ev_cost if is_up else 0.0)
 
-        t_pre, pre_cost, pre_maint, pre_up = render_dept(t("Think Tank"), f"tt_pre_{view_party.name}", view_party.predict_ability, lambda v: f"Generates {v * (1.2 if is_h else 1.0):.1f} EP for prediction & optimization.")
+        t_pre, pre_cost, pre_maint, pre_up = render_dept(t("Think Tank"), f"tt_pre_{view_party.name}", view_party.predict_ability, lambda v: f"Generates {v * 10.0:.1f} EP for prediction & optimization.")
         t_inv, inv_cost, inv_maint, inv_up = render_dept(t("Intel & Ops Div."), f"tt_inv_{view_party.name}", view_party.investigate_ability, lambda v: f"Generates {v * r_bonus:.1f} Ops.")
         t_med, med_cost, med_maint, med_up = render_dept(t("PR & Media Div."), f"tt_med_{view_party.name}", view_party.media_ability, lambda v: f"Generates {v * h_bonus:.1f} Pwr for PR/Control/Edu.")
         t_bld, bld_cost, bld_maint, bld_up = render_dept(t("Engineering"), f"tt_bld_{view_party.name}", view_party.build_ability, lambda v: f"Unlocks {100.0 + (v * 100.0 * h_bonus):.1f} EV upgrade cap.")
@@ -191,7 +192,6 @@ def render(game, view_party, opponent_party, cfg):
         total_upgrade_cost = pre_cost + inv_cost + med_cost + bld_cost
         total_maint_cost = pre_maint + inv_maint + med_maint + bld_maint
         
-        # 📌 全部的 EV 需求量（包含建案、部門維護、升級），皆受制於工程處總量
         total_ev_required = project_ev_cost + total_maint_cost + total_upgrade_cost
         
         unit_cost_eff = unit_cost / 1.2 if is_h else unit_cost
@@ -200,7 +200,6 @@ def render(game, view_party, opponent_party, cfg):
         
         st.markdown("---")
         st.markdown(t(f"**💰 Financial Checkout**"))
-        # 加入 i18n 翻譯標籤
         st.write(f"- {t('Total EV Cost:')} `{total_ev_required:.1f}` EV *({t('Effective Unit Rate:')} `${unit_cost_eff:.2f}`)*")
         st.write(f"- {t('Total Funds Required:')} `${invest_wealth:.1f}`")
         
@@ -212,7 +211,6 @@ def render(game, view_party, opponent_party, cfg):
         else:
             st.success(f"✅ **{t('Est. Remaining Funds:')}** `${cw:.1f}` - `${invest_wealth:.1f}` = **`${remaining_wealth:.1f}`**")
 
-        # 📌 將總需求 (total_ev_required) 拿去比對工程處極限 (eng_limit)
         if total_ev_required > eng_limit:
             st.error(f"🚨 **{t('Total EV generation exceeded cap! Max allowed:')}** `{eng_limit:.1f}`. (Current: `{total_ev_required:.1f}`)")
             is_invalid = True
