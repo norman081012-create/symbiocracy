@@ -45,7 +45,8 @@ def render(game, view_party, cfg):
             my_obs_ep = view_party.last_acts.get('alloc_tt_obs', 0) + view_party.last_acts.get('alloc_inv_audit', 0)
             opp_hide_ops = opp.last_acts.get('alloc_ci_hideorg', 0)
             net_stealth = max(0.0, opp_hide_ops - my_obs_ep)
-            fake_boost = (net_stealth / 100.0) * 0.4 
+            # 增強觀測與隱蔽的交鋒敏感度
+            fake_boost = (net_stealth / 50.0) * 0.5 
             
             def format_proj(p):
                 is_mine = (p['author'] == view_party.name)
@@ -88,7 +89,6 @@ def render(game, view_party, cfg):
                 conv_rate = cfg.get('GDP_CONVERSION_RATE', 0.2)
                 equiv_infra_loss = (game.gdp * (current_val * cfg.get('DECAY_WEIGHT_MULT', 0.05) + cfg.get('BASE_DECAY_RATE', 0.0))) / conv_rate
                 
-                # Combine the string so Requires sits perfectly after the claimed decay part
                 st.markdown(t(f"**Claimed Decay (Current: {current_val:.3f})**") + f" *({t('Requires')} {equiv_infra_loss:.1f} EV)* | {t(opp_txt1)}")
                 claimed_decay = st.number_input("Claimed Decay", step=0.001, min_value=0.0, key=widget_decay_key, label_visibility="collapsed")
                 st.session_state[input_decay_key] = claimed_decay
