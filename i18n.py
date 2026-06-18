@@ -140,9 +140,17 @@ ZH_DICT = {
     "Education Direction": "教育施政方向",
     "Shift Left (Rote/Obedience)": "向左偏移 (服從與背誦)",
     "Shift Right (Critical Thinking)": "向右偏移 (批判性思考)",
-    "Total EV generation exceeded cap! Max allowed:": "總 EV 生成量超過工程上限！最大允許值：",
+    "Total EV generation exceeded cap! Max allowed:": "總 EV 需求超過工程上限！最大允許值：",
+    
+    # 結算介面新增翻譯
+    "Total EV Cost:": "總 EV 需求:",
+    "Effective Unit Rate:": "實際單位成本:",
+    "Total Funds Required:": "總資金需求:",
+    "Est. Remaining Funds:": "預估剩餘資金:",
+    "Insufficient Funds": "資金不足",
+    "Reduce EV spending!": "請減少 EV 花費！",
 
-    # God Mode UI 新增翻譯
+    # God Mode UI
     "Global Modifiers: Sanity": "全局修正參數：理智",
     "Emotion": "情緒",
     "Sanity Accuracy (Anti-Spin Armor):": "理智準確率 (抗公關裝甲):",
