@@ -117,7 +117,31 @@ ZH_DICT = {
     "Electoral Shift": "選舉板塊位移",
     "Next Year": "進入下一年",
     
-    "Game Over! Final Symbiocracy Summary": "🏁 遊戲結束！共生體制最終歷史結算"
+    "Game Over! Final Symbiocracy Summary": "🏁 遊戲結束！共生體制最終歷史結算",
+
+    # 新增部門與行動名詞翻譯
+    "Observe Decay": "觀測衰退",
+    "Observe Proj": "觀測提案",
+    "Optimize Proj": "優化提案",
+    "Think Tank Div.": "智庫部門",
+    "Intel & Ops Div.": "情報行動處",
+    "Engineering": "工程處",
+    "Think Tank": "智庫",
+    "Censorship": "言論審查",
+    "Anti-Censor": "反審查",
+    "Audit Org": "組織查核",
+    "Hide Org": "隱蔽組織",
+    "Trace Finances": "金流追查",
+    "Hide Finances": "隱蔽金流",
+    "Campaign": "宣傳造勢",
+    "Incite": "煽動情緒",
+    "Control": "輿論控管",
+    "Project": "建案",
+    "(Regulator Only)": "(僅限當權監管方)",
+    "Education Direction": "教育施政方向",
+    "Shift Left (Rote/Obedience)": "向左偏移 (服從與背誦)",
+    "Shift Right (Critical Thinking)": "向右偏移 (批判性思考)",
+    "Total EV generation exceeded cap! Max allowed:": "總 EV 生成量超過工程上限！最大允許值："
 }
 
 def t(text):
