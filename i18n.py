@@ -119,7 +119,6 @@ ZH_DICT = {
     
     "Game Over! Final Symbiocracy Summary": "🏁 遊戲結束！共生體制最終歷史結算",
 
-    # 新增部門與行動名詞翻譯
     "Observe Decay": "觀測衰退",
     "Observe Proj": "觀測提案",
     "Optimize Proj": "優化提案",
@@ -141,7 +140,22 @@ ZH_DICT = {
     "Education Direction": "教育施政方向",
     "Shift Left (Rote/Obedience)": "向左偏移 (服從與背誦)",
     "Shift Right (Critical Thinking)": "向右偏移 (批判性思考)",
-    "Total EV generation exceeded cap! Max allowed:": "總 EV 生成量超過工程上限！最大允許值："
+    "Total EV generation exceeded cap! Max allowed:": "總 EV 生成量超過工程上限！最大允許值：",
+
+    # God Mode UI 新增翻譯
+    "Global Modifiers: Sanity": "全局修正參數：理智",
+    "Emotion": "情緒",
+    "Sanity Accuracy (Anti-Spin Armor):": "理智準確率 (抗公關裝甲):",
+    "Net:": "淨值:",
+    "Fact Penetration:": "事實穿透:",
+    "exerted": "施加了",
+    "impact. Ignorant/Emotional armor blocked": "的影響力。無知/情緒裝甲格擋了",
+    "conquering": "並成功攻佔了",
+    "blocks!": "個選民區塊！",
+    "Brainwash Defense:": "洗腦防禦:",
+    "Rational sanity armor absorbed": "理性裝甲成功吸收了",
+    "spin impact.": "的公關煽動影響力。",
+    "True Support:": "真實支持度:"
 }
 
 def t(text):
