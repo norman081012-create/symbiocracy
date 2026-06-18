@@ -11,7 +11,6 @@ t = i18n.t
 def render(game, cfg):
     st.header(t("Symbiocracy Times - Annual Report"))
     
-    # ⚠️ 提早抓取政黨，避免後續 UnboundLocalError
     rp = game.r_role_party
     hp = game.h_role_party
     
@@ -81,7 +80,7 @@ def render(game, cfg):
         
         for k in ['t_pre', 't_inv', 't_med', 't_bld', 'edu_stance']:
             if k in ra: setattr(rp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_inv' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ra[k]))
-            if k in ha: setattr(hp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_inv' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ha[k]))
+            if k in ha: setattr(hp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_med' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ha[k]))
 
         req_cost = float(d.get('req_cost', 0.0))
         proj_fund = float(d.get('proj_fund') or 0.0)
@@ -136,7 +135,6 @@ def render(game, cfg):
         
         p_ruling, p_opp, _, _, d_a, d_e = formulas.generate_raw_support(cfg, game.gdp, claimed_decay, res_exec['completed_projects'], float(game.current_real_decay), game.year)
         
-        # ⚠️ 政績歷史庫結算與折舊 (6年線性)
         ruling_party = game.party_A if game.ruling_party.name == game.party_A.name else game.party_B
         opp_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A
         
@@ -161,7 +159,6 @@ def render(game, cfg):
                 if p.name == author:
                     p.perf_history['prop'].append({'year': game.year, 'amount': base_perf})
 
-        # 取出折舊後的總和
         r_p_a = formulas.get_depreciated_perf(game.party_A, 'ruling', game.year)
         r_p_b = formulas.get_depreciated_perf(game.party_B, 'ruling', game.year)
         e_p_a = formulas.get_depreciated_perf(game.party_A, 'exec', game.year)
@@ -169,7 +166,6 @@ def render(game, cfg):
         pr_p_a = formulas.get_depreciated_perf(game.party_A, 'prop', game.year)
         pr_p_b = formulas.get_depreciated_perf(game.party_B, 'prop', game.year)
         
-        # 相減淨值機制
         perf_A = r_p_a + e_p_a + pr_p_a
         perf_B = r_p_b + e_p_b + pr_p_b
 
@@ -301,7 +297,7 @@ def render(game, cfg):
         if rep.get('fine_value', 0) > 0:
             st.success(t(f"Treasury Income: +`${rep['fine_value']:.1f}`"))
         
-        with st.expander(f"💼 {rep['h_party_name']} (Executive) Financials"):
+        with st.expander(f"💼 {rep['h_party_name']} ({t('Executive')}) Financials"):
             st.write(f"**Project Net Profit:** `${rep['h_project_net']:.1f}`")
             cost_real_ev = rep.get('cost_real_ev', 0.0)
             cost_fake_ev = rep.get('cost_fake_ev', 0.0)
@@ -314,7 +310,7 @@ def render(game, cfg):
             net_cash = rep.get('h_project_net', 0.0) + rep.get('h_base', 0.0) - rep.get('hp_penalty', 0.0) - rep.get('h_invest_wealth', 0.0)
             st.write(f"**Final Cash Flow:** `${net_cash:.1f}`")
 
-        with st.expander(f"⚖️ {rep['r_party_name']} (Regulator) Financials"):
+        with st.expander(f"⚖️ {rep['r_party_name']} ({t('Regulator')}) Financials"):
             st.write(f"**Base Income:** `${rep.get('r_base', 0.0):.1f}`")
             st.write(f"- Paid Executive: `-${rep.get('r_pays', 0.0):.1f}`")
             st.write(f"+ Unspent Recovery: `${rep.get('unspent_proj', 0.0):.1f}`")
@@ -341,8 +337,13 @@ def render(game, cfg):
         with st.expander(t("👁️ God Mode: Electoral Mechanics"), expanded=is_god_mode):
             if is_god_mode:
                 san_acc = formulas.get_sanity_accuracy(rep.get('old_san', 50), rep.get('old_emo', 30))
-                st.write(f"*(Global Modifiers: Sanity `{rep.get('old_san', 50):.0f}`, Emotion `{rep.get('old_emo', 30):.0f}`)*")
-                st.caption(f"*💡 Sanity Accuracy (Anti-Spin Armor): `{san_acc*100:.1f}%`*")
+                
+                # 修正 God Mode 內的多語言 f-string 渲染
+                t_global_mod = t("Global Modifiers: Sanity")
+                t_emo = t("Emotion")
+                t_san_acc = t("Sanity Accuracy (Anti-Spin Armor):")
+                st.write(f"*({t_global_mod} `{rep.get('old_san', 50):.0f}`, {t_emo} `{rep.get('old_emo', 30):.0f}`)*")
+                st.caption(f"*💡 {t_san_acc} `{san_acc*100:.1f}%`*")
                 
                 r_p_a = rep.get('r_p_a', 0.0)
                 r_p_b = rep.get('r_p_b', 0.0)
@@ -351,28 +352,38 @@ def render(game, cfg):
                 pr_p_a = rep.get('pr_p_a', 0.0)
                 pr_p_b = rep.get('pr_p_b', 0.0)
                 
-                st.markdown(f"**{t('Ruling Perf.')}**: {game.party_A.name} `{r_p_a:+.1f}` | {game.party_B.name} `{r_p_b:+.1f}` ➔ **Net: `{r_p_a - r_p_b:+.1f}`**")
-                st.markdown(f"**{t('Exec Perf.')}**: {game.party_A.name} `{e_p_a:+.1f}` | {game.party_B.name} `{e_p_b:+.1f}` ➔ **Net: `{e_p_a - e_p_b:+.1f}`**")
-                st.markdown(f"**{t('Prop Perf.')}**: {game.party_A.name} `{pr_p_a:+.1f}` | {game.party_B.name} `{pr_p_b:+.1f}` ➔ **Net: `{pr_p_a - pr_p_b:+.1f}`**")
+                t_net = t("Net:")
+                st.markdown(f"**{t('Ruling Perf.')}**: {game.party_A.name} `{r_p_a:+.1f}` | {game.party_B.name} `{r_p_b:+.1f}` ➔ **{t_net} `{r_p_a - r_p_b:+.1f}`**")
+                st.markdown(f"**{t('Exec Perf.')}**: {game.party_A.name} `{e_p_a:+.1f}` | {game.party_B.name} `{e_p_b:+.1f}` ➔ **{t_net} `{e_p_a - e_p_b:+.1f}`**")
+                st.markdown(f"**{t('Prop Perf.')}**: {game.party_A.name} `{pr_p_a:+.1f}` | {game.party_B.name} `{pr_p_b:+.1f}` ➔ **{t_net} `{pr_p_a - pr_p_b:+.1f}`**")
                 
                 if abs(rep.get('net_perf_A', 0)) >= 1.0:
                     atk_p = game.party_A.name if rep['net_perf_A'] > 0 else game.party_B.name
                     perf_blocked = rep.get('perf_used', 0) - rep.get('perf_conquered', 0)
-                    st.success(f"⚡ **Fact Penetration**: {atk_p} exerted `{rep.get('perf_used', 0):.1f}` impact. Ignorant/Emotional armor blocked `{perf_blocked:.1f}`, conquering **{rep.get('perf_conquered', 0)}** blocks!")
+                    t_fact = t("Fact Penetration:")
+                    t_exert = t("exerted")
+                    t_ignorant = t("impact. Ignorant/Emotional armor blocked")
+                    t_conq = t("conquering")
+                    t_blocks = t("blocks!")
+                    st.success(f"⚡ **{t_fact}** {atk_p} {t_exert} `{rep.get('perf_used', 0):.1f}` {t_ignorant} `{perf_blocked:.1f}`, {t_conq} **{rep.get('perf_conquered', 0)}** {t_blocks}")
                     
                 st.markdown(f"**Media & Spin Offense**: {game.party_A.name} `{rep.get('spin_A', 0):.1f}` | {game.party_B.name} `{rep.get('spin_B', 0):.1f}`")
                 if abs(rep.get('net_spin_A', 0)) >= 1.0:
                     atk_s = game.party_A.name if rep['net_spin_A'] > 0 else game.party_B.name
                     blocked = rep.get('spin_used', 0) - rep.get('spin_conquered', 0)
-                    st.warning(f"🛡️ **Brainwash Defense**: Rational sanity armor absorbed `{blocked:.1f}` spin impact. {atk_s} conquered **{rep.get('spin_conquered', 0)}** blocks.")
+                    t_bw_def = t("Brainwash Defense:")
+                    t_absorb = t("Rational sanity armor absorbed")
+                    t_spin_imp = t("spin impact.")
+                    st.warning(f"🛡️ **{t_bw_def}** {t_absorb} `{blocked:.1f}` {t_spin_imp} {atk_s} {t_conq} **{rep.get('spin_conquered', 0)}** {t_blocks}")
 
                 old_sup_A = rep.get('old_boundary', 100) * 0.5
                 new_sup_A = rep.get('new_boundary', 100) * 0.5
                 old_sup_B = 100.0 - old_sup_A
                 new_sup_B = 100.0 - new_sup_A
                 
-                st.markdown(f"#### 📊 **{game.party_A.name} True Support:** `{old_sup_A:.1f}%` ➔ **`{new_sup_A:.1f}%`** ({new_sup_A - old_sup_A:+.1f}%)")
-                st.markdown(f"#### 📊 **{game.party_B.name} True Support:** `{old_sup_B:.1f}%` ➔ **`{new_sup_B:.1f}%`** ({new_sup_B - old_sup_B:+.1f}%)")
+                t_true_sup = t("True Support:")
+                st.markdown(f"#### 📊 **{game.party_A.name} {t_true_sup}** `{old_sup_A:.1f}%` ➔ **`{new_sup_A:.1f}%`** ({new_sup_A - old_sup_A:+.1f}%)")
+                st.markdown(f"#### 📊 **{game.party_B.name} {t_true_sup}** `{old_sup_B:.1f}%` ➔ **`{new_sup_B:.1f}%`** ({new_sup_B - old_sup_B:+.1f}%)")
             else:
                 st.warning(t("*(True support hidden. Conduct polls to reveal.)*"))
 
@@ -388,13 +399,11 @@ def render(game, cfg):
             game.phase = 1; game.p1_step = 'draft_r'
             game.p1_proposals = {'R': None, 'H': None}; game.p1_selected_plan = None
             
-            # 🔴 修正：每年年初，角色自動校正回歸。當權派一定優先擔任 R (Regulator)
             game.r_role_party = game.ruling_party
             game.h_role_party = game.party_B if game.ruling_party.name == game.party_A.name else game.party_A
             
             game.proposing_party = game.r_role_party
             
-            # ✅ 修復 Bug：直接把舊 H 角色投資的點數給舊的 H 政黨，舊 R 角色投資的點數給舊 R 政黨
             hp_ep = rep.get('ha_t_opt', 0.0)
             rp_ep = rep.get('ra_t_opt', 0.0)
             
