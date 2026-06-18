@@ -190,32 +190,31 @@ def render(game, view_party, opponent_party, cfg):
 
         total_upgrade_cost = pre_cost + inv_cost + med_cost + bld_cost
         total_maint_cost = pre_maint + inv_maint + med_maint + bld_maint
-        pure_upgrades = pre_up + inv_up + med_up + bld_up
+        
+        # 📌 全部的 EV 需求量（包含建案、部門維護、升級），皆受制於工程處總量
+        total_ev_required = project_ev_cost + total_maint_cost + total_upgrade_cost
         
         unit_cost_eff = unit_cost / 1.2 if is_h else unit_cost
-        
-        # 總需求花費與實體工程量判定
-        total_ev_required = project_ev_cost + total_maint_cost + total_upgrade_cost
-        total_ev_generated = project_ev_cost + pure_upgrades
-        
         invest_wealth = total_ev_required * max(0.01, unit_cost_eff)
         remaining_wealth = cw - invest_wealth
         
         st.markdown("---")
         st.markdown(t(f"**💰 Financial Checkout**"))
-        st.write(f"- Total EV Cost: `{total_ev_required:.1f}` EV *(Effective Unit Rate: `${unit_cost_eff:.2f}`)*")
-        st.write(f"- Total Funds Required: `${invest_wealth:.1f}`")
+        # 加入 i18n 翻譯標籤
+        st.write(f"- {t('Total EV Cost:')} `{total_ev_required:.1f}` EV *({t('Effective Unit Rate:')} `${unit_cost_eff:.2f}`)*")
+        st.write(f"- {t('Total Funds Required:')} `${invest_wealth:.1f}`")
         
         is_invalid = tt_invalid or inv_invalid or med_invalid
         
         if remaining_wealth < 0:
-            st.error(t(f"🚨 **Insufficient Funds**: Estimated remainder `${remaining_wealth:.1f}`. Reduce EV spending!"))
+            st.error(f"🚨 **{t('Insufficient Funds')}**: {t('Est. Remaining Funds:')} `${remaining_wealth:.1f}`. {t('Reduce EV spending!')}")
             is_invalid = True
         else:
-            st.success(t(f"✅ **Est. Remaining Funds:** `${cw:.1f}` - `${invest_wealth:.1f}` = **`${remaining_wealth:.1f}`**"))
+            st.success(f"✅ **{t('Est. Remaining Funds:')}** `${cw:.1f}` - `${invest_wealth:.1f}` = **`${remaining_wealth:.1f}`**")
 
-        if total_ev_generated > eng_limit:
-            st.error(t(f"🚨 {t('Total EV generation exceeded cap! Max allowed:')} `{eng_limit:.1f}`. (Current: `{total_ev_generated:.1f}`)"))
+        # 📌 將總需求 (total_ev_required) 拿去比對工程處極限 (eng_limit)
+        if total_ev_required > eng_limit:
+            st.error(f"🚨 **{t('Total EV generation exceeded cap! Max allowed:')}** `{eng_limit:.1f}`. (Current: `{total_ev_required:.1f}`)")
             is_invalid = True
 
     my_acts = {
