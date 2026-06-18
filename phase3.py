@@ -78,9 +78,11 @@ def render(game, cfg):
         confiscated_to_budget = fine_value
         hp_wealth_penalty = (caught_value + fine_value)
         
-        for k in ['t_pre', 't_inv', 't_med', 't_bld', 'edu_stance']:
-            if k in ra: setattr(rp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_inv' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ra[k]))
-            if k in ha: setattr(hp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_inv' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ha[k]))
+        # 📌 修復 KeyError 與 AttributeError 漏接的元凶，改用乾淨的 Dictionary Mapping
+        attr_mapping = {'t_pre': 'predict_ability', 't_inv': 'investigate_ability', 't_med': 'media_ability', 't_bld': 'build_ability', 'edu_stance': 'edu_stance'}
+        for k, attr in attr_mapping.items():
+            if k in ra: setattr(rp, attr, float(ra[k]))
+            if k in ha: setattr(hp, attr, float(ha[k]))
 
         req_cost = float(d.get('req_cost', 0.0))
         proj_fund = float(d.get('proj_fund') or 0.0)
@@ -118,12 +120,12 @@ def render(game, cfg):
         h_anti_censor_alloc = float(ha.get('alloc_ci_anticen', 0))
         censor_diff = r_censor_alloc - h_anti_censor_alloc
 
-        B = game.boundary_B
-        opp_indices = range(B + 1, 201) if hp.name == game.party_A.name else range(1, B + 1)
+        B_int = int(game.boundary_B)
+        opp_indices = range(B_int + 1, 201) if hp.name == game.party_A.name else range(1, B_int + 1)
         censor_successes = 0; censor_failures = 0
         
         for i in opp_indices:
-            rig = formulas.get_spin_rigidity(i, game.sanity, game.emotion, hp.edu_stance, getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), B, game.party_A.name)
+            rig = formulas.get_spin_rigidity(i, game.sanity, game.emotion, 0.0, getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), B_int, game.party_A.name)
             if random.random() > rig: censor_successes += 1
             else: censor_failures += 1
         
@@ -185,7 +187,6 @@ def render(game, cfg):
         c_pen_a = censor_weight if rp.name == game.party_B.name else 0.0
         c_pen_b = censor_weight if rp.name == game.party_A.name else 0.0
 
-        # 📌 呼叫全新的 3 階段征服漏斗
         conquest_res = formulas.run_conquest_split(
             game.boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, game.sanity, game.emotion, c_pen_a, c_pen_b,
             getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), game.party_A.name
@@ -361,17 +362,9 @@ def render(game, cfg):
                 if abs(rep.get('net_perf_A', 0)) >= 0.1:
                     atk_p = game.party_A.name if rep['net_perf_A'] > 0 else game.party_B.name
                     cq = rep.get('conquest', {})
-                    perf_used = cq.get('perf_used', 0)
-                    perf_blocked_1 = cq.get('perf_blocked_1', 0)
-                    perf_penetrated = cq.get('perf_penetrated', 0)
-                    perf_multiplier = cq.get('perf_multiplier', 1.0)
-                    perf_ex = cq.get('perf_ex', 0)
-                    perf_blocked_2 = cq.get('perf_blocked_2', 0)
-                    perf_conquered = cq.get('perf_conquered', 0)
-                    
-                    st.success(f"⚡ **{t('Fact Penetration:')}** {atk_p} {t('exerted')} `{perf_used:.1f}` {t('impact. Ignorant/Emotional armor blocked')} `{perf_blocked_1:.1f}`{t('leaving')} `{perf_penetrated:.1f}` {t('core impact.')}")
-                    st.info(f"📣 **{t('Media EX Amplifier:')}** {t('Core impact multiplied by')} `x{perf_multiplier:.2f}` ➔ `{perf_ex:.1f}` {t('Amplified Impact')}")
-                    st.success(f"🎯 **{t('Rational Final Defense:')}** {t('Rational sanity armor absorbed')} `{perf_blocked_2:.1f}`, {t('conquering')} **`{perf_conquered:.1f}`** {t('blocks!')}")
+                    st.success(f"⚡ **{t('Fact Penetration:')}** {atk_p} {t('base performance')} `{cq.get('perf_used',0):.1f}` {t('amplified by Sanity resonance')} ➔ `{cq.get('perf_core',0):.1f}`")
+                    st.info(f"📣 **{t('Media EX Amplifier:')}** {t('Multiplied by Media Advantage')} ➔ `{cq.get('perf_ex',0):.1f}` {t('Amplified Impact')}")
+                    st.success(f"🎯 **{t('Base Rigidity Attack:')}** {t('Conquering')} **`{cq.get('perf_conquered',0):.1f}`** {t('blocks!')}")
 
                 st.markdown(f"**Media & Spin Offense**: {game.party_A.name} `{rep.get('spin_A', 0):.1f}` | {game.party_B.name} `{rep.get('spin_B', 0):.1f}`")
                 
@@ -379,9 +372,9 @@ def render(game, cfg):
                 if abs(rep.get('net_spin_A', 0)) >= 0.1:
                     atk_s = game.party_A.name if rep['net_spin_A'] > 0 else game.party_B.name
                     cq = rep.get('conquest', {})
-                    spin_blocked = cq.get('spin_blocked', 0)
-                    spin_conquered = cq.get('spin_conquered', 0)
-                    st.warning(f"🛡️ **{t('Brainwash Defense:')}** {t('Rational sanity armor absorbed')} `{spin_blocked:.1f}` {t('spin impact.')} {atk_s} {t('conquering')} **`{spin_conquered:.1f}`** {t('blocks!')}")
+                    st.warning(f"🌪️ **{t('Ignorance Amplification:')}** {atk_s} {t('spin')} `{cq.get('spin_used',0):.1f}` {t('amplified by emotional ignorance')} ➔ `{cq.get('spin_core',0):.1f}`")
+                    st.info(f"📣 **{t('Media EX Amplifier:')}** {t('Multiplied by Media Advantage')} ➔ `{cq.get('spin_ex',0):.1f}` {t('Amplified Impact')}")
+                    st.warning(f"🛡️ **{t('Rational Final Defense:')}** {t('Rational sanity armor defends, conquering')} **`{cq.get('spin_conquered',0):.1f}`** {t('blocks!')}")
 
                 old_sup_A = rep.get('old_boundary', 100) * 0.5
                 new_sup_A = rep.get('new_boundary', 100) * 0.5
