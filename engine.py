@@ -10,7 +10,8 @@ PROJECT_NAMES = ["Phoenix", "Citadel", "Aegis", "Titan", "Neon", "Echo", "Apex",
 
 def generate_projects(tt_opt_ep, author_name):
     projects = []
-    ep_buff = (tt_opt_ep / 100.0) * 0.5  
+    # 放大 EP 的收益係數，讓玩家投資「優化提案」能明顯看出執行與宏觀乘數的上升
+    ep_buff = (tt_opt_ep / 30.0) * 0.3  
     
     tiers = [
         ('Low', 5, (50, 150), 0.8, (0.3, 1.3)),
