@@ -80,7 +80,7 @@ def render(game, cfg):
         
         for k in ['t_pre', 't_inv', 't_med', 't_bld', 'edu_stance']:
             if k in ra: setattr(rp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_inv' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ra[k]))
-            if k in ha: setattr(hp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_med' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ha[k]))
+            if k in ha: setattr(hp, 'predict_ability' if k == 't_pre' else 'investigate_ability' if k == 't_inv' else 'media_ability' if k == 't_med' else 'build_ability' if k == 't_bld' else 'edu_stance', float(ha[k]))
 
         req_cost = float(d.get('req_cost', 0.0))
         proj_fund = float(d.get('proj_fund') or 0.0)
@@ -185,10 +185,12 @@ def render(game, cfg):
         c_pen_a = censor_weight if rp.name == game.party_B.name else 0.0
         c_pen_b = censor_weight if rp.name == game.party_A.name else 0.0
 
-        new_boundary, perf_used, perf_conquered, spin_used, spin_conquered = formulas.run_conquest_split(
-            game.boundary_B, net_perf_A, net_spin_A, game.sanity, game.emotion, c_pen_a, c_pen_b,
+        # 📌 呼叫全新的 3 階段征服漏斗
+        conquest_res = formulas.run_conquest_split(
+            game.boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, game.sanity, game.emotion, c_pen_a, c_pen_b,
             getattr(game, 'h_rigidity_buff', {}).get('amount', 0.0), getattr(game, 'h_rigidity_buff', {}).get('party'), game.party_A.name
         )
+        new_boundary = conquest_res['new_boundary']
         
         game.active_projects = res_exec['ongoing_projects']
         
@@ -218,8 +220,7 @@ def render(game, cfg):
             'r_p_a': r_p_a, 'r_p_b': r_p_b, 'e_p_a': e_p_a, 'e_p_b': e_p_b, 'pr_p_a': pr_p_a, 'pr_p_b': pr_p_b,
             'perf_A': perf_A, 'perf_B': perf_B, 'net_perf_A': net_perf_A,
             'spin_A': spin_A, 'spin_B': spin_B, 'net_spin_A': net_spin_A,
-            'perf_used': perf_used, 'perf_conquered': perf_conquered,
-            'spin_used': spin_used, 'spin_conquered': spin_conquered,
+            'conquest': conquest_res, 
             'old_boundary': old_boundary, 'new_boundary': new_boundary,
             'censor_successes': censor_successes, 'censor_failures': censor_failures, 'censor_emotion_add': censor_emotion_add, 'censor_buff': censor_rigidity_buff,
             'h_inc': hp_inc, 'r_inc': rp_inc, 
@@ -338,7 +339,6 @@ def render(game, cfg):
             if is_god_mode:
                 san_acc = formulas.get_sanity_accuracy(rep.get('old_san', 50), rep.get('old_emo', 30))
                 
-                # 修正 God Mode 內的多語言 f-string 渲染
                 t_global_mod = t("Global Modifiers: Sanity")
                 t_emo = t("Emotion")
                 t_san_acc = t("Sanity Accuracy (Anti-Spin Armor):")
@@ -357,24 +357,31 @@ def render(game, cfg):
                 st.markdown(f"**{t('Exec Perf.')}**: {game.party_A.name} `{e_p_a:+.1f}` | {game.party_B.name} `{e_p_b:+.1f}` ➔ **{t_net} `{e_p_a - e_p_b:+.1f}`**")
                 st.markdown(f"**{t('Prop Perf.')}**: {game.party_A.name} `{pr_p_a:+.1f}` | {game.party_B.name} `{pr_p_b:+.1f}` ➔ **{t_net} `{pr_p_a - pr_p_b:+.1f}`**")
                 
-                if abs(rep.get('net_perf_A', 0)) >= 1.0:
+                # 📌 全新 3 階段政績渲染
+                if abs(rep.get('net_perf_A', 0)) >= 0.1:
                     atk_p = game.party_A.name if rep['net_perf_A'] > 0 else game.party_B.name
-                    perf_blocked = rep.get('perf_used', 0) - rep.get('perf_conquered', 0)
-                    t_fact = t("Fact Penetration:")
-                    t_exert = t("exerted")
-                    t_ignorant = t("impact. Ignorant/Emotional armor blocked")
-                    t_conq = t("conquering")
-                    t_blocks = t("blocks!")
-                    st.success(f"⚡ **{t_fact}** {atk_p} {t_exert} `{rep.get('perf_used', 0):.1f}` {t_ignorant} `{perf_blocked:.1f}`, {t_conq} **{rep.get('perf_conquered', 0)}** {t_blocks}")
+                    cq = rep.get('conquest', {})
+                    perf_used = cq.get('perf_used', 0)
+                    perf_blocked_1 = cq.get('perf_blocked_1', 0)
+                    perf_penetrated = cq.get('perf_penetrated', 0)
+                    perf_multiplier = cq.get('perf_multiplier', 1.0)
+                    perf_ex = cq.get('perf_ex', 0)
+                    perf_blocked_2 = cq.get('perf_blocked_2', 0)
+                    perf_conquered = cq.get('perf_conquered', 0)
                     
+                    st.success(f"⚡ **{t('Fact Penetration:')}** {atk_p} {t('exerted')} `{perf_used:.1f}` {t('impact. Ignorant/Emotional armor blocked')} `{perf_blocked_1:.1f}`{t('leaving')} `{perf_penetrated:.1f}` {t('core impact.')}")
+                    st.info(f"📣 **{t('Media EX Amplifier:')}** {t('Core impact multiplied by')} `x{perf_multiplier:.2f}` ➔ `{perf_ex:.1f}` {t('Amplified Impact')}")
+                    st.success(f"🎯 **{t('Rational Final Defense:')}** {t('Rational sanity armor absorbed')} `{perf_blocked_2:.1f}`, {t('conquering')} **`{perf_conquered:.1f}`** {t('blocks!')}")
+
                 st.markdown(f"**Media & Spin Offense**: {game.party_A.name} `{rep.get('spin_A', 0):.1f}` | {game.party_B.name} `{rep.get('spin_B', 0):.1f}`")
-                if abs(rep.get('net_spin_A', 0)) >= 1.0:
+                
+                # 📌 單純公關洗腦渲染
+                if abs(rep.get('net_spin_A', 0)) >= 0.1:
                     atk_s = game.party_A.name if rep['net_spin_A'] > 0 else game.party_B.name
-                    blocked = rep.get('spin_used', 0) - rep.get('spin_conquered', 0)
-                    t_bw_def = t("Brainwash Defense:")
-                    t_absorb = t("Rational sanity armor absorbed")
-                    t_spin_imp = t("spin impact.")
-                    st.warning(f"🛡️ **{t_bw_def}** {t_absorb} `{blocked:.1f}` {t_spin_imp} {atk_s} {t_conq} **{rep.get('spin_conquered', 0)}** {t_blocks}")
+                    cq = rep.get('conquest', {})
+                    spin_blocked = cq.get('spin_blocked', 0)
+                    spin_conquered = cq.get('spin_conquered', 0)
+                    st.warning(f"🛡️ **{t('Brainwash Defense:')}** {t('Rational sanity armor absorbed')} `{spin_blocked:.1f}` {t('spin impact.')} {atk_s} {t('conquering')} **`{spin_conquered:.1f}`** {t('blocks!')}")
 
                 old_sup_A = rep.get('old_boundary', 100) * 0.5
                 new_sup_A = rep.get('new_boundary', 100) * 0.5
