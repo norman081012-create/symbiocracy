@@ -230,90 +230,105 @@ def get_sanity_accuracy(sanity, emotion):
     acc = (sanity / 100.0) - (emotion / 200.0)
     return max(0.01, min(1.0, acc))
 
-def get_perf_rigidity(i, sanity, emotion, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
-    base_rigidity = get_base_rigidity(i, buff_amt, buff_party, h_boundary, party_a_name)
-    sanity_acc = get_sanity_accuracy(sanity, emotion)
-    final_rig = base_rigidity * RIGIDITY_WEIGHT * (1.0 - sanity_acc)
-    return max(0.01, min(1.0, final_rig))
-
-def get_spin_rigidity(i, sanity, emotion, censor_penalty=0.0, buff_amt=0.0, buff_party=None, h_boundary=100, party_a_name=None):
-    base_rigidity = get_base_rigidity(i, buff_amt, buff_party, h_boundary, party_a_name)
-    sanity_acc = get_sanity_accuracy(sanity, emotion)
-    final_rig = base_rigidity * RIGIDITY_WEIGHT * sanity_acc * max(0.1, (1.0 - censor_penalty))
-    return max(0.01, min(1.0, final_rig))
-
-# 📌 全新改版的征服演算法：3階段漏斗 (事實穿透 -> 宣傳EX -> 最終防禦)
+# 📌 全新改版的征服演算法：雙軌道 (政績理智放大 vs 洗腦無知放大)
 def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanity=50.0, emotion=30.0, censor_penalty_A=0.0, censor_penalty_B=0.0, buff_amt=0.0, buff_party=None, party_a_name=None):
     B = float(boundary_B)
-
-    perf_used = abs(net_perf_A)
-    perf_conquered = 0.0
-    perf_blocked_1 = 0.0
-    perf_penetrated = 0.0
-    perf_multiplier = 1.0
-    perf_ex = 0.0
-    perf_blocked_2 = 0.0
+    sanity_acc = get_sanity_accuracy(sanity, emotion)
 
     # ==========================================
     # 軌道 A：政績影響力 (Fact Track)
     # ==========================================
+    perf_raw = abs(net_perf_A)
+    perf_core = 0.0
+    perf_ratio = 0.0
+    perf_ex = 0.0
+    perf_conquered = 0
+
     if net_perf_A != 0:
         is_a_atk = (net_perf_A > 0)
-        raw_perf = abs(net_perf_A)
+        
+        # 階段 1：理智共鳴放大 (1 + 理智準確率)
+        perf_core = perf_raw * (1.0 + sanity_acc)
 
-        # 階段 1：無知/情緒裝甲阻擋
-        center_perf_rig = get_perf_rigidity(B, sanity, emotion, buff_amt, buff_party, boundary_B, party_a_name)
-        perf_blocked_1 = raw_perf * center_perf_rig
-        perf_penetrated = raw_perf - perf_blocked_1
-
-        # 階段 2：媒體宣傳 EX (1 + 比例)
+        # 階段 2：媒體宣傳 EX (1 + 媒體落差比例)
         if spin_A + spin_B > 0:
-            ratio = (spin_A - spin_B) / (spin_A + spin_B) if is_a_atk else (spin_B - spin_A) / (spin_A + spin_B)
+            perf_ratio = (spin_A - spin_B) / (spin_A + spin_B) if is_a_atk else (spin_B - spin_A) / (spin_A + spin_B)
         else:
-            ratio = 0.0
-        perf_multiplier = max(0.0, 1.0 + ratio)
-        perf_ex = perf_penetrated * perf_multiplier
+            perf_ratio = 0.0
+        
+        perf_multiplier = max(0.0, 1.0 + perf_ratio)
+        perf_ex = perf_core * perf_multiplier
 
-        # 階段 3：理智裝甲最終防禦
-        censor_opp = censor_penalty_B if is_a_atk else censor_penalty_A
-        center_spin_rig = get_spin_rigidity(B, sanity, emotion, censor_opp, buff_amt, buff_party, boundary_B, party_a_name)
-        perf_blocked_2 = perf_ex * center_spin_rig
-        perf_conquered = perf_ex - perf_blocked_2
-
-        if is_a_atk: B += perf_conquered
-        else: B -= perf_conquered
+        # 階段 3：鐵票剛性最終擊穿
+        sup = perf_ex
+        while sup >= 1.0:
+            sup -= 1.0
+            idx = int(B) + 1 if is_a_atk else int(B)
+            if not (1 <= idx <= 200): break
+            rigidity = get_base_rigidity(idx, buff_amt, buff_party, boundary_B, party_a_name)
+            if random.random() < (1.0 - rigidity):
+                B = B + 1 if is_a_atk else B - 1
+                perf_conquered += 1
 
     # ==========================================
     # 軌道 B：純粹公關洗腦 (Spin Track)
     # ==========================================
-    spin_used = abs(net_spin_A)
-    spin_conquered = 0.0
+    spin_raw = abs(net_spin_A)
+    spin_core = 0.0
+    spin_ratio = 0.0
+    spin_ex = 0.0
     spin_blocked = 0.0
+    spin_eff = 0.0
+    spin_conquered = 0
 
     if net_spin_A != 0:
         is_a_atk_spin = (net_spin_A > 0)
+        
+        # 階段 1：無知/情緒放大 (1 + (1 - 理智準確率))
+        spin_core = spin_raw * (1.0 + (1.0 - sanity_acc))
+
+        # 階段 2：媒體宣傳 EX (1 + 媒體落差比例)
+        if spin_A + spin_B > 0:
+            spin_ratio = (spin_A - spin_B) / (spin_A + spin_B) if is_a_atk_spin else (spin_B - spin_A) / (spin_A + spin_B)
+        else:
+            spin_ratio = 0.0
+            
+        spin_multiplier = max(0.0, 1.0 + spin_ratio)
+        spin_ex = spin_core * spin_multiplier
+
+        # 階段 3：理智裝甲最終格擋
         censor_opp = censor_penalty_B if is_a_atk_spin else censor_penalty_A
-        center_spin_rig = get_spin_rigidity(B, sanity, emotion, censor_opp, buff_amt, buff_party, boundary_B, party_a_name)
+        eff_sanity_acc = max(0.0, sanity_acc - censor_opp) # 審查會剝奪理智防禦力
+        
+        spin_blocked = spin_ex * eff_sanity_acc
+        spin_eff = spin_ex - spin_blocked
 
-        spin_blocked = spin_used * center_spin_rig
-        spin_conquered = spin_used - spin_blocked
-
-        if is_a_atk_spin: B += spin_conquered
-        else: B -= spin_conquered
+        # 階段 4：鐵票剛性最終擊穿
+        sup = spin_eff
+        while sup >= 1.0:
+            sup -= 1.0
+            idx = int(B) + 1 if is_a_atk_spin else int(B)
+            if not (1 <= idx <= 200): break
+            rigidity = get_base_rigidity(idx, buff_amt, buff_party, boundary_B, party_a_name)
+            if random.random() < (1.0 - rigidity):
+                B = B + 1 if is_a_atk_spin else B - 1
+                spin_conquered += 1
 
     B = max(0.0, min(200.0, B))
 
     return {
         'new_boundary': B,
-        'perf_used': perf_used,
-        'perf_blocked_1': perf_blocked_1,
-        'perf_penetrated': perf_penetrated,
-        'perf_multiplier': perf_multiplier,
+        'perf_raw': perf_raw,
+        'perf_core': perf_core,
+        'perf_multiplier': 1.0 + perf_ratio,
         'perf_ex': perf_ex,
-        'perf_blocked_2': perf_blocked_2,
         'perf_conquered': perf_conquered,
-        'spin_used': spin_used,
+        'spin_raw': spin_raw,
+        'spin_core': spin_core,
+        'spin_multiplier': 1.0 + spin_ratio,
+        'spin_ex': spin_ex,
         'spin_blocked': spin_blocked,
+        'spin_eff': spin_eff,
         'spin_conquered': spin_conquered
     }
 
@@ -333,8 +348,8 @@ def calc_performance_preview(cfg, hp, rp, ruling_party_name, curr_gdp, claimed_d
         r_perf += p_ruling
         h_perf += p_opp
 
-    perf_ap_center = 1.0 - get_perf_rigidity(100, sanity, emotion)
-    spin_ap_center = 1.0 - get_spin_rigidity(100, sanity, emotion, 0.0)
+    perf_ap_center = 1.0 - get_sanity_accuracy(sanity, emotion)
+    spin_ap_center = 1.0 - get_sanity_accuracy(sanity, emotion)
 
     return {
         hp_name: {'perf': h_perf, 'spin': h_spin_pwr, 'ruling': p_ruling if ruling_party_name==hp_name else p_opp, 'exec': p_exec, 'prop': p_prop.get(hp_name, 0)},
