@@ -137,6 +137,7 @@ ZH_DICT = {
     "Control": "輿論控管",
     "Project": "建案",
     "(Regulator Only)": "(僅限當權監管方)",
+    "(Ruling Party Only)": "(僅限當權方)",
     "Education Direction": "教育施政方向",
     "Shift Left (Rote/Obedience)": "向左偏移 (服從與背誦)",
     "Shift Right (Critical Thinking)": "向右偏移 (批判性思考)",
@@ -149,28 +150,26 @@ ZH_DICT = {
     "Insufficient Funds": "資金不足",
     "Reduce EV spending!": "請減少 EV 花費！",
 
-    # God Mode UI
+    # God Mode UI 與全新結算漏斗翻譯
     "Global Modifiers: Sanity": "全局修正參數：理智",
     "Emotion": "情緒",
     "Sanity Accuracy (Anti-Spin Armor):": "理智準確率 (抗公關裝甲):",
     "Net:": "淨值:",
     "Fact Penetration:": "事實穿透:",
-    "exerted": "施加了",
-    "impact. Ignorant/Emotional armor blocked": "的影響力。無知/情緒裝甲格擋了",
-    "conquering": "並成功攻佔了",
-    "blocks!": "個選民區塊！",
-    "Brainwash Defense:": "洗腦防禦:",
-    "Rational sanity armor absorbed": "理性裝甲成功吸收了",
-    "spin impact.": "的公關煽動影響力。",
-    "True Support:": "真實支持度:",
-    
-    # 📌 新增的 3 階段結算專用語系
-    "leaving": "，剩餘",
-    "core impact.": "核心影響力。",
+    "base performance": "基礎政績",
+    "amplified by Sanity resonance": "經由理智共鳴放大",
     "Media EX Amplifier:": "宣傳 EX 放大:",
-    "Core impact multiplied by": "核心影響力乘上媒體權重",
+    "Multiplied by Media Advantage": "經過媒體優勢比例計算",
     "Amplified Impact": "最終發酵影響力",
-    "Rational Final Defense:": "理智最終防禦:"
+    "Base Rigidity Attack:": "剛性擊穿:",
+    "Conquering": "成功翻轉了",
+    "blocks!": "個選民區塊！",
+    "Ignorance Amplification:": "無知煽動放大:",
+    "spin": "基礎公關點數",
+    "amplified by emotional ignorance": "被社會情緒與無知效應放大",
+    "Rational Final Defense:": "理智最終防禦:",
+    "Rational sanity armor defends, conquering": "遭遇理智裝甲最後格擋，成功翻轉了",
+    "True Support:": "真實支持度:"
 }
 
 def t(text):
