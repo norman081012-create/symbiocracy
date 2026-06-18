@@ -142,7 +142,6 @@ ZH_DICT = {
     "Shift Right (Critical Thinking)": "向右偏移 (批判性思考)",
     "Total EV generation exceeded cap! Max allowed:": "總 EV 需求超過工程上限！最大允許值：",
     
-    # 結算介面新增翻譯
     "Total EV Cost:": "總 EV 需求:",
     "Effective Unit Rate:": "實際單位成本:",
     "Total Funds Required:": "總資金需求:",
@@ -163,7 +162,15 @@ ZH_DICT = {
     "Brainwash Defense:": "洗腦防禦:",
     "Rational sanity armor absorbed": "理性裝甲成功吸收了",
     "spin impact.": "的公關煽動影響力。",
-    "True Support:": "真實支持度:"
+    "True Support:": "真實支持度:",
+    
+    # 📌 新增的 3 階段結算專用語系
+    "leaving": "，剩餘",
+    "core impact.": "核心影響力。",
+    "Media EX Amplifier:": "宣傳 EX 放大:",
+    "Core impact multiplied by": "核心影響力乘上媒體權重",
+    "Amplified Impact": "最終發酵影響力",
+    "Rational Final Defense:": "理智最終防禦:"
 }
 
 def t(text):
