@@ -242,6 +242,8 @@ def get_spin_rigidity(i, sanity, emotion, censor_penalty=0.0, buff_amt=0.0, buff
     return max(0.01, min(1.0, final_rig))
 
 # 📌 全新改版的征服演算法：完全對稱的雙軌道漏斗
+# 📌 [MODIFIED] 審查削弱(censor_penalty) 改為「攻擊方自我衰減」，套用在彈藥放大倍率階段，
+#     不再放在防禦剛性(rigidity)上；兩軌道(perf/spin)統一套用同一套邏輯，且以 [0,1] 夾緊避免反噬。
 def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanity=50.0, emotion=30.0, censor_penalty_A=0.0, censor_penalty_B=0.0, buff_amt=0.0, buff_party=None, party_a_name=None):
     B = float(boundary_B)
     sanity_acc = get_sanity_accuracy(sanity, emotion)
@@ -255,9 +257,15 @@ def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanit
     # 軌道 A：政績影響力 (Fact Track)
     # ==========================================
     perf_used = abs(net_perf_A)
-    # 1. 理智共鳴放大
-    perf_core = perf_used * (1.0 + sanity_acc)
-    
+    is_a_atk_perf = (net_perf_A > 0)
+
+    # 📌 審查削弱：永遠取「攻擊方自己」被壓制的量（方案A：自我衰減，不影響對方）
+    censor_pen_perf_self = censor_penalty_A if is_a_atk_perf else censor_penalty_B
+    censor_factor_perf = max(0.0, min(1.0, 1.0 - censor_pen_perf_self))
+
+    # 1. 理智共鳴放大，紅利部分受自身審查削弱衰減
+    perf_core = perf_used * (1.0 + sanity_acc * censor_factor_perf)
+
     is_a_atk_perf = (net_perf_A > 0)
     # 2. 宣傳 EX 放大
     perf_ex = perf_core * (1.0 + (media_ratio_A if is_a_atk_perf else media_ratio_B))
@@ -269,7 +277,7 @@ def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanit
             sup -= 1.0
             target_i = int(B) + 1 if is_a_atk_perf else int(B)
             if target_i < 1 or target_i > 200: break
-            # 3. 直接撞擊選區基礎鐵票剛性
+            # 3. 直接撞擊選區基礎鐵票剛性（不再疊加審查修正）
             rig = get_base_rigidity(target_i, buff_amt, buff_party, B, party_a_name)
             if random.random() < (1.0 - rig):
                 if is_a_atk_perf: B += 1
@@ -280,9 +288,15 @@ def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanit
     # 軌道 B：純粹公關洗腦 (Spin Track)
     # ==========================================
     spin_used = abs(net_spin_A)
-    # 1. 無知/情緒放大
+    is_a_atk_spin = (net_spin_A > 0)
+
+    # 📌 審查削弱：同樣取攻擊方自己被壓制的量
+    censor_pen_spin_self = censor_penalty_A if is_a_atk_spin else censor_penalty_B
+    censor_factor_spin = max(0.0, min(1.0, 1.0 - censor_pen_spin_self))
+
+    # 1. 無知/情緒放大，紅利部分受自身審查削弱衰減
     ignorance_acc = max(0.0, 1.0 - sanity_acc)
-    spin_core = spin_used * (1.0 + ignorance_acc)
+    spin_core = spin_used * (1.0 + ignorance_acc * censor_factor_spin)
     
     is_a_atk_spin = (net_spin_A > 0)
     # 2. 宣傳 EX 放大
@@ -296,10 +310,9 @@ def run_conquest_split(boundary_B, net_perf_A, net_spin_A, spin_A, spin_B, sanit
             target_i = int(B) + 1 if is_a_atk_spin else int(B)
             if target_i < 1 or target_i > 200: break
             
-            censor_pen = censor_penalty_B if is_a_atk_spin else censor_penalty_A
             base_rig = get_base_rigidity(target_i, buff_amt, buff_party, B, party_a_name)
-            # 3. 撞擊理智裝甲 (Sanity-based Rigidity)
-            rig = base_rig * RIGIDITY_WEIGHT * sanity_acc * max(0.1, (1.0 - censor_pen))
+            # 3. 撞擊理智裝甲 (Sanity-based Rigidity)。審查已在彈藥放大階段扣過，此處不再重複扣。
+            rig = base_rig * RIGIDITY_WEIGHT * sanity_acc
             rig = max(0.01, min(1.0, rig))
             
             if random.random() < (1.0 - rig):
