@@ -8,6 +8,16 @@ import ui_core
 import i18n
 t = i18n.t
 
+def _clip(v, cap):
+    """📌 [FIX] 夾住 last_acts 帶進來的舊值，避免上限(cap)因角色互換/能力變動而縮小時
+    造成 number_input 的 value > max_value (StreamlitValueAboveMaxError)。"""
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        v = 0
+    cap = int(cap)
+    return max(0, min(v, cap))
+
 def render(game, view_party, opponent_party, cfg):
     is_h = (view_party.name == game.h_role_party.name)
     is_ruling = (view_party.name == game.ruling_party.name)
@@ -46,9 +56,9 @@ def render(game, view_party, opponent_party, cfg):
         # 1. Think Tank
         st.write(f"**{t('Think Tank Div.')}** (Capacity: {tt_cap} EP)")
         col_t1, col_t2, col_t3 = st.columns(3)
-        w_t_dec = col_t1.number_input(t("Observe Decay"), min_value=0, max_value=tt_cap, value=int(last_acts.get('alloc_tt_dec', 0)), key=f"w_t_dec_{view_party.name}")
-        w_t_obs = col_t2.number_input(t("Observe Proj"), min_value=0, max_value=tt_cap, value=int(last_acts.get('alloc_tt_obs', 0)), key=f"w_t_obs_{view_party.name}")
-        w_t_opt = col_t3.number_input(t("Optimize Proj"), min_value=0, max_value=tt_cap, value=int(last_acts.get('alloc_tt_opt', 0)), key=f"w_t_opt_{view_party.name}")
+        w_t_dec = col_t1.number_input(t("Observe Decay"), min_value=0, max_value=tt_cap, value=_clip(last_acts.get('alloc_tt_dec', 0), tt_cap), key=f"w_t_dec_{view_party.name}")
+        w_t_obs = col_t2.number_input(t("Observe Proj"), min_value=0, max_value=tt_cap, value=_clip(last_acts.get('alloc_tt_obs', 0), tt_cap), key=f"w_t_obs_{view_party.name}")
+        w_t_opt = col_t3.number_input(t("Optimize Proj"), min_value=0, max_value=tt_cap, value=_clip(last_acts.get('alloc_tt_opt', 0), tt_cap), key=f"w_t_opt_{view_party.name}")
         
         tt_used = w_t_dec + w_t_obs + w_t_opt
         tt_invalid = tt_used > tt_cap
@@ -58,15 +68,15 @@ def render(game, view_party, opponent_party, cfg):
         st.write(f"**{t('Intel & Ops Div.')}** (Capacity: {inv_cap} Ops)")
         col_i1, col_i2, col_i3 = st.columns(3)
         if not is_h:
-            w_i_cen = col_i1.number_input(t("Censorship"), min_value=0, max_value=inv_cap, value=int(last_acts.get('alloc_inv_censor', 0)), key=f"w_i_cen_{view_party.name}")
+            w_i_cen = col_i1.number_input(t("Censorship"), min_value=0, max_value=inv_cap, value=_clip(last_acts.get('alloc_inv_censor', 0), inv_cap), key=f"w_i_cen_{view_party.name}")
         else:
-            w_i_cen = col_i1.number_input(t("Anti-Censor"), min_value=0, max_value=inv_cap, value=int(last_acts.get('alloc_ci_anticen', 0)), key=f"w_c_cen_{view_party.name}")
+            w_i_cen = col_i1.number_input(t("Anti-Censor"), min_value=0, max_value=inv_cap, value=_clip(last_acts.get('alloc_ci_anticen', 0), inv_cap), key=f"w_c_cen_{view_party.name}")
             
-        w_i_org = col_i2.number_input(t("Audit Org"), min_value=0, max_value=inv_cap, value=int(last_acts.get('alloc_inv_audit', 0)), key=f"w_i_org_aud_{view_party.name}")
-        w_i_horg = col_i2.number_input(t("Hide Org"), min_value=0, max_value=inv_cap, value=int(last_acts.get('alloc_ci_hideorg', 0)), key=f"w_i_org_hid_{view_party.name}")
+        w_i_org = col_i2.number_input(t("Audit Org"), min_value=0, max_value=inv_cap, value=_clip(last_acts.get('alloc_inv_audit', 0), inv_cap), key=f"w_i_org_aud_{view_party.name}")
+        w_i_horg = col_i2.number_input(t("Hide Org"), min_value=0, max_value=inv_cap, value=_clip(last_acts.get('alloc_ci_hideorg', 0), inv_cap), key=f"w_i_org_hid_{view_party.name}")
         
-        w_i_fin = col_i3.number_input(t("Trace Finances"), min_value=0, max_value=inv_cap, value=int(last_acts.get('alloc_inv_fin', 0)), key=f"w_i_fin_trc_{view_party.name}")
-        w_i_hfin = col_i3.number_input(t("Hide Finances"), min_value=0, max_value=inv_cap, value=int(last_acts.get('alloc_ci_hidefin', 0)), key=f"w_i_fin_hid_{view_party.name}")
+        w_i_fin = col_i3.number_input(t("Trace Finances"), min_value=0, max_value=inv_cap, value=_clip(last_acts.get('alloc_inv_fin', 0), inv_cap), key=f"w_i_fin_trc_{view_party.name}")
+        w_i_hfin = col_i3.number_input(t("Hide Finances"), min_value=0, max_value=inv_cap, value=_clip(last_acts.get('alloc_ci_hidefin', 0), inv_cap), key=f"w_i_fin_hid_{view_party.name}")
         
         inv_used = w_i_cen + w_i_org + w_i_horg + w_i_fin + w_i_hfin
         inv_invalid = inv_used > inv_cap
@@ -75,13 +85,13 @@ def render(game, view_party, opponent_party, cfg):
         # 3. Media & PR
         st.write(f"**{t('PR & Media Div.')}** (Capacity: {med_cap} Power)")
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        w_m_cam = col_m1.number_input(t("Campaign"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_camp', 0)), key=f"w_m_cam_{view_party.name}")
-        w_m_inc = col_m2.number_input(t("Incite"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_incite', 0)), key=f"w_m_inc_{view_party.name}")
-        w_m_con = col_m3.number_input(t("Control"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_control', 0)), key=f"w_m_con_{view_party.name}")
+        w_m_cam = col_m1.number_input(t("Campaign"), min_value=0, max_value=med_cap, value=_clip(last_acts.get('alloc_med_camp', 0), med_cap), key=f"w_m_cam_{view_party.name}")
+        w_m_inc = col_m2.number_input(t("Incite"), min_value=0, max_value=med_cap, value=_clip(last_acts.get('alloc_med_incite', 0), med_cap), key=f"w_m_inc_{view_party.name}")
+        w_m_con = col_m3.number_input(t("Control"), min_value=0, max_value=med_cap, value=_clip(last_acts.get('alloc_med_control', 0), med_cap), key=f"w_m_con_{view_party.name}")
         
         # 📌 教育權專屬於當權方 (不受 swap 影響)
         if is_ruling:
-            w_m_edu = col_m4.number_input(t("Edu Shift"), min_value=0, max_value=med_cap, value=int(last_acts.get('alloc_med_edu', 0)), key=f"w_m_edu_{view_party.name}")
+            w_m_edu = col_m4.number_input(t("Edu Shift"), min_value=0, max_value=med_cap, value=_clip(last_acts.get('alloc_med_edu', 0), med_cap), key=f"w_m_edu_{view_party.name}")
         else:
             w_m_edu = 0
             col_m4.write(f"**{t('Edu Shift')}**")
@@ -131,8 +141,11 @@ def render(game, view_party, opponent_party, cfg):
                     
                     col_p1, col_p2, col_status = st.columns([2, 2, 1])
                     
-                    real_alloc = col_p1.number_input(f"{t('Real EV')}", min_value=0.0, max_value=float(remaining*1.5), value=float(min_req), key=f"real_{p['id']}")
-                    fake_alloc = col_p2.number_input(f"{t('Fake EV')}", min_value=0.0, max_value=float(remaining*1.5), value=0.0, key=f"fake_{p['id']}")
+                    real_cap = float(remaining * 1.5)
+                    fake_cap = float(remaining * 1.5)
+                    real_default = min(float(min_req), real_cap)
+                    real_alloc = col_p1.number_input(f"{t('Real EV')}", min_value=0.0, max_value=real_cap, value=real_default, key=f"real_{p['id']}")
+                    fake_alloc = col_p2.number_input(f"{t('Fake EV')}", min_value=0.0, max_value=fake_cap, value=0.0, key=f"fake_{p['id']}")
                     
                     total_eff = real_alloc + fake_alloc
                     eff_survival = real_alloc + (fake_alloc * 0.2)
